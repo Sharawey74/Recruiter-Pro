@@ -1,0 +1,49 @@
+{
+  "profile_id": "batch_test_5",
+  "raw_text": "\nSARAH WILLIAMS\nsarah.williams@email.com | (555) 246-8101\n\nSUMMARY\nFull-Stack Developer with 4 years of experience building modern web applications.\nProficient in JavaScript ecosystem and cloud technologies.\n\nTECHNICAL SKILLS\nFrontend: React, Vue.js, Angular, TypeScript, HTML5, CSS3, Tailwind\nBackend: Node.js, Express, NestJS, Python, Django\nDatabases: PostgreSQL, MySQL, MongoDB, Redis\nCloud & Tools: AWS, Docker, Git, REST APIs, GraphQL\nTesting: Jest, Mocha, Cypress, Selenium\n\nEXPERIENCE\n\nFull-S",
+  "cleaned_text": "sarah williams 555 246-8101 summary full-stack developer with 4 years of experience building modern web applications. proficient in javascript ecosystem and cloud technologies. technical skills frontend: react, vue.js, angular, typescript, html5, css3, tailwind backend: node.js, express, nestjs, python, django databases: postgresql, mysql, mongodb, redis cloud tools: aws, docker, git, rest apis, graphql testing: jest, mocha, cypress, selenium experience full-stack developer webapp solutions 2021",
+  "contact": {
+    "email": "sarah.williams@email.com",
+    "phone": "(555) 246-8101"
+  },
+  "skills": [
+    "angular",
+    "aws",
+    "css",
+    "django",
+    "docker",
+    "education",
+    "express",
+    "git",
+    "graphql",
+    "html",
+    "javascript",
+    "jest",
+    "marketing",
+    "mongodb",
+    "mysql",
+    "node.js",
+    "postgresql",
+    "python",
+    "react",
+    "redis",
+    "rest",
+    "selenium",
+    "tailwind",
+    "testing",
+    "typescript",
+    "vue"
+  ],
+  "experience_years": 3,
+  "education": [
+    "Bachelor's"
+  ],
+  "job_titles": [
+    "Full-Stack Developer"
+  ],
+  "seniority": "junior",
+  "summary": "Full-Stack Developer with 4 years of experience building modern web applications. Proficient in JavaScript ecosystem and cloud technologies. TECHNICAL SKILLS Frontend: React, Vue.js, Angular, TypeScr",
+  "parsed_at": "2025-12-09T20:02:27.408145",
+  "parser_version": "v1.0",
+  "nlp_engine": "spacy"
+}

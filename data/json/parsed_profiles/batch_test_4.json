@@ -1,0 +1,46 @@
+{
+  "profile_id": "batch_test_4",
+  "raw_text": "\nMICHAEL CHEN\nmichael.chen@email.com | +1-555-7890\n\nPROFESSIONAL PROFILE\nDevOps Engineer with 6 years of experience in cloud infrastructure, automation,\nand continuous integration/deployment. AWS and Kubernetes expert.\n\nCORE COMPETENCIES\nCloud Platforms: AWS (EC2, S3, Lambda, RDS, CloudFormation), Azure, GCP\nContainers & Orchestration: Docker, Kubernetes, ECS, Helm\nCI/CD: Jenkins, GitLab CI, GitHub Actions, CircleCI\nInfrastructure as Code: Terraform, Ansible, CloudFormation\nMonitoring: Prometheu",
+  "cleaned_text": "michael chen 1-555-7890 professional profile devops engineer with 6 years of experience in cloud infrastructure, automation, and continuous integration deployment. aws and kubernetes expert. core competencies cloud platforms: aws ec2, s3, lambda, rds, cloudformation , azure, gcp containers orchestration: docker, kubernetes, ecs, helm ci cd: jenkins, gitlab ci, github actions, circleci infrastructure as code: terraform, ansible, cloudformation monitoring: prometheus, grafana, elk stack, datadog s",
+  "contact": {
+    "email": "michael.chen@email.com",
+    "phone": ""
+  },
+  "skills": [
+    "ansible",
+    "aws",
+    "azure",
+    "bash",
+    "ci/cd",
+    "devops",
+    "docker",
+    "education",
+    "gcp",
+    "github actions",
+    "gitlab",
+    "jenkins",
+    "kubernetes",
+    "linux",
+    "microservices",
+    "powershell",
+    "python",
+    "terraform",
+    "testing"
+  ],
+  "experience_years": 3,
+  "education": [
+    "As",
+    "Bachelor's",
+    "Associate"
+  ],
+  "job_titles": [
+    "Engineer",
+    "DevOps Engineer",
+    "Bachelor of Engineering in Information Technology"
+  ],
+  "seniority": "junior",
+  "summary": "DevOps Engineer with 6 years of experience in cloud infrastructure, automation, and continuous integration/deployment. AWS and Kubernetes expert. CORE COMPETENCIES Cloud Platforms: AWS (EC2, S3, Lamb",
+  "parsed_at": "2025-12-09T20:02:27.364568",
+  "parser_version": "v1.0",
+  "nlp_engine": "spacy"
+}

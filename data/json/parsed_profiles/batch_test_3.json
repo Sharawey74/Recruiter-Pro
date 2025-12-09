@@ -1,0 +1,37 @@
+{
+  "profile_id": "batch_test_3",
+  "raw_text": "\nALEX JOHNSON\nalex.johnson@email.com | 555-9876\n\nOBJECTIVE\nEntry-level software developer seeking opportunities to apply programming skills\nand learn from experienced professionals.\n\nSKILLS\n• Programming Languages: Python, JavaScript, HTML, CSS\n• Frameworks: React, Node.js, Express\n• Databases: MySQL, MongoDB\n• Tools: Git, GitHub, VS Code\n• Soft Skills: Problem-solving, teamwork, communication\n\nEDUCATION\nBachelor of Science in Computer Science | State University | 2023\nRelevant Coursework: Data ",
+  "cleaned_text": "alex johnson 555-9876 objective entry-level software developer seeking opportunities to apply programming skills and learn from experienced professionals. skills programming languages: python, javascript, html, css frameworks: react, node.js, express databases: mysql, mongodb tools: git, github, vs code soft skills: problem-solving, teamwork, communication education bachelor of science in computer science state university 2023 relevant coursework: data structures, algorithms, web development, da",
+  "contact": {
+    "email": "alex.johnson@email.com",
+    "phone": ""
+  },
+  "skills": [
+    "algorithms",
+    "communication",
+    "css",
+    "data structures",
+    "e-commerce",
+    "education",
+    "express",
+    "git",
+    "html",
+    "javascript",
+    "mongodb",
+    "mysql",
+    "node.js",
+    "python",
+    "react",
+    "teamwork"
+  ],
+  "experience_years": 0,
+  "education": [
+    "Bachelor's"
+  ],
+  "job_titles": [],
+  "seniority": "entry-level",
+  "summary": "Entry-level software developer seeking opportunities to apply programming skills and learn from experienced professionals. SKILLS • Programming Languages: Python, JavaScript, HTML, CSS • Frameworks:",
+  "parsed_at": "2025-12-09T20:02:27.309222",
+  "parser_version": "v1.0",
+  "nlp_engine": "spacy"
+}

@@ -1,0 +1,51 @@
+{
+  "profile_id": "test_profile_1",
+  "raw_text": "\nJANE SMITH\njane.smith@email.com | (555) 123-4567\n\nSUMMARY\nData Scientist with 5 years of experience in machine learning, statistical analysis,\nand data visualization. Expert in Python, R, and big data technologies.\n\nTECHNICAL SKILLS\nLanguages: Python, R, SQL, Java\nML/AI: TensorFlow, PyTorch, Scikit-learn, Keras\nData: Pandas, NumPy, Matplotlib, Seaborn, Tableau\nBig Data: Spark, Hadoop, Hive\nCloud: AWS (SageMaker, S3, EC2), GCP\n\nWORK EXPERIENCE\n\nData Scientist | DataCorp | 2021 - Present (3 years",
+  "cleaned_text": "jane smith 555 123-4567 summary data scientist with 5 years of experience in machine learning, statistical analysis, and data visualization. expert in python, r, and big data technologies. technical skills languages: python, r, sql, java ml ai: tensorflow, pytorch, scikit-learn, keras data: pandas, numpy, matplotlib, seaborn, tableau big data: spark, hadoop, hive cloud: aws sagemaker, s3, ec2 , gcp work experience data scientist datacorp 2021 - present 3 years developed ml models for customer ch",
+  "contact": {
+    "email": "jane.smith@email.com",
+    "phone": "(555) 123-4567"
+  },
+  "skills": [
+    "artificial intelligence",
+    "aws",
+    "big data",
+    "data science",
+    "education",
+    "gcp",
+    "hadoop",
+    "java",
+    "keras",
+    "machine learning",
+    "matplotlib",
+    "nlp",
+    "numpy",
+    "pandas",
+    "power bi",
+    "python",
+    "pytorch",
+    "r",
+    "sales",
+    "scikit-learn",
+    "seaborn",
+    "spark",
+    "sql",
+    "statistics",
+    "tableau",
+    "tensorflow"
+  ],
+  "experience_years": 3,
+  "education": [
+    "Bachelor's",
+    "Master's"
+  ],
+  "job_titles": [
+    "Tableau\n\nJunior Data",
+    "Data Scientist"
+  ],
+  "seniority": "junior",
+  "summary": "Data Scientist with 5 years of experience in machine learning, statistical analysis, and data visualization. Expert in Python, R, and big data technologies. TECHNICAL SKILLS Languages: Python, R, SQL",
+  "parsed_at": "2025-12-09T23:30:29.974344",
+  "parser_version": "v1.0",
+  "nlp_engine": "spacy"
+}

@@ -1,0 +1,68 @@
+[
+  {
+    "resume_id": "resume_001",
+    "text": "\nJOHN DOE\nEmail: john.doe@email.com | Phone: +1-555-0101\nLinkedIn: linkedin.com/in/johndoe\n\nPROFESSIONAL SUMMARY\nSenior Software Engineer with 8+ years of experience in full-stack development, \nspecializing in Python, Java, and cloud technologies. Proven track record of \nleading teams and delivering scalable solutions.\n\nSKILLS\nProgramming: Python, Java, JavaScript, TypeScript, SQL\nFrameworks: Django, Flask, Spring Boot, React, Node.js\nCloud & DevOps: AWS, Docker, Kubernetes, Jenkins, CI/CD\nDatabases: PostgreSQL, MongoDB, Redis\nTools: Git, JIRA, Agile/Scrum\n\nPROFESSIONAL EXPERIENCE\n\nSenior Software Engineer | Tech Solutions Inc. | 2020 - Present\n• Led development of microservices architecture serving 1M+ users\n• Managed team of 5 engineers, conducted code reviews\n• Implemented CI/CD pipelines reducing deployment time by 60%\n• Technologies: Python, Django, AWS, Docker, Kubernetes\n\nSoftware Engineer | StartupXYZ | 2017 - 2020\n• Developed RESTful APIs and web applications\n• Collaborated with cross-functional teams\n• Technologies: Java, Spring Boot, PostgreSQL\n\nJunior Developer | WebDev Co. | 2015 - 2017\n• Built responsive web applications using React and Node.js\n• Participated in agile development processes\n\nEDUCATION\nBachelor of Science in Computer Science\nMassachusetts Institute of Technology | 2015\nGPA: 3.8/4.0\n\nCERTIFICATIONS\n• AWS Certified Solutions Architect\n• Certified Kubernetes Administrator (CKA)\n            ",
+    "expected_skills": [
+      "python",
+      "java",
+      "javascript",
+      "aws",
+      "docker",
+      "kubernetes"
+    ],
+    "expected_experience": 8,
+    "expected_seniority": "senior"
+  },
+  {
+    "resume_id": "resume_002",
+    "text": "\nJANE SMITH\njane.smith@email.com | (555) 123-4567\n\nSUMMARY\nData Scientist with 5 years of experience in machine learning, statistical analysis,\nand data visualization. Expert in Python, R, and big data technologies.\n\nTECHNICAL SKILLS\nLanguages: Python, R, SQL, Java\nML/AI: TensorFlow, PyTorch, Scikit-learn, Keras\nData: Pandas, NumPy, Matplotlib, Seaborn, Tableau\nBig Data: Spark, Hadoop, Hive\nCloud: AWS (SageMaker, S3, EC2), GCP\n\nWORK EXPERIENCE\n\nData Scientist | DataCorp | 2021 - Present (3 years)\n• Developed ML models for customer churn prediction (92% accuracy)\n• Built recommendation systems using collaborative filtering\n• Created dashboards and visualizations for stakeholders\n• Tech stack: Python, TensorFlow, AWS, Tableau\n\nJunior Data Analyst | Analytics Inc. | 2019 - 2021 (2 years)\n• Performed statistical analysis on large datasets\n• Created reports and visualizations\n• Tools: Python, SQL, Excel, Power BI\n\nEDUCATION\nMaster of Science in Data Science | Stanford University | 2019\nBachelor of Science in Statistics | UC Berkeley | 2017\n\nPROJECTS\n• Sentiment Analysis Tool: NLP project using BERT for social media analysis\n• Sales Forecasting: Time series forecasting using LSTM networks\n            ",
+    "expected_skills": [
+      "python",
+      "machine learning",
+      "tensorflow",
+      "aws",
+      "sql"
+    ],
+    "expected_experience": 5,
+    "expected_seniority": "mid-level"
+  },
+  {
+    "resume_id": "resume_003",
+    "text": "\nALEX JOHNSON\nalex.johnson@email.com | 555-9876\n\nOBJECTIVE\nEntry-level software developer seeking opportunities to apply programming skills\nand learn from experienced professionals.\n\nSKILLS\n• Programming Languages: Python, JavaScript, HTML, CSS\n• Frameworks: React, Node.js, Express\n• Databases: MySQL, MongoDB\n• Tools: Git, GitHub, VS Code\n• Soft Skills: Problem-solving, teamwork, communication\n\nEDUCATION\nBachelor of Science in Computer Science | State University | 2023\nRelevant Coursework: Data Structures, Algorithms, Web Development, Databases\n\nINTERNSHIP EXPERIENCE\n\nSoftware Development Intern | Tech Startup | Summer 2022 (3 months)\n• Developed features for web application using React and Node.js\n• Fixed bugs and wrote unit tests\n• Participated in daily stand-ups and sprint planning\n\nPROJECTS\n\nE-commerce Website (Personal Project)\n• Built full-stack web app using MERN stack\n• Implemented user authentication and payment processing\n• Deployed on Heroku\n\nTask Management App\n• Created React-based todo application\n• Used Redux for state management\n\nCERTIFICATIONS\n• FreeCodeCamp Responsive Web Design\n• Udemy - Complete Web Developer Bootcamp\n            ",
+    "expected_skills": [
+      "python",
+      "javascript",
+      "react",
+      "node.js",
+      "mongodb"
+    ],
+    "expected_experience": 0,
+    "expected_seniority": "entry-level"
+  },
+  {
+    "resume_id": "resume_004",
+    "text": "\nMICHAEL CHEN\nmichael.chen@email.com | +1-555-7890\n\nPROFESSIONAL PROFILE\nDevOps Engineer with 6 years of experience in cloud infrastructure, automation,\nand continuous integration/deployment. AWS and Kubernetes expert.\n\nCORE COMPETENCIES\nCloud Platforms: AWS (EC2, S3, Lambda, RDS, CloudFormation), Azure, GCP\nContainers & Orchestration: Docker, Kubernetes, ECS, Helm\nCI/CD: Jenkins, GitLab CI, GitHub Actions, CircleCI\nInfrastructure as Code: Terraform, Ansible, CloudFormation\nMonitoring: Prometheus, Grafana, ELK Stack, Datadog\nScripting: Python, Bash, PowerShell\n\nPROFESSIONAL EXPERIENCE\n\nSenior DevOps Engineer | CloudTech Solutions | 2020 - Present\n• Architected and maintained AWS infrastructure for 50+ microservices\n• Implemented GitOps workflows using ArgoCD and Flux\n• Reduced infrastructure costs by 40% through optimization\n• Led migration from monolith to microservices architecture\n\nDevOps Engineer | Digital Services Inc. | 2018 - 2020\n• Built CI/CD pipelines for automated testing and deployment\n• Managed Kubernetes clusters serving production traffic\n• Implemented monitoring and alerting systems\n\nSystem Administrator | IT Corp | 2017 - 2018\n• Maintained Linux servers and network infrastructure\n• Automated routine tasks using Python and Bash scripts\n\nEDUCATION\nBachelor of Engineering in Information Technology | 2017\n\nCERTIFICATIONS\n• AWS Certified Solutions Architect - Professional\n• Certified Kubernetes Administrator (CKA)\n• HashiCorp Certified: Terraform Associate\n            ",
+    "expected_skills": [
+      "aws",
+      "kubernetes",
+      "docker",
+      "terraform",
+      "python"
+    ],
+    "expected_experience": 6,
+    "expected_seniority": "senior"
+  },
+  {
+    "resume_id": "resume_005",
+    "text": "\nSARAH WILLIAMS\nsarah.williams@email.com | (555) 246-8101\n\nSUMMARY\nFull-Stack Developer with 4 years of experience building modern web applications.\nProficient in JavaScript ecosystem and cloud technologies.\n\nTECHNICAL SKILLS\nFrontend: React, Vue.js, Angular, TypeScript, HTML5, CSS3, Tailwind\nBackend: Node.js, Express, NestJS, Python, Django\nDatabases: PostgreSQL, MySQL, MongoDB, Redis\nCloud & Tools: AWS, Docker, Git, REST APIs, GraphQL\nTesting: Jest, Mocha, Cypress, Selenium\n\nEXPERIENCE\n\nFull-Stack Developer | WebApp Solutions | 2021 - Present (3 years)\n• Developed responsive web applications using React and Node.js\n• Designed and implemented RESTful APIs\n• Integrated third-party services (Stripe, SendGrid, Auth0)\n• Optimized application performance and SEO\n\nJunior Web Developer | Digital Agency | 2020 - 2021 (1 year)\n• Created landing pages and marketing websites\n• Worked with designers to implement UI/UX designs\n• Technologies: HTML, CSS, JavaScript, WordPress\n\nEDUCATION\nBachelor of Science in Web Development | Online University | 2020\n\nSIDE PROJECTS\n• Open-source contributor to React ecosystem\n• Built SaaS application with 500+ active users\n• Tech blog with 10K+ monthly readers\n            ",
+    "expected_skills": [
+      "javascript",
+      "react",
+      "node.js",
+      "python",
+      "aws"
+    ],
+    "expected_experience": 4,
+    "expected_seniority": "mid-level"
+  }
+]

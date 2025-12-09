@@ -1,0 +1,48 @@
+{
+  "profile_id": "resume_001",
+  "raw_text": "\nJOHN DOE\nEmail: john.doe@email.com | Phone: +1-555-0101\nLinkedIn: linkedin.com/in/johndoe\n\nPROFESSIONAL SUMMARY\nSenior Software Engineer with 8+ years of experience in full-stack development, \nspecializing in Python, Java, and cloud technologies. Proven track record of \nleading teams and delivering scalable solutions.\n\nSKILLS\nProgramming: Python, Java, JavaScript, TypeScript, SQL\nFrameworks: Django, Flask, Spring Boot, React, Node.js\nCloud & DevOps: AWS, Docker, Kubernetes, Jenkins, CI/CD\nDatab",
+  "cleaned_text": "john doe email: phone: 1-555-0101 linkedin: linkedin.com in johndoe professional summary senior software engineer with 8 years of experience in full-stack development, specializing in python, java, and cloud technologies. proven track record of leading teams and delivering scalable solutions. skills programming: python, java, javascript, typescript, sql frameworks: django, flask, spring boot, react, node.js cloud devops: aws, docker, kubernetes, jenkins, ci cd databases: postgresql, mongodb, red",
+  "contact": {
+    "email": "john.doe@email.com",
+    "phone": ""
+  },
+  "skills": [
+    "agile",
+    "aws",
+    "ci/cd",
+    "devops",
+    "django",
+    "docker",
+    "education",
+    "flask",
+    "git",
+    "java",
+    "javascript",
+    "jenkins",
+    "jira",
+    "kubernetes",
+    "microservices",
+    "mongodb",
+    "node.js",
+    "postgresql",
+    "python",
+    "react",
+    "redis",
+    "scrum",
+    "spring",
+    "sql",
+    "typescript"
+  ],
+  "experience_years": 5,
+  "education": [
+    "Bachelor's"
+  ],
+  "job_titles": [
+    "Kubernetes\n\nSoftware Engineer"
+  ],
+  "seniority": "mid-level",
+  "summary": "Senior Software Engineer with 8+ years of experience in full-stack development, specializing in Python, Java, and cloud technologies. Proven track record of leading teams and delivering scalable sol",
+  "parsed_at": "2025-12-09T20:02:27.161841",
+  "parser_version": "v1.0",
+  "nlp_engine": "spacy"
+}

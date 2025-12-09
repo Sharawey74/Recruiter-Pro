@@ -1,0 +1,38 @@
+{
+  "profile_id": "test_profile_001",
+  "raw_text": "\n    John Doe\n    Email: john.doe@example.com\n    Phone: +1-555-123-4567\n    \n    PROFESSIONAL SUMMARY\n    Senior Software Engineer with 8 years of experience in full-stack development.\n    \n    SKILLS\n    Python, Java, JavaScript, React, Node.js, SQL, AWS, Docker, Kubernetes\n    \n    EXPERIENCE\n    Senior Software Engineer - Tech Corp (2018-2023)\n    - Led development of microservices architecture\n    - Managed team of 5 developers\n    \n    Software Engineer - StartupXYZ (2015-2018)\n    - Devel",
+  "cleaned_text": "john doe email: phone: 1-555-123-4567 professional summary senior software engineer with 8 years of experience in full-stack development. skills python, java, javascript, react, node.js, sql, aws, docker, kubernetes experience senior software engineer - tech corp 2018-2023 - led development of microservices architecture - managed team of 5 developers software engineer - startupxyz 2015-2018 - developed web applications using react and node.js education bachelor of science in computer science - m",
+  "contact": {
+    "email": "john.doe@example.com",
+    "phone": "+1-555-123-4567"
+  },
+  "skills": [
+    "aws",
+    "docker",
+    "education",
+    "java",
+    "javascript",
+    "kubernetes",
+    "microservices",
+    "node.js",
+    "python",
+    "react",
+    "sql"
+  ],
+  "experience_years": 8,
+  "education": [
+    "Bachelor's"
+  ],
+  "job_titles": [
+    "Senior Software Engineer",
+    "React",
+    "Docker",
+    "Managed",
+    "Software Engineer"
+  ],
+  "seniority": "senior",
+  "summary": "Senior Software Engineer with 8 years of experience in full-stack development. SKILLS Python, Java, JavaScript, React, Node.js, SQL, AWS, Docker, Kubernetes EXPERIENCE Senior",
+  "parsed_at": "2025-12-09T22:23:55.674490",
+  "parser_version": "v1.0",
+  "nlp_engine": "nltk"
+}
