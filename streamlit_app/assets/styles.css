@@ -1,0 +1,194 @@
+/* === BACKGROUND === */
+.stApp {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+    background-attachment: fixed;
+    font-family: 'Inter', sans-serif;
+}
+
+/* HIDE SIDEBAR COMPLETELY */
+[data-testid="stSidebar"], section[data-testid="stSidebar"] {
+    display: none !important;
+}
+
+/* BRANDING REMOVAL */
+#MainMenu, footer, header, .stDeployButton {
+    visibility: hidden;
+}
+
+/* === GLASSMORPHISM CARDS === */
+.glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.glass-card:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+/* === TYPOGRAPHY === */
+h1, h2, h3, h4, h5, h6 {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em;
+}
+
+p, span, label, div {
+    color: #a0a0a0 !important;
+}
+
+/* === BUTTONS === */
+.stButton > button {
+    background: linear-gradient(180deg, #ffffff 0%, #e0e0e0 100%);
+    color: #000000 !important;
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1.5rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
+.stButton > button:hover {
+    background: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}
+
+.stButton > button:active {
+    transform: translateY(0);
+}
+
+/* Secondary Button Upgrade */
+button[kind="secondary"] {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+/* === INPUTS === */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stSelectbox > div > div > div {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+}
+
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: #ffffff !important;
+    box-shadow: 0 0 0 1px #ffffff !important;
+}
+
+/* === WIZARD PROGRESS BAR === */
+.wizard-progress {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    position: relative;
+    padding: 0 1rem;
+}
+
+.wizard-progress::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.1);
+    z-index: 0;
+    transform: translateY(-50%);
+}
+
+.step-indicator {
+    background: #1a1a1a;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-weight: bold;
+    z-index: 1;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.step-indicator.active {
+    background: #ffffff;
+    color: #000000;
+    border-color: #ffffff;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+}
+
+.step-indicator.completed {
+    background: #3dd56d;
+    color: #000000;
+    border-color: #3dd56d;
+}
+
+.step-label {
+    position: absolute;
+    top: 40px;
+    color: #666;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    left: 50%;
+}
+
+.step-indicator.active .step-label {
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+/* === CARD SELECTOR (CUSTOM RADIO) === */
+.card-selector-option {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    height: 100%;
+}
+
+.card-selector-option:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.card-selector-option.selected {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #ffffff;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.card-title {
+    color: #ffffff !important;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.card-desc {
+    color: #999 !important;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
