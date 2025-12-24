@@ -3,6 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Cache directories
+.cache/
+
+# GitHub workflows
+.github/
+
 # Virtual environments
 .venv/
 venv/
@@ -22,5 +28,54 @@ env/
 .DS_Store
 Thumbs.db
 
-# Project specific
+# Environment variables
+.env
+.env.example
+.env.local
+.env.*.local
+
+# Model files
+models/*.pkl
+models/*.joblib
+*.pkl
+*.joblib
+
+# Processed data
+data/processed/*
+data/json/parsed_profiles/*
+data/json/features/*
+data/json/results/*
+data/reports/*
+
+# Keep directory structure
+!data/processed/.gitkeep
+!data/json/parsed_profiles/.gitkeep
+!data/json/features/.gitkeep
+!data/json/results/.gitkeep
+!data/reports/.gitkeep
+
+# Logs
 *.log
+logs/
+*.log.*
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
