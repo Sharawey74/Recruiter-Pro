@@ -1,0 +1,41 @@
+# Walkthrough - Agent Integration Refactoring
+
+## Overview
+We have successfully aligned **Agent 2.5 (LLM Scorer)** with **Agent 1 (Parser)** and **Agent 2 (Feature Generator)**. The system now flows correctly:
+1. **Agent 1** extracts data (including Name) →
+2. **Agent 2** generates features (optional) →
+3. **Agent 2.5** consumes both raw text and features for scoring.
+
+## Changes Verified
+
+### 1. Name Extraction (Agent 1)
+- **Goal:** Extract candidate name from resume text.
+- **Verification:** Ran [verify_integration.py](file:///c:/Users/DELL/Desktop/HR-Project/verify_integration.py) with sample text "Jane Doe".
+- **Result:** `Profile Name Key: 'name' -> Jane Doe` ✅
+
+### 2. Schema Alignment (Agent 2.5)
+- **Goal:** Fix mismatches where LLM received "0 years" and "Unknown".
+- **Verification:** Checked prompt generation in [verify_integration.py](file:///c:/Users/DELL/Desktop/HR-Project/verify_integration.py).
+- **Old Prompt:** `Experience: 0 years`, `Title: Unknown Position`
+- **New Prompt:**
+  ```text
+  **CANDIDATE PROFILE:**
+  - Name: Jane Doe
+  - Experience: 5 years (mid-level level)
+  ...
+  **JOB POSTING:**
+  - Title: Senior Developer
+  ...
+  **CALCULATED METRICS (for context):**
+  - Skill Match Ratio: 85.0%
+  - Semantic Similarity: 92.0%
+  ```
+- **Result:** All data fields match correctly. ✅
+
+### 3. Agent 2 Alignment (Context)
+- **Goal:** Utilize Agent 2 features in the LLM scoring process.
+- **Verification:** Passed `dummy_features` to the scorer.
+- **Result:** `**CALCULATED METRICS**` section successfully added to the prompt, fulfilling the user's request to keep Agent 2 relevant ("vice versa"). ✅
+
+## Conclusion
+The agents are now technically aligned. Agent 2.5 is robust and can utilize the outputs of both Agent 1 and Agent 2 to provide accurate, context-aware scoring.
