@@ -314,6 +314,105 @@ class TestEdgeCases:
         assert "python" in profile['skills']
 
 
+class TestFileIngestion:
+    """Test file ingestion for PDF, DOCX, and TXT files."""
+    
+    def test_txt_extraction(self, tmp_path):
+        """Test TXT file extraction."""
+        from src.agents.agent1_parser import RawParser
+        
+        # Create a test TXT file
+        txt_file = tmp_path / "test_resume.txt"
+        txt_content = """
+        John Doe
+        Email: john.doe@example.com
+        Phone: (555) 123-4567
+        
+        Skills:
+        Python, Java, JavaScript, SQL
+        
+        Experience:
+        5 years of software development experience
+        
+        Education:
+        Bachelor's in Computer Science
+        """
+        txt_file.write_text(txt_content, encoding='utf-8')
+        
+        # Test extraction
+        parser = RawParser(output_dir=str(tmp_path / "output"))
+        result = parser.parse_file(str(txt_file), "test_txt_001")
+        
+        assert result['profile_id'] == "test_txt_001"
+        assert "john.doe@example.com" in result['raw_text'].lower()
+        assert "python" in result['raw_text'].lower()
+    
+    def test_extract_text_from_txt_directly(self, tmp_path):
+        """Test direct TXT extraction method."""
+        from src.agents.agent1_parser import RawParser
+        
+        txt_file = tmp_path / "direct_test.txt"
+        txt_file.write_text("Test content for extraction", encoding='utf-8')
+        
+        parser = RawParser()
+        text = parser.extract_text_from_txt(str(txt_file))
+        
+        assert "Test content for extraction" in text
+    
+    def test_unsupported_file_format(self):
+        """Test that unsupported file formats raise ValueError."""
+        from src.agents.agent1_parser import RawParser
+        
+        parser = RawParser()
+        
+        with pytest.raises(ValueError) as exc_info:
+            parser.parse_file("test.xlsx")
+        
+        assert "Unsupported file format" in str(exc_info.value)
+    
+    def test_missing_file(self):
+        """Test that missing file raises FileNotFoundError."""
+        from src.agents.agent1_parser import RawParser
+        
+        parser = RawParser()
+        
+        with pytest.raises(FileNotFoundError):
+            parser.extract_text_from_txt("nonexistent.txt")
+
+
+class TestAgent2SkillNormalization:
+    """Test skill normalization in Agent 2."""
+    
+    def test_skill_normalization(self):
+        """Test that skills are normalized correctly."""
+        from src.agents.agent2_extractor import NLP_Extractor
+        
+        extractor = NLP_Extractor()
+        
+        # Test normalization
+        raw_skills = ["python", "react.js", "nodejs", "aws ec2", "PostgreSQL"]
+        normalized = extractor._normalize_skills(raw_skills)
+        
+        # Should normalize to canonical forms
+        assert "React" in normalized or "Python" in normalized
+        # Should deduplicate
+        assert len(normalized) == len(set(normalized))
+    
+    def test_skill_deduplication(self):
+        """Test that duplicate skills are removed."""
+        from src.agents.agent2_extractor import NLP_Extractor
+        
+        extractor = NLP_Extractor()
+        
+        # Test with duplicates
+        raw_skills = ["Python", "python", "PYTHON", "py"]
+        normalized = extractor._normalize_skills(raw_skills)
+        
+        # Should result in single canonical form
+        assert len(normalized) == 1
+        assert "Python" in normalized
+
+
 # Run tests
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
