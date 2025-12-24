@@ -1,0 +1,4 @@
+Regression Report for Regression_Best:
+RMSE: 8.767946167688446
+MAE: 7.3543200824906805
+R2 Score: 0.8360657160498774

@@ -1,0 +1,13 @@
+Optimization Results - ML2
+==========================
+
+Classification (Random Forest Optimized):
+F1_CV_Mean: 0.9780
+F1_CV_Std: 0.0103
+Accuracy_CV_Mean: 0.9640
+Precision_CV_Mean: 0.9733
+Recall_CV_Mean: 0.9828
+ROC_AUC_CV_Mean: 0.9903
+
+Regression (ElasticNet Optimized):
+R2_CV: 0.8452

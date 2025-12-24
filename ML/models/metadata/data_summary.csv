@@ -1,0 +1,12 @@
+,Resume_ID,Name,Skills,Experience (Years),Education,Certifications,Job Role,Recruiter Decision,Salary Expectation ($),Projects Count,AI Score (0-100),Skills_Cleaned,skill_count,has_cert,seniority_bucket
+count,1000.0,1000,1000,1000.0,1000,726,1000,1000,1000.0,1000.0,1000.0,1000,1000.0,1000.0,1000
+unique,,989,238,,5,3,4,2,,,,238,,,3
+top,,Sarah Jones,"Python, Machine Learning",,B.Sc,Deep Learning Specialization,AI Researcher,Hire,,,,"python, machine learning",,,Senior
+freq,,3,11,,205,255,257,812,,,,11,,,446
+mean,500.5,,,4.896,,,,,79994.486,5.133,83.95,,3.017,0.726,
+std,288.8194360957494,,,3.112695435289626,,,,,23048.47254936133,3.2313701045768113,20.98303571430473,,0.8058289895259169,0.4462321403968154,
+min,1.0,,,0.0,,,,,40085.0,0.0,15.0,,2.0,0.0,
+25%,250.75,,,2.0,,,,,60415.75,2.0,70.0,,2.0,0.0,
+50%,500.5,,,5.0,,,,,79834.5,5.0,100.0,,3.0,1.0,
+75%,750.25,,,8.0,,,,,99583.25,8.0,100.0,,4.0,1.0,
+max,1000.0,,,10.0,,,,,119901.0,10.0,100.0,,4.0,1.0,

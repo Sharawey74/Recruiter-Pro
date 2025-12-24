@@ -1,0 +1,10 @@
+Classification Report for RandomForest:
+Accuracy: 0.925
+Precision: 0.9277266451909801
+Recall: 0.925
+F1 Score: 0.9260735833431917
+ROC_AUC: 0.9767706302794023
+
+Confusion Matrix:
+[[153   9]
+ [  6  32]]

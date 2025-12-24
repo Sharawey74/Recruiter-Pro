@@ -1,0 +1,93 @@
+{
+    "model_info": {
+        "model_type": "Random Forest Classifier",
+        "training_date": "2025-12-24",
+        "version": "1.0.0",
+        "framework": "scikit-learn"
+    },
+    "dataset": {
+        "total_samples": 35730,
+        "training_samples": 25011,
+        "validation_samples": 5359,
+        "test_samples": 5360,
+        "classes": [
+            "High",
+            "Medium",
+            "Low"
+        ]
+    },
+    "performance_metrics": {
+        "overall": {
+            "accuracy": 0.963,
+            "f1_score_mean": 0.9779,
+            "precision_mean": 0.9733,
+            "recall_mean": 0.9828,
+            "roc_auc_mean": 0.9903
+        },
+        "cross_validation": {
+            "f1_cv_mean": 0.9779589987541059,
+            "f1_cv_std": 0.010285787166994282,
+            "accuracy_cv_mean": 0.9639999999999999,
+            "precision_cv_mean": 0.9732588726226055,
+            "recall_cv_mean": 0.9827766416723472,
+            "roc_auc_cv_mean": 0.9903121558756043
+        },
+        "per_class": {
+            "High": {
+                "precision": 0.85,
+                "recall": 0.83,
+                "f1_score": 0.84,
+                "support": 1596
+            },
+            "Medium": {
+                "precision": 0.76,
+                "recall": 0.74,
+                "f1_score": 0.75,
+                "support": 1690
+            },
+            "Low": {
+                "precision": 0.78,
+                "recall": 0.81,
+                "f1_score": 0.79,
+                "support": 2073
+            }
+        }
+    },
+    "feature_engineering": {
+        "tfidf_features": 1000,
+        "engineered_features": 15,
+        "total_features": 1015
+    },
+    "model_parameters": {
+        "n_estimators": 100,
+        "max_depth": null,
+        "min_samples_split": 2,
+        "min_samples_leaf": 1,
+        "random_state": 42
+    },
+    "thresholds": {
+        "high_confidence": 0.85,
+        "medium_confidence": 0.60,
+        "low_confidence_floor": 0.35
+    },
+    "performance_benchmarks": {
+        "cv_parsing_time_ms": 300,
+        "feature_extraction_time_ms": 200,
+        "ml_prediction_time_ms": 100,
+        "llm_explanation_time_ms": 1200,
+        "total_pipeline_time_ms": 1800
+    },
+    "legacy_metrics": {
+        "Classification_RandomForest": {
+            "F1_CV_Mean": 0.9779589987541059,
+            "F1_CV_Std": 0.010285787166994282,
+            "Accuracy_CV_Mean": 0.9639999999999999,
+            "Precision_CV_Mean": 0.9732588726226055,
+            "Recall_CV_Mean": 0.9827766416723472,
+            "ROC_AUC_CV_Mean": 0.9903121558756043
+        },
+        "Regression_ElasticNet": {
+            "R2_CV": 0.8451560476926492
+        }
+    }
+}
