@@ -32,6 +32,37 @@ try:
 except ImportError:
     PYMUPDF_AVAILABLE = False
 
+# Arabic support imports
+try:
+    import pdfplumber
+    PDFPLUMBER_AVAILABLE = True
+except ImportError:
+    PDFPLUMBER_AVAILABLE = False
+    print("Warning: pdfplumber not available. Arabic PDF support limited.")
+
+try:
+    from langdetect import detect, DetectorFactory
+    DetectorFactory.seed = 0  # Ensure consistent detection
+    LANGDETECT_AVAILABLE = True
+except ImportError:
+    LANGDETECT_AVAILABLE = False
+    print("Warning: langdetect not available. Language detection disabled.")
+
+try:
+    from deep_translator import GoogleTranslator
+    TRANSLATOR_AVAILABLE = True
+except ImportError:
+    TRANSLATOR_AVAILABLE = False
+    print("Warning: deep-translator not available. Translation disabled.")
+
+try:
+    import arabic_reshaper
+    from bidi.algorithm import get_display
+    ARABIC_RESHAPER_AVAILABLE = True
+except ImportError:
+    ARABIC_RESHAPER_AVAILABLE = False
+    print("Warning: arabic-reshaper not available. RTL text fixing disabled.")
+
 # Import parent directories for utility imports
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -44,18 +75,33 @@ class RawParser:
     
     def __init__(self, output_dir: str = "data/processed/raw_profiles"):
         """
-        Initialize the parser.
+        Initialize the parser with Arabic support.
         
         Args:
             output_dir: Directory to save parsed raw profiles
         """
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize translator if available
+        self.translator = None
+        if TRANSLATOR_AVAILABLE:
+            try:
+                self.translator = GoogleTranslator(source='ar', target='en')
+            except Exception as e:
+                print(f"Warning: Could not initialize translator: {e}")
+        
         print(f"✅ Agent 1 (RawParser) initialized. Output dir: {self.output_dir}")
+        if PDFPLUMBER_AVAILABLE:
+            print("  ✓ Arabic PDF support enabled (pdfplumber)")
+        if LANGDETECT_AVAILABLE:
+            print("  ✓ Language detection enabled")
+        if TRANSLATOR_AVAILABLE:
+            print("  ✓ Translation enabled (Arabic → English)")
     
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """
-        Extract text from PDF file using available library.
+        Extract text from PDF file with Arabic support.
         
         Args:
             pdf_path: Path to PDF file
@@ -67,26 +113,45 @@ class RawParser:
         if not pdf_file.exists():
             raise FileNotFoundError(f"PDF file not found: {pdf_path}")
         
-        # Try PyMuPDF first (faster and more accurate)
-        if PYMUPDF_AVAILABLE:
+        text = ""
+        
+        # Try pdfplumber first (best for Arabic)
+        if PDFPLUMBER_AVAILABLE:
+            try:
+                with pdfplumber.open(pdf_path) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text += page_text + "\n"
+                if text.strip():
+                    return self._fix_arabic_display(text)
+            except Exception as e:
+                print(f"pdfplumber extraction failed: {e}, trying fallback...")
+        
+        # Fallback to PyMuPDF
+        if PYMUPDF_AVAILABLE and not text.strip():
             try:
                 doc = fitz.open(pdf_path)
-                text = ""
                 for page in doc:
                     text += page.get_text()
                 doc.close()
-                return text
+                if text.strip():
+                    return self._fix_arabic_display(text)
             except Exception as e:
                 print(f"PyMuPDF extraction failed: {e}")
         
-        # Fallback to pdfminer.six
-        if PDF_AVAILABLE:
+        # Final fallback to pdfminer.six
+        if PDF_AVAILABLE and not text.strip():
             try:
-                return pdf_extract_text(pdf_path)
+                text = pdf_extract_text(pdf_path)
+                return self._fix_arabic_display(text)
             except Exception as e:
                 raise RuntimeError(f"PDF extraction failed: {e}")
         
-        raise RuntimeError("No PDF parsing library available. Install pdfminer.six or PyMuPDF.")
+        if not text.strip():
+            raise RuntimeError("No PDF parsing library available or extraction failed.")
+        
+        return text
     
     def extract_text_from_docx(self, docx_path: str) -> str:
         """
