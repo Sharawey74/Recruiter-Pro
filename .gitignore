@@ -1,4 +1,10 @@
 # ====================
+# Documentation (Internal)
+# ====================
+docs/
+DEVELOPER_GUIDE.md
+
+# ====================
 # Python
 # ====================
 __pycache__/
