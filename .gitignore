@@ -112,6 +112,20 @@ models/*.onnx
 *.pkl
 *.joblib
 
+# The two production artifacts are the exception: without them ATSPredictor
+# returns False, Agent 3 falls back to rule-based, and the hybrid ML scoring
+# this project advertises does not run at all for anyone who clones it.
+# They are a logistic regression plus a feature encoder — small enough to
+# track, and the repo is not useful without them.
+#
+# Listed by name rather than as `!models/production/*.joblib`. Both forms work
+# (the rules above match files, not the directory, so the negation is not
+# inert the way the docs/ one was). The explicit list is an allowlist: a stray
+# experiment artifact dropped into models/production/ stays ignored instead of
+# being committed by accident.
+!models/production/ats_model.joblib
+!models/production/feature_engineer.joblib
+
 # ====================
 # Data Directories
 # ====================

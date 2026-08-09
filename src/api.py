@@ -420,7 +420,16 @@ async def match_cv(
         return {
             "matches": results,
             "cv_text": None,  # Optional field
-            "processing_time": None  # Optional field
+            "processing_time": None,  # Optional field
+            # Scoring provenance. Without this, a caller cannot tell whether the
+            # scores came from the advertised hybrid ML+rules path or from the
+            # rule-based fallback that runs when the model fails to load. Both
+            # produce plausible numbers, so the difference is invisible unless
+            # it is stated. See TASKS.md 1.1.
+            "ml_scoring_enabled": pipeline.agent3.ml_predictor is not None,
+            "scoring_mode": (
+                "hybrid" if pipeline.agent3.ml_predictor is not None else "rule_based_only"
+            )
         }
     
     except Exception as e:
@@ -703,7 +712,18 @@ async def startup_event():
         logger.info(f"[OK] ML model loaded: {model_info.get('model_name', 'Unknown')}")
         logger.info(f"   Test Recall: {model_info.get('test_recall', 'N/A')}")
     else:
-        logger.warning("[WARN] ML model not loaded (using rule-based scoring only)")
+        # Loud on purpose. The previous single-line warning scrolled past in a
+        # wall of startup output, so the project ran without its headline
+        # feature for a long time without anyone noticing. State the
+        # consequence and the remedy, not just the fact.
+        logger.warning("!" * 60)
+        logger.warning("[WARN] ML model NOT loaded - scoring is RULE-BASED ONLY")
+        logger.warning("       The hybrid ML+rules scoring is not running.")
+        logger.warning("       Expected: models/production/ats_model.joblib")
+        logger.warning("                 models/production/feature_engineer.joblib")
+        logger.warning("       Regenerate with: python -m src.ml_engine.train \\")
+        logger.warning("                          --data-path data/AI_Resume_Screening.csv")
+        logger.warning("!" * 60)
     
     # Check Ollama
     if hasattr(pipeline, 'config') and pipeline.config.llm.enabled:

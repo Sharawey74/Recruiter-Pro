@@ -78,4 +78,13 @@ export interface HistoryResponse {
 export interface HealthResponse {
   status: "healthy" | "unhealthy";
   version?: string;
+  components?: {
+    agents_loaded?: boolean;
+    jobs_loaded?: number;
+    // False means the hybrid ML scoring is not running and results come from
+    // the rule-based path alone. The API already returned this; nothing read it.
+    ml_model_loaded?: boolean;
+    database_ready?: boolean;
+    ollama_enabled?: boolean;
+  };
 }
