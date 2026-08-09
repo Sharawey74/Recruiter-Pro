@@ -284,6 +284,36 @@ leakage in your own model and writing it up is a better story than a suspicious 
 
 ---
 
+## Corpus replacement — in progress
+
+> **Decided 9 Aug 2026.** The old corpus is archived at
+> `data/archive/jobs-legacy-2026-08-09/` (not deleted — see its README for why it was
+> retired). It is being replaced by a purpose-built 800-record dataset covering eight
+> business categories, specified in [`JOBS_DATASET_SPEC.md`](JOBS_DATASET_SPEC.md).
+
+**⚠️ The app has no job corpus right now.** `load_jobs()` returns `[]` and `POST /match`
+returns `503 No jobs loaded` until `data/json/jobs.json` exists. Expected and temporary.
+
+| # | Task | Status |
+|---|---|---|
+| C.1 | Archive the three legacy job files with a written rationale | ☑ |
+| C.2 | Write the dataset spec + generation prompt | ☑ `JOBS_DATASET_SPEC.md` |
+| C.3 | Generate `data/dictionaries/skills.json` (400–600 canonical skills, all 8 categories) | ☐ |
+| C.4 | Generate `data/json/jobs.json` (800 records, 100 per category) | ☐ |
+| C.5 | `load_jobs()` reads `payload["jobs"]`; delete the legacy-shape branch | ☐ |
+| C.6 | Delete the `jobs = jobs[:4000]` cap at `api.py:114` | ☐ |
+| C.7 | Point `config.skills_database_path` at the new vocabulary | ☐ |
+| C.8 | **Test: every job skill exists in the vocabulary** — the guard the old corpus lacked | ☐ |
+| C.9 | Re-measure coverage; expect 100% by construction | ☐ |
+| C.10 | Frontend: `whitespace-pre-line` on the description element (it now has newlines) | ☐ |
+
+**C.3/C.4 supersede much of 2.4.** The unified-vocabulary task assumed merging four existing
+sources; the corpus is now being generated *against* a single vocabulary instead, so the
+invariant holds by construction rather than by migration. 2.2 (the alias-index fix) is still
+required — the lookup code is broken independently of what data it reads.
+
+---
+
 ## Job corpus audit — measured 9 Aug 2026
 
 Run against `data/json/jobs_cleaned.json`. **The data itself is clean; what surrounds it is
