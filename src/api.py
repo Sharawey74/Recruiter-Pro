@@ -404,6 +404,13 @@ async def match_cv(
                 "parser_score": round(match.score_breakdown.rule_based_score * 100, 1),
                 "matcher_score": round(match.score_breakdown.skill_score * 100, 1),
                 "scorer_score": round(match.score_breakdown.experience_score * 100, 1),
+                # MatchCard renders skill badges from these two fields. Only
+                # /match/single sent them (nested as skills.matched/.missing),
+                # so on this endpoint - the one the UI actually calls - the
+                # badges were always empty. Flat names to match what the
+                # component and the Match type expect. See TASKS.md 1.5.
+                "matched_skills": match.score_breakdown.matched_skills,
+                "missing_skills": match.score_breakdown.missing_skills,
                 "status": status,
                 "timestamp": datetime.now().isoformat()
             }

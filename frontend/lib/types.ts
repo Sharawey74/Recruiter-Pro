@@ -24,6 +24,10 @@ export interface Match {
   // Candidate fields
   candidate_name?: string;
   cv_filename?: string;
+  // Skill breakdown rendered by MatchCard. Optional because /history and
+  // older stored results predate these fields.
+  matched_skills?: string[];
+  missing_skills?: string[];
   // Scores and status
   final_score: number;
   parser_score: number;
