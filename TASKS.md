@@ -407,8 +407,37 @@ returns `503 No jobs loaded` until `data/json/jobs.json` exists. Expected and te
 | C.2d | Restructure generation into 3 passes (names → skeleton → prose) so corpus-wide invariants are checkable before prose is written | ☑ in spec |
 | C.2e | Fix `JobPosting` fixture drift so the corpus/scoring path is clean before generating (**N12b**) | ☑ 26/26 |
 | C.2f | `tests/unit/test_validate_corpus.py` — one planted defect **per rule**, 24 tests | ☑ found a real crash in the validator itself |
-| C.3 | Generate `data/dictionaries/skills.json` (400–600 canonical skills, all 8 categories) | ☐ |
-| C.4 | Generate `data/json/jobs.json` (800 records, 100 per category) | ☐ |
+| C.3 | Generate `data/dictionaries/skills.json` | ☑ **667 skills / 15 families / 1,523 aliases** — independently verified |
+| C.4a | Pass 1 + 2 — skeleton, all fields except `description` | ☑ **800 records, 16/19 checks pass** — the 3 failures are only the absent descriptions |
+| C.4b | Pass 3 — descriptions | ☐ **next** — run in a fresh session with the skeleton as input |
+| C.4c | Install both files, then C.5–C.10 | ☐ |
+
+**Independent cross-check, 9 Aug 2026.** Ran `scripts/validate_corpus.py` against the
+generated files rather than trusting the generator's own 22/22:
+
+- **10 of 11 claimed figures exact** — 667 skills, 15 families, 1,523 aliases, min 42/family,
+  800 records, 46 cities, 60 companies all used, 800/800 unique `(title, company)`,
+  remote 360/240/200, 100 per category.
+- **One claim understated:** 136 distinct titles claimed, **145 actual** — they counted before
+  adding the leadership titles. Wrong in the harmless direction.
+- **A0 probe passes:** `python → Python`, `java → Java`, `react → React`,
+  `mysql → MySQL` — all distinct.
+- **Byte-identical on regeneration** (md5 `b6cf941d…`), so the corpus is reproducible rather
+  than a one-off artifact.
+- **Their stated deviation confirmed and sound:** `administrators` has 0 executives (moved to
+  lead). Office administration genuinely tops out at manager.
+- **Unclaimed spot-checks all clean:** every internship is `entry`; seniority mix within
+  tolerance; 654 of 667 skills actually used.
+- **Only blocker to `JobPosting` construction is the missing `description`** — adding one
+  makes a record construct with `category` intact, confirming the N14 model fix works
+  against real generated data.
+
+⚠️ **Installing `skills.json` before 2.2 is safe but pointless.** Tested: the current
+unfixed `_get_canonical_skill` returns `None` for every skill against the new
+`_meta`/`families` layout, so `_normalize_skills` falls back to the raw string and
+`python`/`java` stay distinct — it **fails safe** rather than collapsing to category names.
+But no alias resolution happens (`py` will not match `Python`) until 2.2 lands. That
+fail-safe behaviour is a real benefit of the `_meta`/`families` split, not luck.
 | C.5 | `load_jobs()` reads `payload["jobs"]`; delete the legacy-shape branch | ☐ |
 | C.6 | Delete the `jobs = jobs[:4000]` cap at `api.py:114` | ☐ |
 | C.7 | Point `config.skills_database_path` at the new vocabulary | ☐ |
