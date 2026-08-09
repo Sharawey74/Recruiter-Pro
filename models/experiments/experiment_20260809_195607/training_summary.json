@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-08-09T19:56:58.924405",
+  "best_model": "Logistic Regression",
+  "models": {
+    "Logistic Regression": {
+      "best_params": {
+        "classifier__C": 10.0,
+        "classifier__l1_ratio": 0.3,
+        "classifier__penalty": "l1"
+      },
+      "cv_score": 0.9929514050613258,
+      "val_metrics": {
+        "accuracy": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "roc_auc": 1.0,
+        "true_positives": 122.0,
+        "true_negatives": 28.0,
+        "false_positives": 0.0,
+        "false_negatives": 0.0,
+        "specificity": 1.0,
+        "false_negative_rate": 0.0,
+        "false_positive_rate": 0.0,
+        "meets_criteria": 

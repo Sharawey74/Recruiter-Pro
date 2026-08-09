@@ -44,7 +44,8 @@ from a report. **Severity** is about consequence, not effort.
 | **N14** | `JobPosting` set no `extra` policy, so Pydantic v2 **silently dropped** the new `category` key — `hasattr(job,'category')` was `False`. The spec's claimed "validated at load" safety net did not exist | ✅ **Fixed** — `category` declared with a validator rejecting anything outside the eight. Corpus-wide rules enforced by `scripts/validate_corpus.py` instead | C.3 ☑ |
 | **N15** | `_score_education` reads `job.education_level`, which is `None` on all 6,146 archived jobs — verified — so it has always defaulted to `3` (Associate) for every job. The scorer has never done anything | Populating it in the new corpus makes it work for the first time. **Scores will shift with no code change to point at** — note in the PR, pin two known pairs in a test | C.4 |
 | **W** | `config/agents.yaml` declares weights `0.60/0.25/0.10/0.05`; `agent3_scorer.py:108` hardcodes `0.50/0.17/0.20/0.08/0.05` incl. a `title` term the YAML never mentions. The YAML is decorative | Load from config, delete the literals, assert the sum is 1.0 at startup | 2.3 |
-| **A3** | `salary` + `salary_log` are model features. Salary is a *consequence* of hiring → target leakage → ROC-AUC 1.000 | Drop both features, retrain, publish the honest number, write it up in the README as a finding | 1.4 |
+| **A3** | `salary` + `salary_log` were model features. Correct to remove — but **removing them changed nothing**: metrics came back byte-identical (precision 1.000, ROC-AUC 1.000, same 121/28/0/1 confusion matrix). Salary was never the cause | ✅ Removed + guard test. **Real cause is N18** — the dataset, not the features | 1.4 ☑ |
+| **N18** | **The dataset cannot produce an honest ATS model.** `Recruiter Decision` is a pure threshold on `AI Score` (≥65 → Hire, **100% accuracy from one column**). `AI Score` is excluded from training, but the remaining columns reconstruct the decision anyway: **`Experience` alone → ROC-AUC 0.9244; `Experience + Projects Count` → 0.9933**. Two ordinary columns. There is no leak left to remove — the task is trivial by construction | **Stop trying to fix the number; report it.** No feature removal makes this dataset non-trivial. The honest framing is the strongest portfolio asset here — see below | 6.5 |
 | **N2** | Two metadata files describe different models (RF+XGBoost 3-class @0.608 vs LogReg binary @1.000). Only the second loads | Pick the lineage, archive the other, document the choice | 1.3 |
 | **Vocab** | Vocabulary recognises 2.3% of corpus skills; 60.9% of jobs unmatchable. Fixing A0 alone does not fix this | Generate corpus *against* a controlled vocabulary so the invariant holds by construction | C.3/C.4 |
 
@@ -182,8 +183,8 @@ is the first thing a reviewer does.
 |---|---|---|---|---|---|---|
 | 1.5 | N4 | `npm run build` is broken on `main` | 5 | 5 | 1 | **50** |
 | 1.2 | A1 | Split and repair `requirements.txt` | 5 | 5 | 2 | **40** |
-| 1.4 | A3 | Remove target leakage, retrain, report the honest number | 4 | 5 | 3 | **27** |
-| 1.1 | A2 | Ship the trained model artifacts | 5 | 5 | 1 | **50** ◐ |
+| 1.4 | A3 | Remove target leakage, retrain, report the honest number | 4 | 5 | 3 | **27** ☑ |
+| 1.1 | A2 | Ship the trained model artifacts | 5 | 5 | 1 | **50** ☑ |
 | 1.3 | N2 | Resolve the two contradictory model metadata files | 3 | 4 | 2 | **28** |
 | 1.6 | N5 | `next@14.2.3` has a published security advisory | 2 | 4 | 2 | **24** |
 
@@ -193,8 +194,69 @@ is the first thing a reviewer does.
 > retrain bakes in a model that 1.4 immediately throws away. Work the phase in the table
 > order above, not by number.
 
-### ◐ 1.1 — A2 · The trained model is not in the repo
-`branch: fix/repo-ship-model-artifacts` — **partially done, blocked on 1.2 + 1.4**
+### ☑ 1.1 — A2 · The trained model is not in the repo — **DONE**
+`branch: fix/ml-remove-salary-leakage`
+
+**Hybrid ML scoring runs for the first time in this repository.**
+
+```
+ATSPredictor.load_model()        -> True
+Agent 3 ml_predictor is None?    -> False      # hybrid scoring is LIVE
+models/production/ats_model.joblib          32 KB
+models/production/feature_engineer.joblib    4 KB
+```
+
+Both artifacts are committed (the ignore-rule allowlist prepared earlier did its job), and
+the model is the retrained, salary-free one — 28 features, no `salary`, no `salary_log`.
+
+Everything below is the record of how it got here.
+
+---
+
+### ☑ 1.4 — A3 · Leakage removal, and what it actually revealed
+
+`salary` and `salary_log` are gone from `FeatureEngineer`, `LEAKING_FEATURES` names them so
+they cannot return quietly, and two guard tests enforce it — one asserting no salary-derived
+feature is ever produced, one proving the pipeline trains on a dataset with no `Salary`
+column at all. An existing test was **asserting the leak existed** (`assert 'salary' in
+feature_names`); it was updated, and it is worth noting that the test suite was actively
+holding the leak in place.
+
+**Then the retrain produced identical metrics.** Accuracy 0.9933, precision 1.000,
+ROC-AUC 1.000, confusion matrix 121/28/0/1 — the same numbers, to the digit. Salary was
+never what was driving the perfect score.
+
+**N18 — the real cause, measured:**
+
+| Predictor | ROC-AUC |
+|---|---|
+| `AI Score ≥ 65` (single threshold) | **1.0000 — perfect classification of the label** |
+| `Experience` alone | 0.9244 |
+| `Experience` + `Projects Count` | **0.9933** |
+| `Experience` + `Projects Count` + skill count | 0.9961 |
+
+`Recruiter Decision` is a deterministic threshold on `AI Score`, and although `AI Score` is
+excluded from training, two perfectly ordinary columns reproduce the decision anyway. The
+dataset is synthetic and the label is a smooth function of its own inputs. **No amount of
+feature engineering makes this task non-trivial**, so there is no honest number to recover by
+removing more features.
+
+**This is the most valuable thing in the repository for portfolio purposes, and it should be
+written up as a finding rather than hidden.** The story is not "my model scores 0.99" — it is
+*"I did not believe my own 1.000, removed the feature I suspected, got the identical result,
+kept digging, and found the label was a threshold on a column I had already excluded. The
+dataset cannot support the claim. Here is the evidence."* That reasoning is worth more than
+any score, and almost no portfolio project can show it. → 6.5.
+
+**Also fixed on the way through (N17):** `save_results_summary` crashed with
+`TypeError: Object of type bool_ is not JSON serializable` on the final line of training —
+`numpy.bool_` is not JSON-serializable. It ran *after* the production artifacts were written,
+so a successful training run looked like a failed one, `training_summary.json` was never
+produced, and the process exited non-zero, which would have failed CI.
+
+---
+
+### ☑ Original diagnosis of 1.1 (kept — the reasoning was wrong in an instructive way)
 
 **✔ Re-verified 9 Aug 2026, and the original diagnosis was wrong in a way that matters.**
 
@@ -1039,6 +1101,7 @@ as abandoned work. `/history` and `/match/history` are near-identical; keep one.
 | `next lint` | ❌ **never configured** — prompts interactively, so has never run |
 | App starts from a clean clone | ❌ blocked by **1.2** |
 | App serves matches | ❌ blocked by **C.4** — no corpus, `/match` returns 503 |
+| ML scoring runs | ✅ **model shipped** — `load_model() -> True`, hybrid scoring live |
 
 | # | ID | Task | I | R | E | Score |
 |---|---|---|---|---|---|---|

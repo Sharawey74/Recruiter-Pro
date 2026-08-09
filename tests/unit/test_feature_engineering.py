@@ -46,6 +46,43 @@ class TestFeatureEngineer:
         engineer = FeatureEngineer()
         assert engineer.scaler is not None
         assert engineer.fitted is False
+
+    @pytest.mark.unit
+    @pytest.mark.ml
+    def test_no_leaking_features_are_engineered(self, sample_data):
+        """
+        Salary must never become a feature.
+
+        It is a consequence of the hiring decision, not an input to it, so
+        training on it lets the model read the target. That is what produced
+        the old model's precision 1.000 / ROC-AUC 1.000 on a 150-row test set.
+
+        This test is the guard. The bug was invisible for as long as it was
+        because nothing asserted the feature list, only its length.
+        """
+        engineer = FeatureEngineer()
+        _, feature_names = engineer.fit_transform(sample_data)
+
+        leaked = [f for f in feature_names
+                  if f.lower() in FeatureEngineer.LEAKING_FEATURES]
+        assert not leaked, (
+            f"Leaking feature(s) present in the model input: {leaked}. "
+            f"See FeatureEngineer.LEAKING_FEATURES."
+        )
+
+        # Also catch a renamed variant, e.g. 'salary_normalized' or 'log_salary'.
+        salaryish = [f for f in feature_names if 'salary' in f.lower()]
+        assert not salaryish, f"Salary-derived feature(s) present: {salaryish}"
+
+    @pytest.mark.unit
+    @pytest.mark.ml
+    def test_trains_without_a_salary_column_at_all(self, sample_data):
+        """A dataset with no Salary column must still train, not raise."""
+        no_salary = sample_data.drop(columns=['Salary'])
+        engineer = FeatureEngineer()
+        X, feature_names = engineer.fit_transform(no_salary)
+        assert X.shape[0] == len(no_salary)
+        assert len(feature_names) > 0
     
     @pytest.mark.unit
     @pytest.mark.ml
@@ -116,9 +153,10 @@ class TestFeatureEngineer:
         assert 'experience' in feature_names
         assert 'experience_squared' in feature_names
         assert 'experience_log' in feature_names
-        assert 'salary' in feature_names
-        assert 'salary_log' in feature_names
         assert 'projects_count' in feature_names
+        # 'salary' and 'salary_log' were asserted here until the leakage fix.
+        # Their absence is now asserted by
+        # test_no_leaking_features_are_engineered.
     
     @pytest.mark.unit
     @pytest.mark.ml
