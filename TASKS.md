@@ -135,10 +135,27 @@ README headline has never run in this working tree.
 - Sidebar shows a Scoring indicator (`Hybrid (ML + rules)` / amber `Rules only`) off the
   `ml_model_loaded` the API was already sending.
 
+**The retrain command.** `--data-path` is required — its default is `resumes.csv`, which
+does not exist in this repo. Run from the repository root:
+
+```bash
+python -m src.ml_engine.train --data-path data/AI_Resume_Screening.csv
+```
+
+Add `--run-cv-analysis` to also produce learning curves (slower, writes PNGs to
+`models/experiments/`). Optional flags: `--test-size 0.15 --val-size 0.15
+--random-state 42`. It writes `ats_model.joblib`, `feature_engineer.joblib` and
+`model_metadata.json` into `models/production/`, and a timestamped folder under
+`models/experiments/`.
+
+Prerequisites, both currently unmet: the training packages are missing from
+`requirements.txt` (1.2 — `scikit-learn`, `joblib`, `xgboost`, `imbalanced-learn`,
+`matplotlib`, `seaborn`; all six happen to be installed in this environment already), and
+`salary`/`salary_log` must be dropped first (1.4) or the retrain reproduces the leak.
+
 **Still to do, once 1.2 and 1.4 land:**
 
-- [ ] Retrain: `python -m src.ml_engine.train --data-path data/AI_Resume_Screening.csv`
-      (note: `--data-path` defaults to `resumes.csv`, which does not exist — fix the default)
+- [ ] Fix the `--data-path` default so the command works without the flag
 - [ ] Confirm the two artifacts appear and `git status` sees them (the ignore rule is ready)
 - [ ] Confirm `/health` flips to `ml_model_loaded: true` and the sidebar turns green
 - [ ] If they exceed ~5 MB, switch to a GitHub Release plus `scripts/fetch_model.py`
@@ -147,8 +164,33 @@ README headline has never run in this working tree.
 the ML path *disabled*. Restoring the model adds 4,000 per-row `predict_proba` calls on top,
 so Phase 3 gets worse before it gets better. Confirms 3.6 as a hard prerequisite for deploy.
 
-### ☐ 1.5 — N4 · `npm run build` fails on `main`
+### ☑ 1.5 — N4 · `npm run build` fails on `main` — **FIXED**
 `branch: fix/frontend-match-type-fields`
+
+**Build now passes: 0 type errors, 0 compile failures, 9/9 pages generated.**
+
+```
+✓ Compiled successfully
+✓ Generating static pages (9/9)
+npx tsc --noEmit → 0 errors   (was 10)
+```
+
+The root cause was worse than a type error. `match-card.tsx` reads `match.matched_skills`
+and `match.missing_skills`, but **only `/match/single` ever sent them**, nested as
+`skills.matched` / `skills.missing`. The main `/match` endpoint the UI actually calls never
+sent them at all — so those skill badges have been **permanently empty since they were
+written**. Adding the fields to the type alone would have made the build pass and left the
+feature dead. Fixed at the source: `/match` now returns both flat, and `Match` declares them.
+
+⚠️ **This makes A0 visible.** A live match now returns:
+
+```
+matched_skills: ['programming_languages', 'databases']
+```
+
+The badges will render **category names** to the user, because of 2.2. Verified live: a
+Python/FastAPI/Postgres CV scored **93.0 against "Product Engineer"**. So 1.5 and 2.2 are
+coupled — do not show this UI to anyone before 2.2 lands.
 
 > **Found this session — not in any of the three reports. ✔ Verified against unmodified
 > `HEAD` with the working tree stashed, so this is not a side effect of any change here.**
@@ -239,6 +281,66 @@ README explaining what was found and how it was fixed.
 
 This turns the weakest artifact in the repo into the strongest signal in it. Finding
 leakage in your own model and writing it up is a better story than a suspicious 1.0.
+
+---
+
+## Job corpus audit — measured 9 Aug 2026
+
+Run against `data/json/jobs_cleaned.json`. **The data itself is clean; what surrounds it is
+not.**
+
+### Integrity — good
+
+| Check | Result |
+|---|---|
+| Records in file | **6,146** |
+| Field presence (all 14 fields) | **100%** — no nulls, no missing keys |
+| Duplicate `job_id` | **0** |
+| `required_skills` empty | **0** |
+| `description` empty or under 30 chars | **0** |
+| `min_experience_years > max` | **0** |
+
+### Problems — three, in severity order
+
+**① 2,146 jobs (34.9%) are silently discarded.** `api.py:114` does `jobs = jobs[:4000]`
+with the comment *"Limit to 4000 jobs for better matching coverage"* — which is backwards,
+since it *reduces* coverage. A third of the corpus can never be matched or searched, and
+nothing anywhere says so. `/jobs` reports `total: 4000`, so the API actively misreports the
+corpus size. **Decide deliberately**: raise the cap, or keep it and state it. Do not leave it
+as an unexplained slice. Interacts with 3.3, which proposes trimming to ~500 for deployment
+— that is a *deliberate* trim and should be labelled as such in the UI.
+
+**② The skill vocabulary covers almost none of the corpus.** This is the finding that
+reframes 2.4, and it is worse than "four vocabularies disagree":
+
+| | |
+|---|---|
+| Distinct skill strings across all job postings | **4,603** |
+| Skills in `skills_canonical.json` | **105** (222 aliases) |
+| Distinct job skills the vocabulary recognizes | **108 / 4,603 — 2.3%** |
+| Skill *mentions* recognized | **21.2%** |
+| **Jobs where not one required skill is in the vocabulary** | **3,745 — 60.9%** |
+
+Measured with the *corrected* alias index from 2.2, so this is the ceiling **after** A0 is
+fixed, not before. Common skills simply absent: `sql` (301 mentions), `html` (337),
+`css` (221), `jquery` (408), `json` (297), `oop` (283), `xml` (276), `hibernate` (211).
+
+**So fixing A0 is necessary but not sufficient.** Unifying four small vocabularies into one
+small vocabulary still leaves ~61% of jobs with nothing to match on. 2.4 must also **grow**
+the vocabulary from the corpus — extract the top ~500 skill strings by frequency, map them to
+canonical entries, and re-measure coverage. Target: >80% of mentions. Add the coverage number
+to the test suite so it cannot silently regress.
+
+**③ 486 duplicate `(title, company)` pairs.** Distinct `job_id`s, same role at the same
+company. Harmless for scoring, but a candidate sees the same job repeated in their top
+matches, which looks broken. Deduplicate on display, or merge at load.
+
+### Distribution — reasonable, no action needed
+
+`remote_type` remote 3,059 / hybrid 1,807 / on-site 1,280 · `employment_type` full-time
+5,814 / contract 182 / internship 147 / part-time 3 · `seniority_level` mid 3,839 /
+senior 948 / manager 599 / entry 536 / lead 179 / executive 45 · 6 countries led by
+USA 1,053.
 
 ---
 
@@ -587,6 +689,70 @@ singleton bakes in the A7 race.
 
 ---
 
+## GUI audit — every page and component, reviewed 9 Aug 2026
+
+Reviewed in a real browser against a live backend, with all caches and browser storage
+cleared first, so every empty state below is a genuine first-run experience.
+
+### Pages
+
+| Route | Renders | State | Findings |
+|---|---|---|---|
+| `/` Dashboard | ✅ | works | **N6** hydration errors (6 on first paint) · **N11** says "PDF, DOCX", omits TXT · **A9** no error toast · **B8** 2.5 s fake delay · has its own uploader, duplicating `/upload` |
+| `/upload` | ✅ | works | **N10** advertises "Limit 200MB per file" · **N8** no nav link — unreachable from the UI · **A10** drag-drop silently drops DOCX/TXT |
+| `/jobs` | ✅ | works | **B7** search box confirmed dead · **N8** no nav link · **N11** says "3,000+" (4,000 load, 6,146 exist) |
+| `/results` | ✅ | clean empty state | **N11** "max 5 jobs each" but `/match` defaults `top_k=10` |
+| `/history` | ✅ | clean empty state ✓ | correct after cache clear · double-fetches `/match/history` |
+| `/shortlist` | ✅ | clean empty state ✓ | tabs + counters all render at 0 correctly |
+| `/_not-found` | ✅ | default | no custom 404 |
+
+**All six pages render, no crashes, no failed requests, no 4xx/5xx.** Empty states on
+`/results`, `/history` and `/shortlist` are genuinely good — clear message plus a next
+action. `/jobs` and both uploaders work. The structure is sound; the problems are wiring
+and copy, not layout.
+
+### Components
+
+| Component | State | Findings |
+|---|---|---|
+| `layout/sidebar` | ✅ | **N8** lists only 4 of 6 pages · Scoring indicator added this session, verified live |
+| `layout/header` | ⚠️ | 10 lines, presentational only — `/` and `/upload` do not use it, so heading styles diverge |
+| `upload/match-card` | ⚠️ | Was the build break (1.5). Skill badges now populated — but will show **category names** until 2.2 |
+| `upload/match-summary` | ✅ | renders |
+| `ui/circular-progress` | ✅ | renders |
+| `ui/skill-badge` | ✅ | renders; `matched` / `missing` variants both used |
+
+### New findings
+
+**☐ N8 · Two of six pages are unreachable from the UI** — `fix/frontend-sidebar-nav`
+`sidebar.tsx` `navItems` lists Dashboard, Results, History, Shortlist. **`/upload` and
+`/jobs` have no link anywhere in the app** — reachable only by typing the URL. `/upload` is
+the fuller of the two upload flows. Either add both to the nav, or delete `/upload` and keep
+the dashboard uploader — but decide, because shipping an orphaned page reads as unfinished.
+
+**☐ N9 · Every page has the same browser-tab title** — `fix/frontend-page-metadata`
+`layout.tsx:7` sets `title: "AI Resume Matcher - Dashboard"` and **no page exports its own
+`metadata`**. Every tab, bookmark and history entry says "Dashboard", including `/jobs` and
+`/history`. One `export const metadata` per page.
+
+**☐ N10 · The upload UI advertises a 200 MB limit** — `fix/frontend-upload-limit-copy`
+`upload/page.tsx:124` says *"Limit 200MB per file"*. `config.py:113` says 10 MB. The server
+enforces **nothing** (A5). So the UI actively invites the exact request that takes the
+server down. Fix the copy and the enforcement together — this makes 4.2 more urgent than its
+score suggests.
+
+**☐ N11 · Four pieces of copy state facts that are not true** — `fix/frontend-copy-accuracy`
+Cheap to fix, and each one is visible to a visitor:
+
+| Where | Says | Reality |
+|---|---|---|
+| `page.tsx:292` | "Supported formats: PDF, DOCX" | TXT also supported |
+| `upload/page.tsx:124` | "Limit 200MB per file" | no limit enforced; config says 10 MB |
+| `jobs/page.tsx:54` | "3,000+ job descriptions" | 4,000 loaded, 6,146 exist |
+| `results/page.tsx:78` | "max 5 jobs each" | `/match` defaults to `top_k=10` |
+
+---
+
 ## Phase 5 — Make it feel good
 
 **Goal: what a visitor actually experiences.** Grounded in what is verifiably weak — this
@@ -684,18 +850,80 @@ as abandoned work. `/history` and `/match/history` are near-identical; keep one.
 
 ---
 
-## Phase 6 — Ship it
+## Phase 6 — Build clean
 
-**Goal: a visitor forms a positive judgment in twenty seconds.**
+> **Deploy is deferred, 9 Aug 2026, by decision.** The goal of this phase is now **the app
+> builds and runs with zero errors and zero compile failures** — not shipping it anywhere.
+> Deploy items are parked at the bottom and are not worked until the rest of the phase is
+> green. Getting a correct app first is the right order; a deployed wrong answer is worse
+> than an undeployed one.
+
+**Definition of done for "builds clean":**
+
+| Gate | Status |
+|---|---|
+| `npx tsc --noEmit` → 0 errors | ✅ **done** (was 10) |
+| `next build` → compiles, all pages generated | ✅ **done** (9/9) |
+| Zero console errors on every page at runtime | ❌ blocked by **N6** |
+| `pytest` green | ❌ **29 failed, 10 errors, 109 passed** (26% failing) |
+| `ruff` / `black` clean | ❌ not wired |
+| App starts from a clean clone | ❌ blocked by **1.2** |
 
 | # | ID | Task | I | R | E | Score |
 |---|---|---|---|---|---|---|
+| 6.0 | N6 | Zero runtime console errors — fix the hydration mismatch | 4 | 3 | 1 | **35** |
+| 6.7 | — | Run `pytest`; fix or quarantine failures; record the real number | 4 | 4 | 2 | **32** |
 | 6.1 | B12 | GitHub Actions: pytest + ruff + black + `next build` | 4 | 3 | 2 | **28** |
-| 6.2 | ⑧ | Deploy: Vercel (frontend) + Render (backend) | 5 | 2 | 3 | **21** |
 | 6.3 | ⑥ | `black`, `ruff`, `mypy` on `src/` — wired into CI, not just installed | 3 | 2 | 2 | **20** |
-| 6.4 | B12 | Multi-stage Dockerfile + `docker-compose.yml` | 3 | 2 | 3 | **15** |
-| 6.5 | B13 | README: hero GIF, honest scope, "what I fixed" | 4 | 1 | 3 | **15** |
+| 6.5 | B13 | README: honest scope, "what I fixed" | 4 | 1 | 3 | **15** |
 | 6.6 | ⑤ | `models/experiments/` (10 PNGs, ~800 KB) → Release; delete orphan `tfidf_vectorizer.pkl` | 1 | 1 | 1 | **10** |
+| — | — | *parked:* Docker, Vercel/Render deploy, hero GIF, live link | — | — | — | *deferred* |
+
+### ☐ 6.7 — N12 · A quarter of the test suite fails
+`branch: test/repair-suite-baseline`
+
+> **Measured 9 Aug 2026 — `python -m pytest -q --no-cov`. Not in any of the three reports,
+> which described the 15 test files as "good coverage story". It is a count, not a result.**
+
+```
+29 failed, 10 errors, 109 passed  in 107s        (148 total, 26% not passing)
+```
+
+Four distinct causes, and the first two mean these tests have **never** passed against this
+codebase:
+
+**① Tests target an API that does not exist — ~19 failures.**
+`test_api_endpoints.py` and `test_e2e_resume_scoring.py` call `/api/v1/health`,
+`/api/v1/score`, `/api/v1/batch`, `/api/v1/model-info`. The real API serves `/health`,
+`/match`, `/upload`, `/jobs`. Every one returns 404. This is not drift — no version of this
+repo has served `/api/v1/*`. These test a design that was never built.
+
+**② `JobPosting` schema drift — 10 errors.**
+`test_pipeline.py` constructs `JobPosting(job_id, title, required_skills, preferred_skills,
+min_experience_years, education_level, description)`. The model now also requires
+`company_name`, `location_city`, `location_country`, `remote_type`, `employment_type`,
+`seniority_level`, `max_experience_years` → 6–7 validation errors per instantiation. The
+model gained required fields; the fixtures were never updated. **This is why Agent 3 has no
+working test coverage** (2.5) — the tests that would have exercised it cannot construct a job.
+
+**③ Production signatures changed under the tests — 5 failures.**
+`test_cross_validation.py`: `plot_validation_curve()` missing a required argument,
+`too many values to unpack` ×3. The implementation's return arity changed.
+
+**④ Missing fixture + a stale assertion — 2 failures.**
+`test_enhanced_matching.py` needs `test_resume_abdelrahman.txt`, which is not in the repo.
+`test_data_loader.py::test_missing_values_handling` asserts `3 == 30`.
+
+**Order:** ② first — it unblocks the Agent 3 coverage that 2.5 depends on, and it is
+mechanical. Then ③ and ④. Then decide on ①: either build the `/api/v1` surface those tests
+describe, or **delete them**. Do not leave 19 tests asserting against an imaginary API —
+they are worse than no tests, because they make the suite look larger than it is.
+
+Also drop `--cov=src --cov-report=html` from `pytest.ini`'s `addopts` so the suite can be run
+quickly during a fix loop; move coverage to an explicit CI invocation.
+
+**Until this is green, 6.1 (CI) has nothing meaningful to enforce and "builds clean" is
+only true of the frontend.**
 
 ### ☐ 6.1 — CI is the highest-signal cheap win in this phase
 There is no `.github/workflows/`. There are 15 test files that **nobody browsing the repo can
@@ -754,6 +982,7 @@ once made.
 | `Plans/Recruiter-Pro-Agent-Design.md` | Agent contracts, LLM allocation, guardrails → ADR-1, ADR-2, ADR-3 |
 | Verification pass, 9 Aug 2026 | **N1** docs/ ignore rule · **N2** conflicting model metadata · **N3** zero agent unit tests · refined dependency import counts (spacy/crewai/openai/ollama at 0, not 1) |
 | Execution pass, 9 Aug 2026 | **N4** `npm run build` broken on `main` · **N5** `next@14.2.3` advisory · **N6** landing-page hydration mismatch · **N7** `run_api.py` crashes on Windows · A2 re-diagnosed (artifacts never existed, so 1.1 depends on 1.2+1.4) · corrected two false claims in this file's own 1.1 (`/health` and the startup warning already existed) |
+| Data + GUI audit, 9 Aug 2026 | **Job corpus audit** (6,146 records, 2,146 discarded, 2.3% vocabulary coverage, 60.9% of jobs unmatched) · **GUI audit** all 6 pages + 6 components · **N8** two pages unreachable from nav · **N9** every page shares one tab title · **N10** UI advertises a 200 MB upload limit · **N11** four false statements in UI copy · **N12** 26% of the test suite fails, 19 tests target an API that never existed |
 
 ### ☐ N7 · `run_api.py` crashes on Windows before starting — *minor*
 `branch: fix/repo-run-api-encoding`
