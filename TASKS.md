@@ -612,6 +612,24 @@ happens**. It is also the slowest call in the app, so it is the one most likely 
 Add a toast distinguishing timeout / 503 no-jobs / 500, matching the pattern the other five
 already use.
 
+### ☐ 5.1b — N6 · Hydration mismatch on the landing page
+`branch: fix/frontend-landing-hydration`
+
+> **Found this session, in the browser. ✔ Verified — `page.tsx` is untouched by this
+> session's work, so it is pre-existing.**
+
+`frontend/app/page.tsx:352` renders `ID: v{Math.floor(Math.random() * 100)}0ZXY` directly in
+JSX, so the server and the client generate different numbers. React logs
+`Text content did not match. Server: "64" Client: "34"`, then
+`An error occurred during hydration. The server HTML was replaced with client content` —
+six console errors on first paint of the landing page, and React discards the server-rendered
+DOM for the whole subtree. `page.tsx:318` calls `new Date().toLocaleDateString()` in render
+for the same reason and will do the same across a midnight boundary or a timezone
+difference.
+
+Fix: generate the ID once in a `useEffect` (or `useId`), or drop the decorative ID entirely.
+Pairs naturally with 5.1 — same file, same landing page.
+
 ### ☐ 5.2 — A10
 `handleDrop` checks `file.type === 'application/pdf'` and **silently discards** DOCX and TXT
 — both of which the backend supports. `handleFileInput` has no check at all. One shared
@@ -735,6 +753,16 @@ once made.
 | `Plans/Recruiter-Pro-Addons-Scope.md` | ①–⑧, cleanup inventory, guardrails |
 | `Plans/Recruiter-Pro-Agent-Design.md` | Agent contracts, LLM allocation, guardrails → ADR-1, ADR-2, ADR-3 |
 | Verification pass, 9 Aug 2026 | **N1** docs/ ignore rule · **N2** conflicting model metadata · **N3** zero agent unit tests · refined dependency import counts (spacy/crewai/openai/ollama at 0, not 1) |
-| Execution pass, 9 Aug 2026 | **N4** `npm run build` broken on `main` · **N5** `next@14.2.3` advisory · A2 re-diagnosed (artifacts never existed, so 1.1 depends on 1.2+1.4) · corrected two false claims in this file's own 1.1 (`/health` and the startup warning already existed) |
+| Execution pass, 9 Aug 2026 | **N4** `npm run build` broken on `main` · **N5** `next@14.2.3` advisory · **N6** landing-page hydration mismatch · **N7** `run_api.py` crashes on Windows · A2 re-diagnosed (artifacts never existed, so 1.1 depends on 1.2+1.4) · corrected two false claims in this file's own 1.1 (`/health` and the startup warning already existed) |
+
+### ☐ N7 · `run_api.py` crashes on Windows before starting — *minor*
+`branch: fix/repo-run-api-encoding`
+
+`python run_api.py` dies immediately with
+`UnicodeEncodeError: 'charmap' codec can't encode character '\U0001f680'` — the emoji in the
+`print()` at line 17 cannot be encoded by the `cp1252` default console codepage. Low severity
+because it is **not** the documented entrypoint: the README (line 166) and `Run.ps1` both use
+`uvicorn src.api:app`, which works. But it is a root-level file that crashes on the platform
+this project's own tooling targets. Replace the emoji, or set `PYTHONIOENCODING=utf-8`.
 
 `Plans/` is gitignored — the reports are working notes. This file is the tracked record.
