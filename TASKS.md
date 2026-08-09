@@ -922,6 +922,12 @@ they are worse than no tests, because they make the suite look larger than it is
 Also drop `--cov=src --cov-report=html` from `pytest.ini`'s `addopts` so the suite can be run
 quickly during a fix loop; move coverage to an explicit CI invocation.
 
+**Tests write into the repo.** Running the suite created
+`models/experiments/validation_curve_TestModel_C.png`. This is not new — the already-tracked
+`models/experiments/learning_curve_TestModel.png` is the same artifact from an earlier run,
+committed by accident. Point `CrossValidationEvaluator`'s `output_dir` at `tmp_path` in
+tests, and delete the committed one as part of 6.6.
+
 **Until this is green, 6.1 (CI) has nothing meaningful to enforce and "builds clean" is
 only true of the frontend.**
 
