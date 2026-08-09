@@ -77,26 +77,105 @@ is the first thing a reviewer does.
 
 | # | ID | Task | I | R | E | Score |
 |---|---|---|---|---|---|---|
-| 1.1 | A2 | Ship the trained model artifacts | 5 | 5 | 1 | **50** |
+| 1.5 | N4 | `npm run build` is broken on `main` | 5 | 5 | 1 | **50** |
 | 1.2 | A1 | Split and repair `requirements.txt` | 5 | 5 | 2 | **40** |
-| 1.3 | N2 | Resolve the two contradictory model metadata files | 3 | 4 | 2 | **28** |
 | 1.4 | A3 | Remove target leakage, retrain, report the honest number | 4 | 5 | 3 | **27** |
+| 1.1 | A2 | Ship the trained model artifacts | 5 | 5 | 1 | **50** ◐ |
+| 1.3 | N2 | Resolve the two contradictory model metadata files | 3 | 4 | 2 | **28** |
+| 1.6 | N5 | `next@14.2.3` has a published security advisory | 2 | 4 | 2 | **24** |
 
-### ☐ 1.1 — A2 · The trained model is not in the repo
-`branch: fix/repo-ship-model-artifacts`
+> **Revised order, 9 Aug 2026.** 1.1 was written as the first task and cannot be. The
+> artifacts it says to commit **do not exist**, so producing them means retraining, which
+> means 1.2 (install deps) and 1.4 (drop the leaking features) come first — otherwise the
+> retrain bakes in a model that 1.4 immediately throws away. Work the phase in the table
+> order above, not by number.
 
-**✔ Verified.** `.gitignore` lines `*.pkl` / `*.joblib` exclude
-`models/production/ats_model.joblib` and `feature_engineer.joblib`. `ls models/production/`
-in a fresh clone returns **only `model_metadata.json`**. So `ATSPredictor.load_model()`
-returns `False`, `agent3_scorer.py:58` logs `[WARN] Failed to load ML model. Using
-rule-based only.`, and the hybrid ML+rules scoring in the README headline **does not run for
-anyone who clones this**. Inconsistently, `models/tfidf_vectorizer.pkl` *is* committed.
+### ◐ 1.1 — A2 · The trained model is not in the repo
+`branch: fix/repo-ship-model-artifacts` — **partially done, blocked on 1.2 + 1.4**
 
-- Commit both `.joblib` files behind a negation rule (`!models/production/*.joblib`).
-  They are a logistic regression plus an encoder — well under a megabyte. *(Recommended.)*
-- Or attach to a GitHub Release plus a `scripts/fetch_model.py`.
-- Either way: log loudly at startup when ML is off, and surface `ml_model_loaded` on
-  `/health` and in the UI. This failure being silent is how the bug survived.
+**✔ Re-verified 9 Aug 2026, and the original diagnosis was wrong in a way that matters.**
+
+The reports said the artifacts exist locally and are merely gitignored. They do not exist:
+
+```
+$ find . \( -name "*.joblib" -o -name "*.pkl" \)
+./models/tfidf_vectorizer.pkl          # the orphan nothing loads
+
+$ git log --all --diff-filter=A -- "*.joblib"
+(empty — never committed in this repository's history)
+```
+
+`models/production/` contains only `model_metadata.json`, on disk and in every commit. So
+there is nothing to un-ignore. **The fix is not "commit the files", it is "retrain, then
+commit"** — and since the current feature set leaks (1.4), the only artifact worth
+committing is the retrained leakage-free one. 1.1 and 1.4 are effectively one task.
+
+Confirmed live: `ATSPredictor.load_model()` → `False`, `pipeline.agent3.ml_predictor` is
+`None`, `/health` reports `ml_model_loaded: false`. The hybrid ML+rules scoring in the
+README headline has never run in this working tree.
+
+**Also corrected — two things this file previously claimed were missing already existed:**
+
+- `/health` **already** returns `ml_model_loaded` (`api.py:172`). It was the *frontend* that
+  discarded it, keeping only `status`.
+- Startup **already** warned (`api.py:702`), as one line inside ~15 lines of startup output.
+
+**Done this session** (the parts that do not depend on the artifacts existing):
+
+- `.gitignore` — `ats_model.joblib` and `feature_engineer.joblib` named explicitly as an
+  allowlist, so a stray experiment artifact in `models/production/` stays ignored. Verified
+  with `git check-ignore` on probe files in both directions. Without this, a future
+  retrain-then-commit would fail silently in exactly the same way.
+- `/match` response now carries `ml_scoring_enabled` and `scoring_mode`. This was the real
+  gap: a caller received rule-based scores with no way to tell they were not the advertised
+  hybrid ones, because both produce plausible numbers. Verified by a live `/match` call —
+  returns `scoring_mode: "rule_based_only"`.
+- Startup warning made genuinely loud, naming the consequence, the two expected paths, and
+  the exact retrain command.
+- Sidebar shows a Scoring indicator (`Hybrid (ML + rules)` / amber `Rules only`) off the
+  `ml_model_loaded` the API was already sending.
+
+**Still to do, once 1.2 and 1.4 land:**
+
+- [ ] Retrain: `python -m src.ml_engine.train --data-path data/AI_Resume_Screening.csv`
+      (note: `--data-path` defaults to `resumes.csv`, which does not exist — fix the default)
+- [ ] Confirm the two artifacts appear and `git status` sees them (the ignore rule is ready)
+- [ ] Confirm `/health` flips to `ml_model_loaded: true` and the sidebar turns green
+- [ ] If they exceed ~5 MB, switch to a GitHub Release plus `scripts/fetch_model.py`
+
+**Measured while verifying:** one CV against 4,000 jobs took **27.6 s** — and that is with
+the ML path *disabled*. Restoring the model adds 4,000 per-row `predict_proba` calls on top,
+so Phase 3 gets worse before it gets better. Confirms 3.6 as a hard prerequisite for deploy.
+
+### ☐ 1.5 — N4 · `npm run build` fails on `main`
+`branch: fix/frontend-match-type-fields`
+
+> **Found this session — not in any of the three reports. ✔ Verified against unmodified
+> `HEAD` with the working tree stashed, so this is not a side effect of any change here.**
+
+`npm run build` is the exact command Vercel runs on deploy, and it fails:
+
+```
+./components/upload/match-card.tsx:78:16
+Type error: Property 'matched_skills' does not exist on type 'Match'.
+```
+
+`npx tsc --noEmit` reports **10 errors, all in `match-card.tsx`**: `matched_skills` (×3) and
+`missing_skills` (×3) are absent from the `Match` interface in `lib/types.ts`, plus 4
+consequent implicit-`any` parameters. The API does return both fields; the type never
+declared them.
+
+**The frontend cannot currently be deployed at all.** That outranks every UI item in Phase 5
+and most of Phase 1. Fix: add both fields to `Match` — which overlaps 5.6, so do them
+together and drop the legacy aliases in the same pass.
+
+### ☐ 1.6 — N5 · `next@14.2.3` security advisory
+`branch: chore/deps-upgrade-next`
+
+`npm install` reports: `next@14.2.3: This version has a security vulnerability. Please
+upgrade to a patched version.` Also flagged: `glob@10.3.10` and `eslint@8.57.1` as
+unsupported. Patch Next within the 14.x line first and re-run 1.5's build to confirm
+nothing else breaks; treat a major upgrade as separate work.
 
 ### ☐ 1.2 — A1 · `requirements.txt` is missing six packages the code imports
 `branch: chore/deps-split-requirements`
@@ -656,5 +735,6 @@ once made.
 | `Plans/Recruiter-Pro-Addons-Scope.md` | ①–⑧, cleanup inventory, guardrails |
 | `Plans/Recruiter-Pro-Agent-Design.md` | Agent contracts, LLM allocation, guardrails → ADR-1, ADR-2, ADR-3 |
 | Verification pass, 9 Aug 2026 | **N1** docs/ ignore rule · **N2** conflicting model metadata · **N3** zero agent unit tests · refined dependency import counts (spacy/crewai/openai/ollama at 0, not 1) |
+| Execution pass, 9 Aug 2026 | **N4** `npm run build` broken on `main` · **N5** `next@14.2.3` advisory · A2 re-diagnosed (artifacts never existed, so 1.1 depends on 1.2+1.4) · corrected two false claims in this file's own 1.1 (`/health` and the startup warning already existed) |
 
 `Plans/` is gitignored — the reports are working notes. This file is the tracked record.
