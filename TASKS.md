@@ -40,6 +40,9 @@ from a report. **Severity** is about consequence, not effort.
 |---|---|---|---|
 | **A0** | `_get_canonical_skill` reads a category-nested dict as flat, so every skill normalizes to its category name. Python matches a Java job perfectly. ~⅓ of every score is noise, biased upward | Build an `{alias: canonical}` index once at load (`_build_alias_index`), guarded by `isinstance(entries, dict)` to skip `comment`. Lookup becomes O(1), which also delivers 3.2/3.4 | 2.2 |
 | **A0-T** | Nothing guards it | Regression test `normalize("python") != normalize("java")`, confirmed failing first | 2.1 |
+| **N13** | `_extract_keywords` sliced `[:20]` out of a **set**. Python randomizes string hashing per process, so the same CV+job scored **0.40 or 0.45 depending on process** — measured across 5 runs. Violates ADR-1's determinism rule | ✅ **Fixed** — rank by frequency, tie-break alphabetically. Verified identical across 5 processes. More useful than hash order too: a repeated term matters more | 2.2 ☑ |
+| **N14** | `JobPosting` set no `extra` policy, so Pydantic v2 **silently dropped** the new `category` key — `hasattr(job,'category')` was `False`. The spec's claimed "validated at load" safety net did not exist | ✅ **Fixed** — `category` declared with a validator rejecting anything outside the eight. Corpus-wide rules enforced by `scripts/validate_corpus.py` instead | C.3 ☑ |
+| **N15** | `_score_education` reads `job.education_level`, which is `None` on all 6,146 archived jobs — verified — so it has always defaulted to `3` (Associate) for every job. The scorer has never done anything | Populating it in the new corpus makes it work for the first time. **Scores will shift with no code change to point at** — note in the PR, pin two known pairs in a test | C.4 |
 | **W** | `config/agents.yaml` declares weights `0.60/0.25/0.10/0.05`; `agent3_scorer.py:108` hardcodes `0.50/0.17/0.20/0.08/0.05` incl. a `title` term the YAML never mentions. The YAML is decorative | Load from config, delete the literals, assert the sum is 1.0 at startup | 2.3 |
 | **A3** | `salary` + `salary_log` are model features. Salary is a *consequence* of hiring → target leakage → ROC-AUC 1.000 | Drop both features, retrain, publish the honest number, write it up in the README as a finding | 1.4 |
 | **N2** | Two metadata files describe different models (RF+XGBoost 3-class @0.608 vs LogReg binary @1.000). Only the second loads | Pick the lineage, archive the other, document the choice | 1.3 |
@@ -397,6 +400,10 @@ returns `503 No jobs loaded` until `data/json/jobs.json` exists. Expected and te
 |---|---|---|
 | C.1 | Archive the three legacy job files with a written rationale | ☑ |
 | C.2 | Write the dataset spec + generation prompt | ☑ `JOBS_DATASET_SPEC.md` |
+| C.2a | Declare `category` on `JobPosting` — Pydantic was silently dropping it (**N14**) | ☑ |
+| C.2b | Fix `_extract_keywords` non-determinism before generating (**N13**) | ☑ |
+| C.2c | `scripts/validate_corpus.py` — all 10 self-checks as mechanical assertions | ☑ verified on pass/fail fixtures |
+| C.2d | Restructure generation into 3 passes (names → skeleton → prose) so corpus-wide invariants are checkable before prose is written | ☑ in spec |
 | C.3 | Generate `data/dictionaries/skills.json` (400–600 canonical skills, all 8 categories) | ☐ |
 | C.4 | Generate `data/json/jobs.json` (800 records, 100 per category) | ☐ |
 | C.5 | `load_jobs()` reads `payload["jobs"]`; delete the legacy-shape branch | ☐ |

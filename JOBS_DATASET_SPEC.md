@@ -72,25 +72,36 @@ Produce **two files**. Generate file B first, because file A depends on it.
 The controlled skill vocabulary. Every skill that appears anywhere in the job corpus must
 exist here.
 
-**Structure** — nested by skill family, `{ "Canonical Name": [aliases...] }`:
+**Structure** — metadata and skill families in **separate subtrees**:
 
 ```json
 {
-  "comment": "Controlled skill vocabulary. Maps aliases to canonical skill names.",
-  "schema_version": "2.0",
-  "programming_languages": {
-    "Python": ["python", "py", "python3"],
-    "JavaScript": ["javascript", "js", "ecmascript"]
+  "_meta": {
+    "comment": "Controlled skill vocabulary. Maps aliases to canonical skill names.",
+    "schema_version": "2.0"
   },
-  "sales_and_crm": {
-    "Salesforce": ["salesforce", "sfdc"],
-    "Pipeline Management": ["pipeline management", "pipeline mgmt"]
+  "families": {
+    "programming_languages": {
+      "Python": ["python", "py", "python3"],
+      "JavaScript": ["javascript", "js", "ecmascript"]
+    },
+    "sales_and_crm": {
+      "Salesforce": ["salesforce", "sfdc"],
+      "Pipeline Management": ["pipeline management", "pipeline mgmt"]
+    }
   }
 }
 ```
 
+> **Why `_meta` / `families` and not metadata keys sitting beside the families.** The old
+> `skills_canonical.json` mixed a string `comment` in among the category objects, so any
+> loader iterating the top level had to guess which values were data. Guessing wrong is
+> precisely what caused A0 — the worst bug in this project. A loader can iterate
+> `raw["families"]` with no type-sniffing at all, and the `isinstance` guard becomes a
+> belt-and-braces check rather than the thing holding the design together.
+
 Rules:
-1. Every value except `comment` and `schema_version` is an object of canonical→aliases.
+1. `families` contains only objects of canonical→aliases. Nothing else lives there.
 2. Canonical names are human-readable and correctly cased: `PostgreSQL`, not `postgresql`.
 3. Aliases are all-lowercase, and include the canonical name lowercased, every common
    spelling, abbreviation and punctuation variant: `.NET` → `["dotnet", ".net", "dot net"]`.
@@ -127,8 +138,18 @@ Rules:
 
 ### Job object — exact field contract
 
-Field names and types must match exactly; they are validated by a Pydantic model and a
-mismatch raises at load.
+Field names and types must match exactly.
+
+> **Do not rely on the loader to catch mistakes.** An earlier draft of this spec claimed
+> "a mismatch raises at load". It does not. `JobPosting` sets no `extra` policy and Pydantic
+> v2 defaults to `extra='ignore'`, so **unknown keys are silently dropped** — verified by
+> constructing a record with `category` and finding `hasattr(job, 'category') == False`.
+> Missing *required* fields do raise, so validation was only half-real, and the half being
+> relied on for the new `category` field was the half that did not exist.
+>
+> Fixed in `src/storage/models.py`: `category` is now a declared field with a validator that
+> rejects any value outside the eight. Correctness of everything else is enforced by
+> `scripts/validate_corpus.py`, not by the model.
 
 | Field | Type | Required | Rules |
 |---|---|---|---|
@@ -247,16 +268,44 @@ arrays do not.
 
 ### Output
 
-Return the two files as separate, complete, valid JSON documents — UTF-8, 2-space indent, LF
-line endings, no trailing commas, no comments outside the permitted `comment` key, no
-placeholder or `...` values. Every one of the 800 records fully written out.
+Return complete, valid JSON — UTF-8, 2-space indent, LF line endings, no trailing commas, no
+placeholder or `...` values.
 
-If the response limit prevents emitting all 800 in one turn, emit them in category batches of
-100 — complete and valid each time — and state which categories remain.
+**Generate in three passes, in this order. Do not emit descriptions before pass 3.**
+
+Rules 6 and 7 are corpus-*wide*: no duplicate `(title, company_name)` anywhere, ~60 companies
+reused naturally, a 45/30/25 remote mix, a 15/35/25/10/12/3 seniority split. Emitting eight
+independent batches of 100 cannot satisfy those — batch 7 cannot check a pair against 600
+records written earlier, and eight independent samples do not land on a global percentage.
+Splitting the work by *stage* rather than by *category* fixes that, and costs far less,
+because the invariants get locked in the cheap pass before any prose is written.
+
+**Pass 1 — names.** Emit ~60 company names and ~130 job titles mapped to categories. One
+small response.
+
+**Pass 2 — skeleton.** Emit all 800 records with every field *except* `description`:
+`job_id`, `category`, `title`, `company_name`, `location_city`, `location_country`,
+`remote_type`, `employment_type`, `seniority_level`, `min_experience_years`,
+`max_experience_years`, `required_skills`, `preferred_skills`, `posted_date`,
+`education_level`, `salary_range`, `is_active`. Compact enough for one or two responses, and
+**every global invariant is verifiable here**, mechanically, before any prose exists. Run
+`python scripts/validate_corpus.py` at this point — description checks will fail, everything
+else must pass.
+
+**Pass 3 — prose.** Fill in `description` in batches, taking the finished skeleton row as
+input. Cross-batch consistency no longer matters, because nothing global depends on the
+descriptions.
 
 ### Self-check before returning
 
-Confirm each of these explicitly:
+A model confirming its own output is not verification. **`scripts/validate_corpus.py` turns
+every item below into an assertion** — run it, and treat its exit code as the answer:
+
+```bash
+python scripts/validate_corpus.py
+```
+
+The list is kept here so the generator knows what it is aiming at:
 
 1. Exactly 800 jobs, exactly 100 per category.
 2. Every `job_id` unique and matching its category prefix.
@@ -296,3 +345,15 @@ def test_every_job_skill_is_in_the_vocabulary():
    does not, the generation did not honour rule 4, and that is worth catching immediately.
 7. Frontend: `description` now carries newlines. Add `whitespace-pre-line` to the description
    element in `jobs/page.tsx` or the sections render as one run-on paragraph.
+8. **Expect education scores to move for every job at once.** `_score_education` already
+   reads `job.education_level`, and it is `None` on all 6,146 archived records — verified —
+   so `job_level` has always fallen through to the default of `3` (Associate) universally.
+   Populating real values makes that scorer meaningful for the first time, which is a genuine
+   improvement this spec unlocks. But it is a scoring change with no code change to point at,
+   so note it in the PR's "scoring impact" section and pin two known CV/job pairs in a test.
+9. **Keyword scoring is now weak by design, and that is a choice worth making knowingly.**
+   Rule: descriptions must not restate the skills list — correct, because it removes the
+   circularity where `_score_keywords` measured the same skills twice. The consequence is
+   that keyword scoring matches CV text against 20 words of ordinary prose. At 5% weight it
+   distorts little, but if you want it to mean something, rank keywords by rarity rather than
+   raw frequency and let genuine domain terms surface naturally in the prose.

@@ -59,6 +59,15 @@ class JobPosting(BaseModel):
     job_id: str = Field(..., description="Unique job identifier")
     title: str = Field(..., description="Job title")
     company_name: str = Field(..., description="Company name")
+
+    # Business function this role belongs to - NOT its rank. An Engineering
+    # Manager is category "engineering" with seniority_level "manager".
+    # Optional so the archived corpus and existing test fixtures still load.
+    category: Optional[str] = Field(
+        None,
+        description="engineering, sales, marketing, accounting, management, "
+                    "administrators, maintenance, or operations"
+    )
     
     # Location details
     location_city: str = Field(..., description="City where job is located")
@@ -112,6 +121,20 @@ class JobPosting(BaseModel):
         allowed = ['entry', 'mid', 'senior', 'lead', 'manager', 'executive']
         if v not in allowed:
             raise ValueError(f"seniority_level must be one of {allowed}")
+        return v
+
+    @field_validator('category')
+    @classmethod
+    def validate_category(cls, v):
+        # None is allowed (archived corpus, existing fixtures). A present but
+        # misspelled value is not - a silently wrong category would be
+        # invisible, which is the failure mode this field exists to avoid.
+        if v is None:
+            return v
+        allowed = ['engineering', 'sales', 'marketing', 'accounting',
+                   'management', 'administrators', 'maintenance', 'operations']
+        if v not in allowed:
+            raise ValueError(f"category must be one of {allowed}")
         return v
     
     class Config:

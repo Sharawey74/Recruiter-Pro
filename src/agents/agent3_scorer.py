@@ -9,6 +9,7 @@ Architecture:
 """
 import json
 import logging
+from collections import Counter
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 from dataclasses import dataclass
@@ -455,14 +456,26 @@ class HybridScoringAgent:
         
         # Remove common words
         stopwords = {'the', 'and', 'or', 'with', 'for', 'in', 'on', 'at', 'to', 'of', 'a', 'an'}
-        
+
         # Extract words (3+ characters)
         words = re.findall(r'\b[a-z]{3,}\b', text.lower())
-        
-        # Filter and deduplicate
-        keywords = [w for w in set(words) if w not in stopwords]
-        
-        return keywords[:20]  # Top 20 keywords
+
+        # Rank by frequency, then alphabetically to break ties.
+        #
+        # This previously did `[w for w in set(words) ...][:20]`, slicing 20
+        # items out of a set. Python randomizes string hashing per process, so
+        # set iteration order changed on every restart and the same CV/job pair
+        # scored differently after a server restart - measured at 0.40 vs 0.45
+        # across five runs of identical input. That violates the determinism
+        # rule for Agent 3 in ADR-1, and it silently reorders near-ties in the
+        # returned top-K.
+        #
+        # Frequency ranking is also more useful than hash order: a term the job
+        # description repeats is more likely to matter than one it mentions once.
+        counts = Counter(w for w in words if w not in stopwords)
+        ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+
+        return [w for w, _ in ranked[:20]]  # Top 20 keywords
     
     def _get_ml_score(self, cv: CVProfile, job: JobPosting) -> Optional[Dict]:
         """Get ML model prediction score"""
