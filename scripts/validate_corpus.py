@@ -85,6 +85,14 @@ def _sample(items, n: int = 6) -> str:
     return f"{len(items)} item(s): {shown}{' ...' if len(items) > n else ''}"
 
 
+def _constructs(model, data: dict) -> bool:
+    try:
+        model(**data)
+        return True
+    except Exception:  # noqa: BLE001 - any validation failure disqualifies the probe
+        return False
+
+
 def canonical_names(skills_raw: dict) -> set[str]:
     """Every canonical skill name, from either the flat or _meta/families layout."""
     families = skills_raw.get("families")
@@ -255,10 +263,17 @@ def validate(jobs_path: Path, skills_path: Path) -> int:
                 errs.append(f"{j.get('job_id')}: {str(exc).splitlines()[0]}")
         r.check("every record constructs a JobPosting", not errs, "\n".join(errs[:6]))
 
-        if jobs:
-            probe = JobPosting(**jobs[0])
+        # Probe on the first record that actually constructs. Using jobs[0]
+        # unconditionally meant one bad record at the head of the file crashed
+        # the validator instead of reporting - a validator that dies on invalid
+        # input is useless precisely when it is needed.
+        probe_src = next((j for j in jobs if _constructs(JobPosting, j)), None)
+        if probe_src is None:
+            r.warn("no record constructs, so the category probe was skipped")
+        else:
+            probe = JobPosting(**probe_src)
             r.check("category survives model construction",
-                    getattr(probe, "category", None) == jobs[0].get("category"),
+                    getattr(probe, "category", None) == probe_src.get("category"),
                     "The model is dropping 'category'. Pydantic v2 ignores unknown fields by "
                     "default, so an undeclared field vanishes silently.")
     except ImportError as exc:

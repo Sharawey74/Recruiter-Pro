@@ -64,7 +64,8 @@ from a report. **Severity** is about consequence, not effort.
 | ID | Problem | Best solution | Phase |
 |---|---|---|---|
 | **N12a** | 19 tests call `/api/v1/health`, `/api/v1/score`, `/api/v1/batch` — endpoints this repo has **never** served. All 404 | Delete them, or build that surface. Do not leave tests asserting against an imaginary API | 6.7 |
-| **N12b** | `test_pipeline.py` builds `JobPosting` without 7 now-required fields → 10 errors. **This is why Agent 3 has no coverage** | Update the fixtures. Do this first — it unblocks 2.5 | 6.7 |
+| **N12b** | `test_pipeline.py` + `test_storage.py` built `JobPosting` without 7 now-required fields → 9 failures, incl. **all 5 Agent 3 scoring tests** | ✅ **Fixed** — fixtures updated; 26/26 now pass. Errors dropped 10 → 2 | 6.7 ☑ |
+| **N16** | **The test that should have caught A0 was bent around it.** `test_skill_matching` asserts `any('python' in s or 'programming' in s or 'fastapi' in s ...)` — someone saw `programming_languages` in the output and *added `'programming'` to the assertion* rather than investigating. So even once the fixtures were fixed, the test passes with A0 present | Delete the `'programming'` clause as part of 2.2, or the A0 regression test is toothless. **This is the mechanism by which A0 survived** | 2.2 |
 | **N12c** | `test_cross_validation.py`: `plot_validation_curve()` missing an argument, unpack arity changed ×4 | Realign tests with current signatures | 6.7 |
 | **N12d** | Missing fixture `test_resume_abdelrahman.txt`; `test_data_loader` asserts `3 == 30`; `test_api_client` needs a live server on :8000 | Add the fixture, fix the assertion, mark the client tests `@pytest.mark.integration` and skip without a server | 6.7 |
 | **N12e** | Tests write PNGs into tracked `models/experiments/` | Point `output_dir` at `tmp_path` | 6.7 |
@@ -404,6 +405,8 @@ returns `503 No jobs loaded` until `data/json/jobs.json` exists. Expected and te
 | C.2b | Fix `_extract_keywords` non-determinism before generating (**N13**) | ☑ |
 | C.2c | `scripts/validate_corpus.py` — all 10 self-checks as mechanical assertions | ☑ verified on pass/fail fixtures |
 | C.2d | Restructure generation into 3 passes (names → skeleton → prose) so corpus-wide invariants are checkable before prose is written | ☑ in spec |
+| C.2e | Fix `JobPosting` fixture drift so the corpus/scoring path is clean before generating (**N12b**) | ☑ 26/26 |
+| C.2f | `tests/unit/test_validate_corpus.py` — one planted defect **per rule**, 24 tests | ☑ found a real crash in the validator itself |
 | C.3 | Generate `data/dictionaries/skills.json` (400–600 canonical skills, all 8 categories) | ☐ |
 | C.4 | Generate `data/json/jobs.json` (800 records, 100 per category) | ☐ |
 | C.5 | `load_jobs()` reads `payload["jobs"]`; delete the legacy-shape branch | ☐ |
@@ -1001,7 +1004,7 @@ as abandoned work. `/history` and `/match/history` are near-identical; keep one.
 | `npx tsc --noEmit` → 0 errors | ✅ **done** (was 10) |
 | `next build` → compiles, all pages generated | ✅ **done** (9/9) |
 | Zero console errors on every page at runtime | ❌ blocked by **N6** |
-| `pytest` green | ❌ **30 failed, 10 errors, 108 passed** (27% failing) |
+| `pytest` green | ❌ **29 failed, 2 errors, 141 passed** — was 30/10/108 |
 | `black --check src/` | ❌ 28 of 30 files would be reformatted |
 | `flake8 src/` | ❌ **1,565 issues** (adopt `ruff` instead) |
 | `next lint` | ❌ **never configured** — prompts interactively, so has never run |
