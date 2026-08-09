@@ -29,6 +29,105 @@ phase — it never reorders phases, because the dependencies are hard.
 
 ---
 
+## Issue register — every known problem and its fix
+
+Complete as of 9 Aug 2026. Every row was reproduced against the working tree, not inherited
+from a report. **Severity** is about consequence, not effort.
+
+### 🔴 Correctness — the product gives wrong answers
+
+| ID | Problem | Best solution | Phase |
+|---|---|---|---|
+| **A0** | `_get_canonical_skill` reads a category-nested dict as flat, so every skill normalizes to its category name. Python matches a Java job perfectly. ~⅓ of every score is noise, biased upward | Build an `{alias: canonical}` index once at load (`_build_alias_index`), guarded by `isinstance(entries, dict)` to skip `comment`. Lookup becomes O(1), which also delivers 3.2/3.4 | 2.2 |
+| **A0-T** | Nothing guards it | Regression test `normalize("python") != normalize("java")`, confirmed failing first | 2.1 |
+| **W** | `config/agents.yaml` declares weights `0.60/0.25/0.10/0.05`; `agent3_scorer.py:108` hardcodes `0.50/0.17/0.20/0.08/0.05` incl. a `title` term the YAML never mentions. The YAML is decorative | Load from config, delete the literals, assert the sum is 1.0 at startup | 2.3 |
+| **A3** | `salary` + `salary_log` are model features. Salary is a *consequence* of hiring → target leakage → ROC-AUC 1.000 | Drop both features, retrain, publish the honest number, write it up in the README as a finding | 1.4 |
+| **N2** | Two metadata files describe different models (RF+XGBoost 3-class @0.608 vs LogReg binary @1.000). Only the second loads | Pick the lineage, archive the other, document the choice | 1.3 |
+| **Vocab** | Vocabulary recognises 2.3% of corpus skills; 60.9% of jobs unmatchable. Fixing A0 alone does not fix this | Generate corpus *against* a controlled vocabulary so the invariant holds by construction | C.3/C.4 |
+
+### 🔴 Won't run / won't build
+
+| ID | Problem | Best solution | Phase |
+|---|---|---|---|
+| **N4** | `npm run build` failed — `matched_skills` missing from `Match`; root cause was `/match` never sending it | ✅ **Fixed** — `/match` returns both fields; type declares them | 1.5 ☑ |
+| **A1** | `requirements.txt` omits 6 imported packages (`sklearn`, `joblib`, `xgboost`, `imblearn`, `matplotlib`, `seaborn`); pins 6 unused (`spacy`, `crewai`, `openai`, `ollama`, `streamlit`, `plotly`) | Split into `requirements.txt` / `-ml.txt` / `-dev.txt`; add ruff; re-add `openai` only when `OpenRouterProvider` imports it | 1.2 |
+| **A2** | Model artifacts do not exist and never did | Retrain after 1.2 + 1.4, then commit (ignore rule already prepared) | 1.1 ◐ |
+| **—** | No job corpus — `/match` returns 503 | Generate per `JOBS_DATASET_SPEC.md` | C.4 |
+| **N7** | `python run_api.py` dies on Windows (emoji vs cp1252) | Remove the emoji from the `print()` | N7 |
+| **N5** | `next@14.2.3` has a published security advisory | Patch within 14.x, re-run the build | 1.6 |
+
+### 🟠 Tests — the safety net does not exist
+
+| ID | Problem | Best solution | Phase |
+|---|---|---|---|
+| **N12a** | 19 tests call `/api/v1/health`, `/api/v1/score`, `/api/v1/batch` — endpoints this repo has **never** served. All 404 | Delete them, or build that surface. Do not leave tests asserting against an imaginary API | 6.7 |
+| **N12b** | `test_pipeline.py` builds `JobPosting` without 7 now-required fields → 10 errors. **This is why Agent 3 has no coverage** | Update the fixtures. Do this first — it unblocks 2.5 | 6.7 |
+| **N12c** | `test_cross_validation.py`: `plot_validation_curve()` missing an argument, unpack arity changed ×4 | Realign tests with current signatures | 6.7 |
+| **N12d** | Missing fixture `test_resume_abdelrahman.txt`; `test_data_loader` asserts `3 == 30`; `test_api_client` needs a live server on :8000 | Add the fixture, fix the assertion, mark the client tests `@pytest.mark.integration` and skip without a server | 6.7 |
+| **N12e** | Tests write PNGs into tracked `models/experiments/` | Point `output_dir` at `tmp_path` | 6.7 |
+| **N3** | Agents 1, 2, 3 have **zero** unit tests | Add per-agent tests incl. an Agent 3 determinism test | 2.5 |
+| **—** | `pytest.ini` forces coverage on every run | Move `--cov` to an explicit CI invocation | 6.7 |
+
+### 🟠 Code quality — never enforced
+
+| ID | Problem | Best solution | Phase |
+|---|---|---|---|
+| **Q1** | `black --check src/` → **28 of 30 files** would be reformatted | Run `black src/` once, commit as a pure-format commit, then enforce in CI | 6.3 |
+| **Q2** | `flake8 src/` → **1,565 issues** | Adopt `ruff` (replaces flake8+isort, one config), fix or explicitly ignore, then enforce | 6.3 |
+| **Q3** | `ruff` is not installed despite being the recommendation | Add to `requirements-dev.txt` | 1.2 |
+| **Q4** | `next lint` has **never been configured** — it prompts interactively, so the frontend has never been linted, though `eslint-config-next` is installed | Commit `.eslintrc.json` with `next/core-web-vitals`, then wire into CI | 6.3 |
+| **A0c** | `src/utils/` = 619 LOC, zero imports | Salvage into the vocabulary module, delete the rest + empty `scripts/setup/` | 2.6 |
+| **A11** | `src/storage/cache.py` is a docstring and `pass` | Implement a ~30-line TTL cache or delete it and its config keys | 5.8 |
+
+### 🟠 Safety — unsafe on a public URL
+
+| ID | Problem | Best solution | Phase |
+|---|---|---|---|
+| **A4** | `allow_origins=["*"]` **with** `allow_credentials=True` — browsers reject it, and `config.cors_origins` already exists unused | Read `CORS_ORIGINS`, default `localhost:3000`, restrict methods | 4.1 |
+| **A5 + N10** | No upload cap anywhere; config says 10 MB; the UI **advertises 200 MB** | Check `file.size` before read, 413 over 10 MB, validate real content type, fix the copy in the same PR | 4.2 |
+| **A7** | `/match` mutates the module-level `pipeline.agent4` per request → cross-request leakage under >1 worker | Pass `use_llm` as an argument; make Agent 4 stateless (same work as the provider refactor) | 4.6 |
+| **A8** | Bare `except:` ×3; `load_jobs()` swallows per-record failures silently | `except OSError`; count and log skipped records at startup | 4.5 |
+| **4.4** | `explain=true` generates for *every* job ≥0.6 — unbounded on a public URL | Hard-cap K ≤ 3, add `slowapi` limits, semaphore, daily quota counter | 4.4 |
+
+### 🟡 Performance
+
+| ID | Problem | Best solution | Phase |
+|---|---|---|---|
+| **B1** | Persists ~4,000 rows per upload but returns 10 — measured 7.16 s vs 0.0098 s for the batched equivalent | Sort → slice top-K → one `executemany`; `PRAGMA journal_mode=WAL` | 3.1 |
+| **B2** | 45-key synonym dict rebuilt on every call, ~80,000×/upload — 3.26 s | Module-level constant + flat alias map (same index as A0) | 3.2 |
+| **B3** | 4,000 separate `predict_proba` calls | One DataFrame, one transform, one predict | 3.6 |
+| **B4** | CV skills re-normalized per job | Normalize once before the loop | 3.4 |
+| **B5** | Every job gets full scoring | Zero-shared-skills → floor score, skip the expensive path | 3.5 |
+| **—** | Measured **27.6 s** for one CV vs 4,000 jobs *with ML off* | The 800-record corpus (C.4) plus 3.1–3.6 should bring this under 3 s | C.4 + Phase 3 |
+
+### 🟡 UI / UX
+
+| ID | Problem | Best solution | Phase |
+|---|---|---|---|
+| **N6** | `page.tsx:352` renders `Math.random()` → hydration mismatch, 6 console errors, React discards the server DOM | Generate once in `useEffect`/`useId`, or drop the decorative ID. Same for `new Date()` at :318 | 6.0 |
+| **N8** | `/upload` and `/jobs` have no nav link — reachable only by URL | Add both to `navItems`, or delete `/upload` and keep the dashboard uploader | N8 |
+| **N9** | Every page's tab title is "AI Resume Matcher - Dashboard" | `export const metadata` per page | N9 |
+| **N11** | Four false statements in UI copy (200 MB, 3,000+ jobs, max 5 jobs, PDF/DOCX only) | Correct all four; derive counts from the API rather than hardcoding | N11 |
+| **A9** | Landing page catch has no toast — the slowest call, on the first page a visitor sees | Add `toast.error` distinguishing timeout / 503 / 500 | 5.1 |
+| **A10** | Drag-drop silently discards DOCX/TXT; file picker validates nothing | One shared `acceptFile()` + toast on reject | 5.2 |
+| **B7** | `/jobs` search confirmed dead — `search=nurse` returns byte-identical results | Implement server-side over title/company/skills; add category + remote filters | 5.3 |
+| **B8** | 2.5 s of deliberate fake delay | Delete the timeouts; drive stages off the real request; surface real `processing_time` (currently hardcoded `None`) | 5.4 |
+| **B9** | Results stringified into `localStorage`, 5+ keys, `QuotaExceededError` uncaught | One Context/Zustand store; persist a summary only | 5.5 |
+| **B10** | `any[]` for results; duplicated legacy field aliases | `Match[]`; pick one field shape, delete the aliases | 5.6 |
+| **B11** | No loading skeletons | `animate-pulse` cards | 5.7 |
+| **—** | `header.tsx` unused by `/` and `/upload` | Use it everywhere or delete it | 5.8 |
+
+### 🟢 Cleanup
+
+| ID | Problem | Best solution | Phase |
+|---|---|---|---|
+| **B6** | Corpus bloat | ✅ Superseded — legacy files archived, 800-record replacement specified | C.1 ☑ |
+| **⑤** | `models/tfidf_vectorizer.pkl` orphaned; `models/experiments/` 10 PNGs incl. a committed test artifact | Delete the orphan; move experiments to a Release | 6.6 |
+| **—** | `/history` and `/match/history` are near-duplicates | Keep one | 5.8 |
+| **—** | `recharts`, `class-variance-authority` unused | Drop from `package.json` | 5.8 |
+
+---
+
 ## Scope guardrail
 
 Recorded here so it stays recorded. **No new abstraction unless it has ≥2 real
@@ -895,9 +994,12 @@ as abandoned work. `/history` and `/match/history` are near-identical; keep one.
 | `npx tsc --noEmit` → 0 errors | ✅ **done** (was 10) |
 | `next build` → compiles, all pages generated | ✅ **done** (9/9) |
 | Zero console errors on every page at runtime | ❌ blocked by **N6** |
-| `pytest` green | ❌ **29 failed, 10 errors, 109 passed** (26% failing) |
-| `ruff` / `black` clean | ❌ not wired |
+| `pytest` green | ❌ **30 failed, 10 errors, 108 passed** (27% failing) |
+| `black --check src/` | ❌ 28 of 30 files would be reformatted |
+| `flake8 src/` | ❌ **1,565 issues** (adopt `ruff` instead) |
+| `next lint` | ❌ **never configured** — prompts interactively, so has never run |
 | App starts from a clean clone | ❌ blocked by **1.2** |
+| App serves matches | ❌ blocked by **C.4** — no corpus, `/match` returns 503 |
 
 | # | ID | Task | I | R | E | Score |
 |---|---|---|---|---|---|---|
