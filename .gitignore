@@ -196,3 +196,6 @@ ML/models/metadata/*.txt
 # ====================
 scripts/**/__pycache__/
 scripts/**/temp_*.py
+# Staging file for the pass-3 description build. Superseded by data/json/jobs.json
+# once descriptions are written; not worth tracking both.
+data/json/jobs.skeleton.json
