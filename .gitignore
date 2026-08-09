@@ -1,8 +1,22 @@
 # ====================
 # Documentation (Internal)
 # ====================
-docs/
+# Note: `docs/*` (not `docs/`) so git still descends into the directory and the
+# negation below can take effect. A directory excluded outright is never walked,
+# and any `!` rule for a path inside it is silently ignored.
+docs/*
 DEVELOPER_GUIDE.md
+
+# Architecture Decision Records are public — they are the record of why the
+# system is shaped the way it is, and must survive the blanket docs/ ignore.
+!docs/adr/
+
+# ====================
+# Planning & Analysis (Internal)
+# ====================
+# Working notes and audit reports that feed TASKS.md. The backlog is tracked;
+# the raw reports it was derived from are not.
+Plans/
 
 # ====================
 # Python
