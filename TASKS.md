@@ -471,8 +471,14 @@ returns `503 No jobs loaded` until `data/json/jobs.json` exists. Expected and te
 | C.2f | `tests/unit/test_validate_corpus.py` — one planted defect **per rule**, 24 tests | ☑ found a real crash in the validator itself |
 | C.3 | Generate `data/dictionaries/skills.json` | ☑ **667 skills / 15 families / 1,523 aliases** — independently verified |
 | C.4a | Pass 1 + 2 — skeleton, all fields except `description` | ☑ **800 records, 16/19 checks pass** — the 3 failures are only the absent descriptions |
-| C.4b | Pass 3 — descriptions | ☐ **next** — run in a fresh session with the skeleton as input |
-| C.4c | Install both files, then C.5–C.10 | ☐ |
+| C.4b | Pass 3 — descriptions | ☑ **800/800, all 20 validator checks pass** — independently re-verified |
+| C.4c | Install `data/json/jobs.json` | ☑ |
+| C.5 | `load_jobs()` reads `payload["jobs"]`; legacy branch deleted | ☑ 800 jobs load |
+| C.6 | `jobs[:4000]` cap deleted | ☑ + regression test |
+| C.7 | Point `config.skills_database_path` at the new vocabulary | ☐ **pair with 2.2** |
+| C.8 | Vocabulary-coverage test | ☑ `tests/unit/test_corpus_integrity.py`, 5 tests |
+| C.9 | Re-measure coverage | ☑ **100%** (was 2.3% of skills / 60.9% of jobs unmatchable) |
+| C.10 | `whitespace-pre-line` on the description element | ☑ + header count now derived from the API, not hardcoded |
 
 **Independent cross-check, 9 Aug 2026.** Ran `scripts/validate_corpus.py` against the
 generated files rather than trusting the generator's own 22/22:
@@ -1095,12 +1101,12 @@ as abandoned work. `/history` and `/match/history` are near-identical; keep one.
 | `npx tsc --noEmit` → 0 errors | ✅ **done** (was 10) |
 | `next build` → compiles, all pages generated | ✅ **done** (9/9) |
 | Zero console errors on every page at runtime | ❌ blocked by **N6** |
-| `pytest` green | ❌ **29 failed, 2 errors, 141 passed** — was 30/10/108 |
+| `pytest` green | ❌ **28 failed, 2 errors, 149 passed** — was 30/10/108 at session start |
 | `black --check src/` | ❌ 28 of 30 files would be reformatted |
 | `flake8 src/` | ❌ **1,565 issues** (adopt `ruff` instead) |
 | `next lint` | ❌ **never configured** — prompts interactively, so has never run |
 | App starts from a clean clone | ❌ blocked by **1.2** |
-| App serves matches | ❌ blocked by **C.4** — no corpus, `/match` returns 503 |
+| App serves matches | ✅ **`/match` returns 5 real matches in 14.6s**, `scoring_mode: hybrid` |
 | ML scoring runs | ✅ **model shipped** — `load_model() -> True`, hybrid scoring live |
 
 | # | ID | Task | I | R | E | Score |

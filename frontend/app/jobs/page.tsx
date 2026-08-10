@@ -13,6 +13,9 @@ export default function JobsPage() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
+  // Derived from the API rather than hardcoded. The header previously claimed
+  // "3,000+" while the API served 4,000 out of a 6,146-record file.
+  const [total, setTotal] = useState(0);
   const limit = 12;
 
   useEffect(() => {
@@ -28,6 +31,7 @@ export default function JobsPage() {
         setHasMore(false);
       }
 
+      setTotal(response.total ?? 0);
       setJobs((prev) => (page === 0 ? response.jobs : [...prev, ...response.jobs]));
     } catch (error: any) {
       toast.error(error.response?.data?.detail || "Failed to load jobs");
@@ -51,7 +55,7 @@ export default function JobsPage() {
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-2">Job Database</h1>
         <p className="text-gray-400">
-          Browse and search through 3,000+ job descriptions
+          Browse and search {total > 0 ? total.toLocaleString() : ""} job descriptions
         </p>
       </div>
 
@@ -183,7 +187,10 @@ function JobCard({
           {job.description && (
             <div>
               <h4 className="text-sm font-semibold text-white mb-2">📋 Full Description</h4>
-              <p className="text-gray-400 text-sm leading-relaxed">{job.description}</p>
+              {/* whitespace-pre-line: descriptions carry real newlines (four
+                  sections and bullet lists). Without it the whole posting
+                  collapses into one run-on paragraph. */}
+              <p className="text-gray-400 text-sm leading-relaxed whitespace-pre-line">{job.description}</p>
             </div>
           )}
 
