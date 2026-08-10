@@ -1,49 +1,53 @@
-# File Processing
-pdfminer.six==20221105
-python-docx==1.1.0
-PyMuPDF==1.23.8
+# Recruiter-Pro - runtime dependencies
+#
+# Everything needed to serve the API. Install this and `python -m uvicorn
+# src.api:app` works.
+#
+# Split into three files because the previous single file was both incomplete
+# and bloated: it omitted six packages the code imports (so a fresh clone
+# raised ImportError on startup) while pinning six with zero imports anywhere.
+#
+#   requirements.txt       <- this file, runtime API
+#   requirements-ml.txt    <- model training only
+#   requirements-dev.txt   <- tests, linting, formatting
+#
+# Verified by import count across src/ and scripts/ on 2026-08-09.
 
-# NLP Processing (for Agent 2)
-spacy==3.7.2
-nltk==3.8.1
-
-# Data Processing (minimal - for data handling only)
-pandas==2.1.4
-numpy==1.26.2
-
-# LLM & API Clients (for Agent 3 & 4)
-openai==1.51.0  # For OpenRouter/GPT-OSS-20B access
-
-# Local LLM & Orchestration (for Agent 5)
-langchain==0.3.13
-langchain-community==0.3.13
-langchain-ollama==0.2.0  # LangChain Ollama integration
-langchain-core==0.3.13   # Core abstractions
-crewai==0.86.0
-ollama==0.4.4
-
-# API Framework (optional - for future API development)
+# --- API framework ---
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
-python-multipart==0.0.6
+python-multipart==0.0.6      # required by FastAPI for multipart file upload
 
-# UI Framework (optional - for future UI)
-streamlit==1.29.0
-plotly==5.18.0
+# --- File parsing (Agent 1) ---
+pdfminer.six==20221105
+python-docx==1.1.0
+PyMuPDF==1.23.8              # imported as `fitz`
 
-# Utilities
-requests==2.31.0
+# --- Text processing (Agent 2) ---
+nltk==3.8.1
+
+# --- Data + inference (Agent 3) ---
+pandas==2.1.4
+numpy==1.26.2
+scikit-learn>=1.3,<2.0       # MISSING BEFORE - 10 imports
+joblib>=1.3,<2.0             # MISSING BEFORE - 8 imports, loads the model
+
+# --- LLM explanations (Agent 4, optional at runtime) ---
+langchain==0.3.13
+langchain-community==0.3.13
+langchain-ollama==0.2.0
+langchain-core==0.3.13
+requests==2.31.0             # the Ollama provider calls the HTTP API directly
+
+# --- Config ---
 pyyaml==6.0.1
 python-dotenv==1.0.0
 
-# Testing
-pytest==7.4.3
-pytest-cov==4.1.0
-pytest-mock==3.12.0
-
-# Linting & Formatting
-black>=24.0.0
-flake8>=7.0.0
-mypy>=1.8.0
-ipython>=8.20.0
+# Removed - pinned but never imported anywhere in src/ or scripts/:
+#   crewai==0.86.0      0 imports
+#   openai==1.51.0      0 imports (re-add with OpenRouterProvider, TASKS.md 4.7)
+#   ollama==0.4.4       0 imports (Agent 4 uses requests against Ollama's HTTP API)
+#   spacy==3.7.2        0 imports
+#   streamlit==1.29.0   0 imports
+#   plotly==5.18.0      0 imports

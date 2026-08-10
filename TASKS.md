@@ -38,7 +38,7 @@ from a report. **Severity** is about consequence, not effort.
 
 | ID | Problem | Best solution | Phase |
 |---|---|---|---|
-| **A0** | `_get_canonical_skill` reads a category-nested dict as flat, so every skill normalizes to its category name. Python matches a Java job perfectly. ~⅓ of every score is noise, biased upward | Build an `{alias: canonical}` index once at load (`_build_alias_index`), guarded by `isinstance(entries, dict)` to skip `comment`. Lookup becomes O(1), which also delivers 3.2/3.4 | 2.2 |
+| **A0** | `_get_canonical_skill` read a category-nested dict as flat, so every skill normalized to its category name | ✅ **FIXED** — alias index built once at load, O(1) lookup. 12/17 tests failed before, 17/17 after. Real `/match` output went from `['programming_languages','devops','tools']` to `['FastAPI']`, and Backend Engineer replaced Frontend Engineer at the top for a backend CV | 2.2 ☑ |
 | **A0-T** | Nothing guards it | Regression test `normalize("python") != normalize("java")`, confirmed failing first | 2.1 |
 | **N13** | `_extract_keywords` sliced `[:20]` out of a **set**. Python randomizes string hashing per process, so the same CV+job scored **0.40 or 0.45 depending on process** — measured across 5 runs. Violates ADR-1's determinism rule | ✅ **Fixed** — rank by frequency, tie-break alphabetically. Verified identical across 5 processes. More useful than hash order too: a repeated term matters more | 2.2 ☑ |
 | **N14** | `JobPosting` set no `extra` policy, so Pydantic v2 **silently dropped** the new `category` key — `hasattr(job,'category')` was `False`. The spec's claimed "validated at load" safety net did not exist | ✅ **Fixed** — `category` declared with a validator rejecting anything outside the eight. Corpus-wide rules enforced by `scripts/validate_corpus.py` instead | C.3 ☑ |
@@ -182,11 +182,11 @@ is the first thing a reviewer does.
 | # | ID | Task | I | R | E | Score |
 |---|---|---|---|---|---|---|
 | 1.5 | N4 | `npm run build` is broken on `main` | 5 | 5 | 1 | **50** |
-| 1.2 | A1 | Split and repair `requirements.txt` | 5 | 5 | 2 | **40** |
+| 1.2 | A1 | Split and repair `requirements.txt` | 5 | 5 | 2 | **40** ☑ |
 | 1.4 | A3 | Remove target leakage, retrain, report the honest number | 4 | 5 | 3 | **27** ☑ |
 | 1.1 | A2 | Ship the trained model artifacts | 5 | 5 | 1 | **50** ☑ |
-| 1.3 | N2 | Resolve the two contradictory model metadata files | 3 | 4 | 2 | **28** |
-| 1.6 | N5 | `next@14.2.3` has a published security advisory | 2 | 4 | 2 | **24** |
+| 1.3 | N2 | Resolve the two contradictory model metadata files | 3 | 4 | 2 | **28** ☑ |
+| 1.6 | N5 | `next@14.2.3` has a published security advisory | 2 | 4 | 2 | **24** ☑ patched to 14.2.35 |
 
 > **Revised order, 9 Aug 2026.** 1.1 was written as the first task and cannot be. The
 > artifacts it says to commit **do not exist**, so producing them means retraining, which
@@ -1101,11 +1101,11 @@ as abandoned work. `/history` and `/match/history` are near-identical; keep one.
 | `npx tsc --noEmit` → 0 errors | ✅ **done** (was 10) |
 | `next build` → compiles, all pages generated | ✅ **done** (9/9) |
 | Zero console errors on every page at runtime | ❌ blocked by **N6** |
-| `pytest` green | ❌ **28 failed, 2 errors, 149 passed** — was 30/10/108 at session start |
+| `pytest` green | ❌ **29 failed, 2 errors, 165 passed** — was 30/10/108 at session start |
 | `black --check src/` | ❌ 28 of 30 files would be reformatted |
 | `flake8 src/` | ❌ **1,565 issues** (adopt `ruff` instead) |
 | `next lint` | ❌ **never configured** — prompts interactively, so has never run |
-| App starts from a clean clone | ❌ blocked by **1.2** |
+| App starts from a clean clone | ✅ **requirements split + repaired**; `run_api.py` fixed on Windows |
 | App serves matches | ✅ **`/match` returns 5 real matches in 14.6s**, `scoring_mode: hybrid` |
 | ML scoring runs | ✅ **model shipped** — `load_model() -> True`, hybrid scoring live |
 
