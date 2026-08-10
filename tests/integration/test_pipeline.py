@@ -38,10 +38,19 @@ class TestAgent3Scorer:
         return JobPosting(
             job_id="test_job_001",
             title="Senior Python Developer",
+            category="engineering",
+            company_name="Test Corp",
+            location_city="Cairo",
+            location_country="Egypt",
+            remote_type="remote",
+            employment_type="full-time",
+            seniority_level="senior",
             required_skills=["Python", "FastAPI", "SQL"],
             preferred_skills=["Docker", "Kubernetes", "AWS"],
             min_experience_years=3.0,
+            max_experience_years=8.0,
             education_level="Bachelor's Degree",
+            posted_date="2026-07-01",
             description="Looking for senior Python developer with FastAPI experience..."
         )
     
@@ -60,9 +69,15 @@ class TestAgent3Scorer:
         
         # Should match several skills (at least 2-3 out of Python, FastAPI, Docker, PostgreSQL)
         assert len(score.matched_skills) >= 2
-        # Check if python-related skills are matched (normalized form)
+        # Check if python-related skills are matched (normalized form).
+        #
+        # The 'programming' alternative was removed here: it accepted
+        # 'programming_languages', the family name A0 produced, which meant
+        # this test passed *because of* the bug rather than despite it. That
+        # clause is how A0 survived. Guarded now by
+        # tests/unit/test_skill_normalization.py.
         matched_lower = [s.lower() for s in score.matched_skills]
-        assert any('python' in s or 'programming' in s or 'fastapi' in s for s in matched_lower)
+        assert any('python' in s or 'fastapi' in s for s in matched_lower)
         
         # Should be missing some skills
         assert len(score.missing_skills) >= 1
@@ -207,10 +222,20 @@ class TestMatchingPipeline:
         return JobPosting(
             job_id="test_job_pipeline",
             title="Senior Python Developer",
+            category="engineering",
+            company_name="Test Corp",
+            location_city="Cairo",
+            location_country="Egypt",
+            remote_type="remote",
+            employment_type="full-time",
+            seniority_level="senior",
             required_skills=["Python", "FastAPI", "SQL"],
             preferred_skills=["Docker", "AWS"],
             min_experience_years=3.0,
-            education_level="Bachelor's Degree"
+            max_experience_years=8.0,
+            education_level="Bachelor's Degree",
+            posted_date="2026-07-01",
+            description="Senior Python role with FastAPI and SQL responsibilities."
         )
     
     def test_pipeline_initialization(self, pipeline):

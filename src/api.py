@@ -62,61 +62,59 @@ jobs_cache: List[JobPosting] = []
 
 
 def load_jobs() -> List[JobPosting]:
-    """Load jobs from cleaned JSON file"""
-    # Try cleaned file first, fallback to original
-    jobs_path = Path("data/json/jobs_cleaned.json")
-    if not jobs_path.exists():
-        jobs_path = Path("data/json/jobs.json")
-        logger.warning(f"Cleaned jobs file not found, using original: {jobs_path}")
-    
+    """
+    Load the job corpus.
+
+    The corpus is an object with a metadata envelope and a "jobs" array, not a
+    bare array - see JOBS_DATASET_SPEC.md. The legacy pipe-separated shape and
+    the jobs_cleaned.json fallback were removed when that corpus was archived
+    (data/archive/jobs-legacy-2026-08-09/); nothing produces them any more.
+    """
+    jobs_path = Path("data/json/jobs.json")
+
     if not jobs_path.exists():
         logger.warning(f"Jobs file not found: {jobs_path}")
         return []
-    
+
     try:
         with open(jobs_path, 'r', encoding='utf-8') as f:
-            jobs_data = json.load(f)
-        
-        # Convert to JobPosting objects
+            payload = json.load(f)
+
+        if not isinstance(payload, dict) or "jobs" not in payload:
+            logger.error(
+                f"{jobs_path} is not in the expected format: expected an object with a "
+                f"'jobs' key, got {type(payload).__name__}. See JOBS_DATASET_SPEC.md."
+            )
+            return []
+
         jobs = []
-        for job_dict in jobs_data:
+        skipped = 0
+        for job_dict in payload["jobs"]:
             try:
-                # Handle new structure (cleaned jobs)
-                if "company_name" in job_dict:
-                    # New structure - direct mapping
-                    job = JobPosting(**job_dict)
-                else:
-                    # Legacy structure - normalize field names
-                    normalized = {
-                        "job_id": job_dict.get("Job Id") or job_dict.get("job_id", ""),
-                        "title": job_dict.get("Job Title") or job_dict.get("title", ""),
-                        "company_name": job_dict.get("company", "N/A"),
-                        "location_city": job_dict.get("Location", "Remote"),
-                        "location_country": "India",
-                        "remote_type": "remote" if "remote" in job_dict.get("Location", "").lower() else "on-site",
-                        "employment_type": "full-time",
-                        "seniority_level": "mid",
-                        "min_experience_years": parse_experience(job_dict.get("Experience", "0"))[0],
-                        "max_experience_years": parse_experience(job_dict.get("Experience", "0"))[1],
-                        "description": job_dict.get("Qualifications") or job_dict.get("description", ""),
-                        "required_skills": job_dict.get("skills", "").split("|") if isinstance(job_dict.get("skills"), str) else job_dict.get("required_skills", []),
-                        "preferred_skills": [],
-                        "posted_date": "2026-01-01"
-                    }
-                    job = JobPosting(**normalized)
-                
-                jobs.append(job)
+                jobs.append(JobPosting(**job_dict))
             except Exception as e:
-                logger.debug(f"Skipping invalid job: {e}")
+                # Count these. Previously they were swallowed at DEBUG, so there
+                # was no way to know how many records silently failed to parse.
+                skipped += 1
+                if skipped <= 3:
+                    logger.warning(f"Skipping invalid job {job_dict.get('job_id')}: {e}")
                 continue
-        
-        # Limit to 4000 jobs for better matching coverage
-        jobs = jobs[:4000]
-        logger.info(f"Loaded {len(jobs)} jobs from {jobs_path}")
+
+        # No [:4000] cap. The old corpus held 6,146 records and this silently
+        # discarded 2,146 of them (34.9%) while /jobs still reported the sliced
+        # count as the total. The corpus is now sized deliberately instead.
+        if skipped:
+            logger.warning(f"Loaded {len(jobs)} jobs, skipped {skipped} malformed")
+        else:
+            logger.info(
+                f"Loaded {len(jobs)} jobs from {jobs_path} "
+                f"(schema {payload.get('schema_version', '?')}, "
+                f"generated {payload.get('generated_at', '?')})"
+            )
         return jobs
-    
+
     except Exception as e:
-        logger.error(f"Failed to load jobs: {e}")
+        logger.error(f"Failed to load jobs: {e}", exc_info=True)
         return []
 
 
@@ -404,6 +402,13 @@ async def match_cv(
                 "parser_score": round(match.score_breakdown.rule_based_score * 100, 1),
                 "matcher_score": round(match.score_breakdown.skill_score * 100, 1),
                 "scorer_score": round(match.score_breakdown.experience_score * 100, 1),
+                # MatchCard renders skill badges from these two fields. Only
+                # /match/single sent them (nested as skills.matched/.missing),
+                # so on this endpoint - the one the UI actually calls - the
+                # badges were always empty. Flat names to match what the
+                # component and the Match type expect. See TASKS.md 1.5.
+                "matched_skills": match.score_breakdown.matched_skills,
+                "missing_skills": match.score_breakdown.missing_skills,
                 "status": status,
                 "timestamp": datetime.now().isoformat()
             }
@@ -420,7 +425,16 @@ async def match_cv(
         return {
             "matches": results,
             "cv_text": None,  # Optional field
-            "processing_time": None  # Optional field
+            "processing_time": None,  # Optional field
+            # Scoring provenance. Without this, a caller cannot tell whether the
+            # scores came from the advertised hybrid ML+rules path or from the
+            # rule-based fallback that runs when the model fails to load. Both
+            # produce plausible numbers, so the difference is invisible unless
+            # it is stated. See TASKS.md 1.1.
+            "ml_scoring_enabled": pipeline.agent3.ml_predictor is not None,
+            "scoring_mode": (
+                "hybrid" if pipeline.agent3.ml_predictor is not None else "rule_based_only"
+            )
         }
     
     except Exception as e:
@@ -703,7 +717,18 @@ async def startup_event():
         logger.info(f"[OK] ML model loaded: {model_info.get('model_name', 'Unknown')}")
         logger.info(f"   Test Recall: {model_info.get('test_recall', 'N/A')}")
     else:
-        logger.warning("[WARN] ML model not loaded (using rule-based scoring only)")
+        # Loud on purpose. The previous single-line warning scrolled past in a
+        # wall of startup output, so the project ran without its headline
+        # feature for a long time without anyone noticing. State the
+        # consequence and the remedy, not just the fact.
+        logger.warning("!" * 60)
+        logger.warning("[WARN] ML model NOT loaded - scoring is RULE-BASED ONLY")
+        logger.warning("       The hybrid ML+rules scoring is not running.")
+        logger.warning("       Expected: models/production/ats_model.joblib")
+        logger.warning("                 models/production/feature_engineer.joblib")
+        logger.warning("       Regenerate with: python -m src.ml_engine.train \\")
+        logger.warning("                          --data-path data/AI_Resume_Screening.csv")
+        logger.warning("!" * 60)
     
     # Check Ollama
     if hasattr(pipeline, 'config') and pipeline.config.llm.enabled:

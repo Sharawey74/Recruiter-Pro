@@ -27,9 +27,17 @@ class FeatureEngineer:
     - Job Role: One-hot encoding
     - Experience: Raw + squared + log
     - Projects: Count + years_per_project
-    - Salary: Raw + log + normalized
+
+    Deliberately NOT engineered:
+    - Salary: it is an outcome of the hiring decision, not a predictor of it.
+      Including it leaks the target. See LEAKING_FEATURES.
     """
-    
+
+    #: Features that must never be produced, because each encodes the outcome
+    #: the model is supposed to predict. Enforced by a test rather than left as
+    #: a comment - a comment does not stop the next person adding it back.
+    LEAKING_FEATURES = frozenset({'salary', 'salary_log', 'ai_score'})
+
     def __init__(self):
         self.scaler = StandardScaler()
         self.education_encoder = LabelEncoder()
@@ -85,11 +93,17 @@ class FeatureEngineer:
             features['experience'] / features['projects_count'],
             0
         )
-        
-        # Salary features
-        features['salary'] = df['Salary'].fillna(df['Salary'].median() if not df['Salary'].isna().all() else 50000)
-        features['salary_log'] = np.log1p(features['salary'])
-        
+
+        # NOTE: salary and salary_log were removed here - deliberately, and they
+        # must not come back. See LEAKING_FEATURES below and the guard test in
+        # tests/unit/test_feature_engineering.py.
+        #
+        # Salary expectation is a *consequence* of the hiring decision, not an
+        # input to it: the offer follows the decision. Training on it let the
+        # model read the answer off the back of the page, which is why the old
+        # models/production/model_metadata.json reported precision 1.000 and
+        # ROC-AUC 1.000 on a 150-row test set. Those numbers were never real.
+
         return features
     
     def fit_transform(self, df: pd.DataFrame, exclude_ai_score: bool = True) -> Tuple[np.ndarray, List[str]]:
@@ -115,8 +129,10 @@ class FeatureEngineer:
         df.rename(columns=column_mapping, inplace=True)
         
         # Validate required columns
-        required_cols = ['Skills', 'Experience', 'Education', 'Certifications', 
-                        'Job Role', 'Projects Count', 'Salary']
+        # 'Salary' is intentionally absent - the pipeline no longer reads it,
+        # so a dataset without that column trains fine.
+        required_cols = ['Skills', 'Experience', 'Education', 'Certifications',
+                        'Job Role', 'Projects Count']
         missing_cols = set(required_cols) - set(df.columns)
         if missing_cols:
             raise ValueError(f"Missing required columns: {missing_cols}")

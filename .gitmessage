@@ -1,0 +1,16 @@
+# <type>(<scope>): <subject>            <-- 72 chars max, imperative, no trailing period
+#
+# <body: why, not what. wrap at 72. reference the TASKS.md item.>
+#
+# Refs: <A0, B1, ...>
+#
+# ----------------------------------------------------------------------
+# type   feat | fix | perf | refactor | test | chore | docs | ci | style | build
+# scope  agent1 agent2 agent3 agent4 pipeline api ml storage config
+#        frontend data deps repo
+#
+# Breaking change:  feat(api)!: ...   or a  BREAKING CHANGE:  footer
+#
+# Full conventions: CONTRIBUTING.md
+# Enable this template:  git config commit.template .gitmessage
+# ----------------------------------------------------------------------

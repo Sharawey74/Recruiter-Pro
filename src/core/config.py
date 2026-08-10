@@ -134,7 +134,11 @@ class Config:
     
     # Data paths
     jobs_data_path: str = "data/jobs/jobs.json"
-    skills_database_path: str = "data/dictionaries/skills_canonical.json"
+    # The controlled vocabulary the job corpus was generated against: 667
+    # canonical skills, 1,523 aliases, covering all eight job categories.
+    # Replaces skills_canonical.json, which held 105 engineering-leaning skills
+    # and recognised 2.3% of the corpus.
+    skills_database_path: str = "data/dictionaries/skills.json"
     
     # Processing settings
     max_jobs_to_score: int = 5000

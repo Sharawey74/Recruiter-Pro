@@ -44,8 +44,18 @@ class TestModels:
         job = JobPosting(
             job_id="job_001",
             title="Python Developer",
+            category="engineering",
+            company_name="Test Corp",
+            location_city="Cairo",
+            location_country="Egypt",
+            remote_type="remote",
+            employment_type="full-time",
+            seniority_level="mid",
+            description="Python developer role building web services.",
             required_skills=["Python", "Django"],
-            min_experience_years=3.0
+            min_experience_years=3.0,
+            max_experience_years=6.0,
+            posted_date="2026-07-01"
         )
         
         assert job.job_id == "job_001"

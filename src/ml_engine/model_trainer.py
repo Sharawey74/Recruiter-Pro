@@ -376,7 +376,13 @@ class ATSModelTrainer:
                                for k, v in results['val_metrics'].items() 
                                if k not in ['criteria_checks']},
                 'composite_score': float(results['composite_score']),
-                'meets_criteria': results['meets_criteria'],
+                # bool() because EvaluationCriteria returns numpy.bool_, which
+                # json.dump cannot serialize. The whole training run crashed
+                # here on the final line, after the production artifacts had
+                # already been written - so it looked like a failed train that
+                # had actually succeeded, and it exits non-zero, which would
+                # fail CI.
+                'meets_criteria': bool(results['meets_criteria']),
                 'optimal_threshold': float(results['optimal_threshold'])
             }
         

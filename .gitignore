@@ -1,8 +1,22 @@
 # ====================
 # Documentation (Internal)
 # ====================
-docs/
+# Note: `docs/*` (not `docs/`) so git still descends into the directory and the
+# negation below can take effect. A directory excluded outright is never walked,
+# and any `!` rule for a path inside it is silently ignored.
+docs/*
 DEVELOPER_GUIDE.md
+
+# Architecture Decision Records are public — they are the record of why the
+# system is shaped the way it is, and must survive the blanket docs/ ignore.
+!docs/adr/
+
+# ====================
+# Planning & Analysis (Internal)
+# ====================
+# Working notes and audit reports that feed TASKS.md. The backlog is tracked;
+# the raw reports it was derived from are not.
+Plans/
 
 # ====================
 # Python
@@ -98,6 +112,20 @@ models/*.onnx
 *.pkl
 *.joblib
 
+# The two production artifacts are the exception: without them ATSPredictor
+# returns False, Agent 3 falls back to rule-based, and the hybrid ML scoring
+# this project advertises does not run at all for anyone who clones it.
+# They are a logistic regression plus a feature encoder — small enough to
+# track, and the repo is not useful without them.
+#
+# Listed by name rather than as `!models/production/*.joblib`. Both forms work
+# (the rules above match files, not the directory, so the negation is not
+# inert the way the docs/ one was). The explicit list is an allowlist: a stray
+# experiment artifact dropped into models/production/ stays ignored instead of
+# being committed by accident.
+!models/production/ats_model.joblib
+!models/production/feature_engineer.joblib
+
 # ====================
 # Data Directories
 # ====================
@@ -168,3 +196,6 @@ ML/models/metadata/*.txt
 # ====================
 scripts/**/__pycache__/
 scripts/**/temp_*.py
+# Staging file for the pass-3 description build. Superseded by data/json/jobs.json
+# once descriptions are written; not worth tracking both.
+data/json/jobs.skeleton.json

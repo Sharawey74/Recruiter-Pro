@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-01-29T19:52:43.164983",
+  "timestamp": "2026-08-09T19:56:58.923195",
   "model_name": "Logistic Regression",
-  "feature_count": 30,
+  "feature_count": 28,
   "feature_names": [
     "has_python",
     "has_java",
@@ -30,11 +30,9 @@
     "experience_squared",
     "experience_log",
     "projects_count",
-    "years_per_project",
-    "salary",
-    "salary_log"
+    "years_per_project"
   ],
-  "optimal_threshold": 0.2595990244829803,
+  "optimal_threshold": 0.22898580355442366,
   "train_size": 700,
   "val_size": 150,
   "test_size": 150,

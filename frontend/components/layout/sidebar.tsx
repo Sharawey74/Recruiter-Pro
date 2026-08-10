@@ -17,14 +17,22 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [apiStatus, setApiStatus] = useState<"online" | "offline">("offline");
+  const [scoringMode, setScoringMode] = useState<"hybrid" | "rules-only" | "unknown">(
+    "unknown"
+  );
 
   useEffect(() => {
     const checkStatus = async () => {
       try {
         const health = await checkHealth();
         setApiStatus(health.status === "healthy" ? "online" : "offline");
+        const mlLoaded = health.components?.ml_model_loaded;
+        setScoringMode(
+          mlLoaded === undefined ? "unknown" : mlLoaded ? "hybrid" : "rules-only"
+        );
       } catch {
         setApiStatus("offline");
+        setScoringMode("unknown");
       }
     };
 
@@ -76,7 +84,7 @@ export function Sidebar() {
       </nav>
 
       {/* API Status */}
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-white/10 space-y-2">
         <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-lg">
           <Circle
             className={cn(
@@ -89,6 +97,32 @@ export function Sidebar() {
             <p className="text-xs text-gray-400 capitalize">{apiStatus}</p>
           </div>
         </div>
+
+        {/* Scoring mode. Rule-based-only means the ML model failed to load and
+            the hybrid scoring is not running — previously invisible in the UI. */}
+        {apiStatus === "online" && scoringMode !== "unknown" && (
+          <div
+            className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-lg"
+            title={
+              scoringMode === "hybrid"
+                ? "Scores combine the ML model with rule-based matching"
+                : "ML model not loaded — scores come from rule-based matching only"
+            }
+          >
+            <Circle
+              className={cn(
+                "w-3 h-3 fill-current",
+                scoringMode === "hybrid" ? "text-green-500" : "text-amber-500"
+              )}
+            />
+            <div>
+              <p className="text-sm font-medium text-white">Scoring</p>
+              <p className="text-xs text-gray-400" aria-live="polite">
+                {scoringMode === "hybrid" ? "Hybrid (ML + rules)" : "Rules only"}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );
