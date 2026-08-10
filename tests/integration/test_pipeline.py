@@ -69,9 +69,15 @@ class TestAgent3Scorer:
         
         # Should match several skills (at least 2-3 out of Python, FastAPI, Docker, PostgreSQL)
         assert len(score.matched_skills) >= 2
-        # Check if python-related skills are matched (normalized form)
+        # Check if python-related skills are matched (normalized form).
+        #
+        # The 'programming' alternative was removed here: it accepted
+        # 'programming_languages', the family name A0 produced, which meant
+        # this test passed *because of* the bug rather than despite it. That
+        # clause is how A0 survived. Guarded now by
+        # tests/unit/test_skill_normalization.py.
         matched_lower = [s.lower() for s in score.matched_skills]
-        assert any('python' in s or 'programming' in s or 'fastapi' in s for s in matched_lower)
+        assert any('python' in s or 'fastapi' in s for s in matched_lower)
         
         # Should be missing some skills
         assert len(score.missing_skills) >= 1

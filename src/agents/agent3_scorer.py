@@ -62,22 +62,68 @@ class HybridScoringAgent:
                 logger.warning(f"[WARN] ML Predictor unavailable: {e}. Using rule-based only.")
                 self.ml_predictor = None
         
-        # Load skills database for canonical matching
+        # Load the skill vocabulary as a flat {alias_lower: Canonical} index.
         self.skills_database = self._load_skills_database()
-    
-    def _load_skills_database(self) -> Dict[str, List[str]]:
-        """Load canonical skills database for fuzzy matching"""
+
+    @staticmethod
+    def _build_alias_index(raw: Dict) -> Dict[str, str]:
+        """
+        Flatten the family-nested vocabulary into {alias_lower: Canonical}.
+
+        This is the fix for A0. The previous code iterated the raw file as if
+        it were flat -- {canonical: [aliases]} -- but it is nested by family:
+
+            {"programming_languages": {"Python": ["python", "py"], ...}, ...}
+
+        so `for canonical, aliases in raw.items()` bound `canonical` to the
+        *family name* and `aliases` to the inner dict. `[a.lower() for a in
+        aliases]` then iterated that dict's keys, the membership test passed,
+        and the function returned "programming_languages" for every language.
+        Python and Java normalized to an identical string and matched
+        perfectly. Skills are 50% of the rule-based score, so about a third of
+        every reported score was noise, biased upward.
+
+        Handles both layouts: the current one, which separates `_meta` from
+        `families`, and the older one that mixed metadata keys in beside the
+        families. The isinstance guard is what skips `comment` / `_meta` -- and
+        its absence is what caused the original bug.
+        """
+        families = raw.get("families")
+        if not isinstance(families, dict):
+            # Legacy layout: families sit at the top level next to metadata.
+            families = {k: v for k, v in raw.items() if isinstance(v, dict)}
+
+        index: Dict[str, str] = {}
+        for family, entries in families.items():
+            if not isinstance(entries, dict):
+                continue
+            for canonical, aliases in entries.items():
+                index[canonical.lower()] = canonical
+                if not isinstance(aliases, (list, tuple)):
+                    continue
+                for alias in aliases:
+                    index[str(alias).lower()] = canonical
+        return index
+
+    def _load_skills_database(self) -> Dict[str, str]:
+        """Load the skill vocabulary and flatten it into an alias index."""
         skills_path = Path(self.config.skills_database_path)
-        
+
         if not skills_path.exists():
             logger.warning(f"Skills database not found: {skills_path}")
             return {}
-        
+
         try:
-            with open(skills_path, 'r') as f:
-                return json.load(f)
+            with open(skills_path, 'r', encoding='utf-8') as f:
+                raw = json.load(f)
+            index = self._build_alias_index(raw)
+            logger.info(
+                f"[OK] Skill vocabulary loaded: {len(set(index.values()))} canonical "
+                f"skills, {len(index)} aliases"
+            )
+            return index
         except Exception as e:
-            logger.error(f"Failed to load skills database: {e}")
+            logger.error(f"Failed to load skills database: {e}", exc_info=True)
             return {}
     
     def score_match(
@@ -521,22 +567,17 @@ class HybridScoringAgent:
         return normalized
     
     def _get_canonical_skill(self, skill: str) -> Optional[str]:
-        """Get canonical skill name from database"""
+        """
+        Resolve a skill to its canonical name.
+
+        One dict lookup against the alias index built at load time, instead of
+        the previous linear scan over the whole vocabulary per skill. That scan
+        ran once per skill per job -- so at 800 jobs it was the hot path -- and
+        it was also where A0 lived. See _build_alias_index.
+        """
         if not self.skills_database:
             return None
-        
-        skill_lower = skill.lower()
-        
-        # Direct match
-        if skill_lower in self.skills_database:
-            return skill_lower
-        
-        # Fuzzy match (simplified)
-        for canonical, aliases in self.skills_database.items():
-            if skill_lower in [a.lower() for a in aliases]:
-                return canonical
-        
-        return None
+        return self.skills_database.get(skill.lower())
     
     def _is_overqualified(self, cv: CVProfile, job: JobPosting, exp_score: float) -> bool:
         """Check if candidate is overqualified"""
