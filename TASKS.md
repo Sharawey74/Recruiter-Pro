@@ -186,7 +186,7 @@ is the first thing a reviewer does.
 | 1.4 | A3 | Remove target leakage, retrain, report the honest number | 4 | 5 | 3 | **27** ☑ |
 | 1.1 | A2 | Ship the trained model artifacts | 5 | 5 | 1 | **50** ☑ |
 | 1.3 | N2 | Resolve the two contradictory model metadata files | 3 | 4 | 2 | **28** ☑ |
-| 1.6 | N5 | `next@14.2.3` has a published security advisory | 2 | 4 | 2 | **24** ☑ patched to 14.2.35 |
+| 1.6 | N5 | `next@14.2.3` has a published security advisory | 2 | 4 | 2 | **24** ☑ **upgraded to 16.3.0 — `found 0 vulnerabilities`** |
 
 > **Revised order, 9 Aug 2026.** 1.1 was written as the first task and cannot be. The
 > artifacts it says to commit **do not exist**, so producing them means retraining, which
@@ -376,13 +376,28 @@ declared them.
 and most of Phase 1. Fix: add both fields to `Match` — which overlaps 5.6, so do them
 together and drop the legacy aliases in the same pass.
 
-### ☐ 1.6 — N5 · `next@14.2.3` security advisory
-`branch: chore/deps-upgrade-next`
+### ☑ 1.6 — N5 · Next.js upgraded to 16.3.0 — **all advisories closed**
+`branch: chore/deps-upgrade-next-16`
 
-`npm install` reports: `next@14.2.3: This version has a security vulnerability. Please
-upgrade to a patched version.` Also flagged: `glob@10.3.10` and `eslint@8.57.1` as
-unsupported. Patch Next within the 14.x line first and re-run 1.5's build to confirm
-nothing else breaks; treat a major upgrade as separate work.
+`npm audit` went from **8 high/critical to `found 0 vulnerabilities`**.
+
+The 14.x patch (14.2.35) closed seven of eight but left the Image Optimizer `remotePatterns`
+DoS, which affects **every release below 16.3.0** — so it genuinely required the major
+upgrade. Attempted it rather than assuming it was too risky, and it was not:
+
+- **Next 16 accepts React 18** (`^18.2.0 || ^19.0.0`), so no React 19 migration was needed —
+  that is the usual blocker on this upgrade and it does not apply here.
+- The only conflict was `eslint-config-next@16` requiring ESLint ≥ 9. Upgraded ESLint to 9
+  as well, which cost nothing because **this project has never had an ESLint config** (N-lint)
+  — there was no legacy `.eslintrc` to migrate to flat config.
+- Next 16 rewrote `tsconfig.json` on first build (`jsx: react-jsx`, added `.next/dev/types`).
+  Expected and committed.
+
+Verified beyond the build, since "it compiles" is not "it works": `tsc --noEmit` 0 errors,
+`next build` clean across all 7 routes, then the app run against a live backend — `/jobs`
+rendered 800 real jobs, the header read "Browse and search 800 job descriptions" from the
+API, and the expanded description had `white-space: pre-line` with 20 newlines preserved, so
+the four-section format survives.
 
 ### ☐ 1.2 — A1 · `requirements.txt` is missing six packages the code imports
 `branch: chore/deps-split-requirements`
@@ -585,15 +600,31 @@ USA 1,053.
 **Goal: the scores mean something.** Everything downstream inherits this, which is why it
 comes before performance. Making a wrong answer arrive faster is not progress.
 
-| # | ID | Task | I | R | E | Score |
-|---|---|---|---|---|---|---|
-| 2.1 | A0-T | Regression test: `normalize("python") != normalize("java")` | 4 | 5 | 1 | **45** |
-| 2.2 | A0 | Flatten the canonical skill index | 5 | 5 | 2 | **40** |
-| 2.3 | W | One source of truth for scoring weights | 3 | 4 | 1 | **35** |
-| 2.4 | A0b | Merge four skill vocabularies into one | 5 | 4 | 3 | **27** |
-| 2.5 | N3 | Unit tests for Agents 1, 2, 3 — currently zero | 4 | 5 | 3 | **27** |
-| 2.6 | A0c | Delete `src/utils/` — 619 LOC, zero imports | 2 | 2 | 1 | **20** |
-| 2.7 | ② | Agent contracts: typed results, constructor injection, no `__init__` side effects | 4 | 3 | 4 | **14** |
+> **Status: 2 of 7 done.** The headline defect (A0) is fixed and the corpus work closed part
+> of 2.4, but Phase 2 is **not complete** — 2.3, 2.6 and 2.7 have not been started, and 2.4
+> and 2.5 are partial. Audited 10 Aug 2026, not assumed.
+
+| # | ID | Task | I | R | E | Score | Status |
+|---|---|---|---|---|---|---|---|
+| 2.1 | A0-T | Regression test: `normalize("python") != normalize("java")` | 4 | 5 | 1 | **45** | ☑ 17 tests, 12 failed pre-fix |
+| 2.2 | A0 | Flatten the canonical skill index | 5 | 5 | 2 | **40** | ☑ |
+| 2.3 | W | One source of truth for scoring weights | 3 | 4 | 1 | **35** | ☐ still hardcoded at `agent3_scorer.py:156` |
+| 2.4 | A0b | Merge four skill vocabularies into one | 5 | 4 | 3 | **27** | ◐ **partial** |
+| 2.5 | N3 | Unit tests for Agents 1, 2, 3 | 4 | 5 | 3 | **27** | ◐ **partial** |
+| 2.6 | A0c | Delete `src/utils/` — 619 LOC, zero imports | 2 | 2 | 1 | **20** | ☐ 5 files still present |
+| 2.7 | ② | Agent contracts: typed results, constructor injection, no `__init__` side effects | 4 | 3 | 4 | **14** | ☐ |
+
+**What "partial" means, precisely:**
+
+- **2.4** — the *shared* vocabulary now exists and is wired in: `config.skills_database_path`
+  points at `data/dictionaries/skills.json` (667 skills / 1,523 aliases), the corpus was
+  generated against it, and coverage is 100%. But **two of the four original vocabularies are
+  still in the code**: `Agent2.SKILLS_DATABASE` (3 references) and Agent 3's function-local
+  `synonyms` dict (`agent3_scorer.py:250`). Until both are deleted and the shared vocabulary
+  is injected, Agent 2 can still extract a skill Agent 3 cannot match.
+- **2.5** — Agent 3 now has real coverage: 7 unit tests in `test_skill_normalization.py` plus
+  12 integration tests in `test_pipeline.py` that were resurrected from fixture drift.
+  **Agents 1 and 2 still have zero unit tests.**
 
 ### ☐ 2.1 — Write the regression test first
 `branch: test/agent3-skill-normalization-regression`
