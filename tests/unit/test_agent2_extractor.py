@@ -115,3 +115,46 @@ class TestOutputContract:
         a.pop("extracted_at", None)
         b.pop("extracted_at", None)
         assert a == b
+
+
+class TestSharedVocabulary:
+    """
+    Agent 2 used to own a private 178-skill SKILLS_DATABASE and a 14-entry
+    synonym map, making it the fourth competing vocabulary in a codebase whose
+    ADR-003 says there is one. It now reads the same index Agent 3 scores
+    against, so anything Agent 2 extracts is by construction something Agent 3
+    can match.
+    """
+
+    @pytest.mark.unit
+    def test_extracted_skills_are_canonical(self, extractor):
+        canonical = set(extractor.skills_index.values())
+        for skill in extractor.extract(CV)["skills"]:
+            assert skill in canonical, f"{skill!r} is not a canonical name"
+
+    @pytest.mark.unit
+    def test_uses_the_shared_index_not_a_private_table(self, extractor):
+        """The shared vocabulary is far larger than the old private one."""
+        assert len(extractor.skills_index) > 1000
+
+    @pytest.mark.unit
+    def test_vocabulary_can_be_injected(self):
+        """Constructor injection, so tests need no vocabulary file."""
+        tiny = {"python": "Python", "widgetry": "Widgetry"}
+        e = CandidateExtractor(skills_index=tiny)
+        assert e._extract_skills("I know python and widgetry") == ["Python", "Widgetry"]
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("text,expected", [
+        ("experienced in .NET development", ".NET"),
+        ("wrote T-SQL queries", "T-SQL"),
+        ("node.js backend", "Node.js"),
+        ("c++ and c#", "C++"),
+    ])
+    def test_punctuated_skills_survive_tokenisation(self, extractor, text, expected):
+        assert expected in extractor._extract_skills(text)
+
+    @pytest.mark.unit
+    def test_multiword_skills_beat_their_parts(self, extractor):
+        """'machine learning' must not be reduced to 'learning'."""
+        assert "Machine Learning" in extractor._extract_skills("strong machine learning background")

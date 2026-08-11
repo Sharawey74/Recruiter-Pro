@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 from ..storage.models import ScoreBreakdown, CVProfile, JobPosting
 from ..core.config import get_config
+from ..core.vocabulary import build_alias_index, load_alias_index
 from ..ml_engine.ats_predictor import ATSPredictor
 
 logging.basicConfig(level=logging.INFO)
@@ -68,65 +69,14 @@ class HybridScoringAgent:
 
     @staticmethod
     def _build_alias_index(raw: Dict) -> Dict[str, str]:
-        """
-        Flatten the family-nested vocabulary into {alias_lower: Canonical}.
-
-        This is the fix for A0. The previous code iterated the raw file as if
-        it were flat -- {canonical: [aliases]} -- but it is nested by family:
-
-            {"programming_languages": {"Python": ["python", "py"], ...}, ...}
-
-        so `for canonical, aliases in raw.items()` bound `canonical` to the
-        *family name* and `aliases` to the inner dict. `[a.lower() for a in
-        aliases]` then iterated that dict's keys, the membership test passed,
-        and the function returned "programming_languages" for every language.
-        Python and Java normalized to an identical string and matched
-        perfectly. Skills are 50% of the rule-based score, so about a third of
-        every reported score was noise, biased upward.
-
-        Handles both layouts: the current one, which separates `_meta` from
-        `families`, and the older one that mixed metadata keys in beside the
-        families. The isinstance guard is what skips `comment` / `_meta` -- and
-        its absence is what caused the original bug.
-        """
-        families = raw.get("families")
-        if not isinstance(families, dict):
-            # Legacy layout: families sit at the top level next to metadata.
-            families = {k: v for k, v in raw.items() if isinstance(v, dict)}
-
-        index: Dict[str, str] = {}
-        for family, entries in families.items():
-            if not isinstance(entries, dict):
-                continue
-            for canonical, aliases in entries.items():
-                index[canonical.lower()] = canonical
-                if not isinstance(aliases, (list, tuple)):
-                    continue
-                for alias in aliases:
-                    index[str(alias).lower()] = canonical
-        return index
+        """Flatten the vocabulary. Delegates to the shared loader -- see
+        src/core/vocabulary.py for why there is exactly one of these."""
+        return build_alias_index(raw)
 
     def _load_skills_database(self) -> Dict[str, str]:
-        """Load the skill vocabulary and flatten it into an alias index."""
-        skills_path = Path(self.config.skills_database_path)
+        """Load the shared skill vocabulary as a flat {alias_lower: Canonical}."""
+        return load_alias_index(self.config.skills_database_path)
 
-        if not skills_path.exists():
-            logger.warning(f"Skills database not found: {skills_path}")
-            return {}
-
-        try:
-            with open(skills_path, 'r', encoding='utf-8') as f:
-                raw = json.load(f)
-            index = self._build_alias_index(raw)
-            logger.info(
-                f"[OK] Skill vocabulary loaded: {len(set(index.values()))} canonical "
-                f"skills, {len(index)} aliases"
-            )
-            return index
-        except Exception as e:
-            logger.error(f"Failed to load skills database: {e}", exc_info=True)
-            return {}
-    
     def score_match(
         self, 
         cv: CVProfile, 

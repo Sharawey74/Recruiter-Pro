@@ -1,12 +1,15 @@
 """
 Agent 2: Candidate Data Extractor
 Pure rule-based extraction using regex, pattern matching, and dictionary lookup
-Maximized efficiency with comprehensive skill database and intelligent parsing
+Reads the shared skill vocabulary; owns no private skill list.
 """
 import re
 import logging
 from typing import Dict, List, Optional, Set
 from pathlib import Path
+
+from ..core.config import get_config
+from ..core.vocabulary import load_alias_index
 
 class CandidateExtractor:
     """
@@ -30,80 +33,29 @@ class CandidateExtractor:
         'information', 'details', 'personal', 'data', 'document'
     }
     
-    # Comprehensive technical skills database (100+ skills)
-    SKILLS_DATABASE = {
-        # Programming Languages
-        'python', 'java', 'javascript', 'js', 'typescript', 'ts', 'c++', 'cpp',
-        'c#', 'csharp', 'ruby', 'php', 'swift', 'kotlin', 'go', 'golang', 'rust',
-        'scala', 'r', 'perl', 'shell', 'bash', 'powershell', 'vba',
-        
-        # Web Frontend
-        'html', 'html5', 'css', 'css3', 'sass', 'scss', 'less', 'react', 'reactjs',
-        'angular', 'angularjs', 'vue', 'vuejs', 'svelte', 'jquery', 'bootstrap',
-        'tailwind', 'webpack', 'vite', 'nextjs', 'gatsby', 'redux', 'mobx',
-        
-        # Web Backend
-        'nodejs', 'node.js', 'node', 'express', 'expressjs', 'django', 'flask',
-        'fastapi', 'spring', 'springboot', 'asp.net', 'laravel', 'rails', 'nestjs',
-        
-        # Databases
-        'sql', 'mysql', 'postgresql', 'postgres', 'mongodb', 'mongo', 'redis',
-        'oracle', 'sqlite', 'dynamodb', 'cassandra', 'couchdb', 'elasticsearch',
-        'neo4j', 'mariadb', 'mssql', 'sqlserver', 'firebase',
-        
-        # Cloud & DevOps
-        'aws', 'azure', 'gcp', 'google cloud', 'docker', 'kubernetes', 'k8s',
-        'jenkins', 'terraform', 'ansible', 'git', 'github', 'gitlab', 'bitbucket',
-        'linux', 'unix', 'ubuntu', 'centos', 'debian', 'ci/cd', 'cicd',
-        
-        # Data Science & ML
-        'pandas', 'numpy', 'scipy', 'matplotlib', 'seaborn', 'tensorflow',
-        'pytorch', 'keras', 'scikit-learn', 'sklearn', 'machine learning', 'ml',
-        'deep learning', 'ai', 'artificial intelligence', 'data science',
-        'big data', 'hadoop', 'spark', 'pyspark', 'airflow', 'kafka',
-        
-        # Mobile
-        'android', 'ios', 'react native', 'flutter', 'xamarin', 'ionic',
-        
-        # Testing & Quality
-        'selenium', 'pytest', 'junit', 'jest', 'mocha', 'chai', 'cypress',
-        'testing', 'unit testing', 'integration testing', 'tdd', 'bdd',
-        
-        # Design & Tools
-        'photoshop', 'illustrator', 'figma', 'sketch', 'adobe xd', 'indesign',
-        'ui/ux', 'ui', 'ux', 'design', 'graphic design', 'web design',
-        
-        # Soft Skills
-        'communication', 'leadership', 'management', 'teamwork', 'collaboration',
-        'problem solving', 'analytical', 'critical thinking', 'agile', 'scrum',
-        'project management', 'time management', 'presentation',
-        
-        # Other Technical
-        'rest', 'restful', 'api', 'graphql', 'soap', 'microservices',
-        'websocket', 'json', 'xml', 'yaml', 'oauth', 'jwt', 'saml'
-    }
-    
-    # Skill synonyms for normalization
-    SKILL_SYNONYMS = {
-        'js': 'javascript',
-        'ts': 'typescript',
-        'nodejs': 'node.js',
-        'node': 'node.js',
-        'reactjs': 'react',
-        'vuejs': 'vue',
-        'angularjs': 'angular',
-        'mongo': 'mongodb',
-        'postgres': 'postgresql',
-        'k8s': 'kubernetes',
-        'sklearn': 'scikit-learn',
-        'cpp': 'c++',
-        'csharp': 'c#',
-        'golang': 'go'
-    }
-    
-    def __init__(self):
+    def __init__(self, skills_index: Optional[Dict[str, str]] = None, config=None):
+        """
+        Args:
+            skills_index: {alias_lower: Canonical} index. Injected so tests can
+                supply a small vocabulary and so there is one shared source.
+            config: Config object; used only to locate the vocabulary file.
+
+        The extractor used to own a private 178-skill SKILLS_DATABASE and a
+        14-entry synonym map, which made it the fourth competing vocabulary in
+        a codebase whose ADR-003 says there is one. It now reads the same
+        679-skill index Agent 3 scores against, so a skill Agent 2 extracts is
+        by construction a skill Agent 3 can match.
+        """
         self.logger = logging.getLogger("Agent2_Extractor")
-        logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+        self.config = config or get_config()
+        self.skills_index = (
+            skills_index if skills_index is not None
+            else load_alias_index(self.config.skills_database_path)
+        )
+        # Longest first, so "machine learning" wins over "learning".
+        self._multiword_aliases = sorted(
+            (a for a in self.skills_index if " " in a), key=len, reverse=True
+        )
     
     def extract(self, text: str) -> Dict:
         """
@@ -249,44 +201,35 @@ class CandidateExtractor:
     
     def _extract_skills(self, text: str) -> List[str]:
         """
-        Multi-strategy skill extraction:
-        1. Dictionary matching (exact)
-        2. Fuzzy matching for common variations
-        3. Multi-word skill detection
+        Resolve skills against the shared vocabulary and return canonical names.
+
+        Multi-word aliases are matched first, longest first, so "machine
+        learning" is not reduced to "learning". Whatever this returns is
+        already canonical, so Agent 3 needs no second normalisation pass and no
+        private synonym table.
         """
         text_lower = text.lower()
-        found_skills: Set[str] = set()
-        
-        # Tokenize
-        tokens = re.findall(r"\b[\w\+\#\./-]+\b", text_lower)
-        
-        # Exact single-word matches
-        for token in tokens:
-            if token in self.SKILLS_DATABASE:
-                # Normalize via synonyms
-                normalized = self.SKILL_SYNONYMS.get(token, token)
-                found_skills.add(normalized)
-        
-        # Multi-word skills (scan full text)
-        for skill in self.SKILLS_DATABASE:
-            if ' ' in skill or '/' in skill:
-                if skill in text_lower:
-                    found_skills.add(skill)
-        
-        # Handle compound skills (e.g., "node.js", "c++", "c#")
-        special_patterns = [
-            (r'\bnode\.?js\b', 'node.js'),
-            (r'\bc\+\+\b', 'c++'),
-            (r'\bc#\b', 'c#'),
-            (r'\b\.net\b', 'asp.net'),
-        ]
-        
-        for pattern, skill_name in special_patterns:
-            if re.search(pattern, text_lower):
-                found_skills.add(skill_name)
-        
-        return sorted(list(found_skills))
-    
+        found: Set[str] = set()
+
+        # Multi-word aliases: substring scan, longest first.
+        consumed = text_lower
+        for alias in self._multiword_aliases:
+            if alias in consumed:
+                found.add(self.skills_index[alias])
+                consumed = consumed.replace(alias, " ")
+
+        # Single tokens. The character class keeps +, #, . and - so that c++,
+        # c#, node.js and t-sql survive tokenisation.
+        for token in re.findall(r"[\w\+\#\./-]+", consumed):
+            # Try the token verbatim before trimming punctuation, or ".net"
+            # becomes "net" and stops resolving -- the same mistake that made
+            # six canonical skills unreachable in Agent 3.
+            canonical = self.skills_index.get(token) or self.skills_index.get(token.strip("."))
+            if canonical:
+                found.add(canonical)
+
+        return sorted(found)
+
     def _extract_experience(self, text: str) -> int:
         """Extract years of experience using multiple patterns"""
         patterns = [
