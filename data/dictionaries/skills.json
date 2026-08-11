@@ -1,11 +1,11 @@
 {
   "_meta": {
     "comment": "Controlled skill vocabulary. Maps aliases to canonical skill names. Metadata is isolated under _meta so the loader iterates exactly one subtree.",
-    "schema_version": "2.0",
+    "schema_version": "2.1",
     "generated_at": "2026-08-09",
     "family_count": 15,
-    "canonical_count": 667,
-    "alias_count": 1523
+    "canonical_count": 669,
+    "alias_count": 1531
   },
   "families": {
     "programming_languages": {
@@ -765,6 +765,13 @@
         "cost optimization",
         "finops",
         "cloud cost optimisation"
+      ],
+      "DevOps": [
+        "devops",
+        "dev ops",
+        "dev-ops",
+        "devsecops",
+        "dev sec ops"
       ]
     },
     "data_and_ml": {
@@ -959,6 +966,11 @@
       "Anomaly Detection": [
         "anomaly detection",
         "outlier detection"
+      ],
+      "Artificial Intelligence": [
+        "artificial intelligence",
+        "ai",
+        "a.i."
       ]
     },
     "sales_and_crm": {

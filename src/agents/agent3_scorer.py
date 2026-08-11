@@ -212,17 +212,20 @@ class HybridScoringAgent:
         required_skills = set(self._normalize_skills(job.required_skills))
         preferred_skills = set(self._normalize_skills(job.preferred_skills))
         
-        # Enhanced matching with fuzzy logic and synonyms
+        # Sorted throughout: these lists were built with list(set(...)), so they
+        # reordered between process restarts and extra_skills[:10] returned a
+        # different ten skills each time. Same defect as the one already fixed
+        # in _extract_keywords.
         matched_required = self._find_skill_matches(cv_skills, required_skills)
         matched_preferred = self._find_skill_matches(cv_skills, preferred_skills)
-        matched_skills = list(set(matched_required + matched_preferred))
-        
+        matched_skills = sorted(set(matched_required + matched_preferred))
+
         # Find gaps
-        missing_required = [s for s in required_skills if not self._has_skill_match(s, cv_skills)]
-        missing_preferred = [s for s in preferred_skills if not self._has_skill_match(s, cv_skills)]
-        
+        missing_required = sorted(s for s in required_skills if not self._has_skill_match(s, cv_skills))
+        missing_preferred = sorted(s for s in preferred_skills if not self._has_skill_match(s, cv_skills))
+
         # Extra skills candidate has
-        extra_skills = list(cv_skills - required_skills - preferred_skills)
+        extra_skills = sorted(cv_skills - required_skills - preferred_skills)
         
         # Calculate match ratio with enhanced precision
         total_required = len(required_skills) or 1
@@ -246,78 +249,37 @@ class HybridScoringAgent:
         )
     
     def _find_skill_matches(self, cv_skills: set, job_skills: set) -> List[str]:
-        """Find skill matches with fuzzy matching and synonyms"""
+        """
+        Find which of job_skills the CV covers.
+
+        Both sides have already been resolved to canonical names by
+        _normalize_skills, so a direct set membership test is the match. There
+        used to be a ~45-key synonym dict rebuilt as a local literal on every
+        call -- once per job, plus once per missing skill -- which made it tens
+        of thousands of reconstructions per upload. It was also unreachable:
+        its keys and aliases are lowercase, while 667 of the 669 canonical
+        names carry uppercase, so the comparison could never fire for any skill
+        the vocabulary recognised. The two cases it did cover (devops, ai) were
+        genuine vocabulary gaps and are now canonical entries in skills.json.
+
+        Its remaining behaviour, the substring fallback below, is kept here
+        deliberately and removed separately -- it changes match results, so it
+        needs its own measurement.
+        """
         matches = []
-        
-        # Skill synonyms for better matching
-        synonyms = {
-            'javascript': ['js', 'es6', 'es2015', 'ecmascript'],
-            'python': ['py', 'python3', 'python2'],
-            'java': ['jdk', 'jre', 'java8', 'java11', 'java17'],
-            'csharp': ['c#', 'cs', 'dotnet', '.net', 'net', 'asp.net', 'aspnet'],
-            'cpp': ['c++', 'cplusplus'],
-            'sql': ['mysql', 'postgresql', 'mssql', 'tsql', 'plsql', 'ms sql', 'microsoft sql'],
-            'react': ['reactjs', 'react.js'],
-            'angular': ['angularjs', 'angular.js'],
-            'vue': ['vuejs', 'vue.js'],
-            'node': ['nodejs', 'node.js'],
-            'docker': ['containerization', 'containers'],
-            'kubernetes': ['k8s'],
-            'aws': ['amazon web services', 'amazon cloud'],
-            'gcp': ['google cloud', 'google cloud platform'],
-            'azure': ['microsoft azure', 'azure cloud'],
-            'machine learning': ['ml', 'machinelearning'],
-            'deep learning': ['dl', 'deeplearning', 'neural networks'],
-            'artificial intelligence': ['ai'],
-            'devops': ['dev ops', 'devsecops'],
-            'cicd': ['ci/cd', 'ci-cd', 'continuous integration', 'continuous deployment'],
-            'api': ['rest api', 'restful', 'rest', 'graphql'],
-            'html': ['html5'],
-            'css': ['css3', 'scss', 'sass'],
-            'typescript': ['ts'],
-            'mongodb': ['mongo'],
-            'postgresql': ['postgres'],
-            'jenkins': ['ci'],
-            'git': ['github', 'gitlab', 'version control'],
-            'agile': ['scrum', 'kanban'],
-            'flask': ['python flask'],
-            'fastapi': ['fast api'],
-            'django': ['python django'],
-            'spring': ['spring boot', 'springboot'],
-            'llm': ['large language model', 'gpt', 'generative ai', 'genai'],
-            'nlp': ['natural language processing', 'text processing'],
-            'rag': ['retrieval augmented generation'],
-            'langchain': ['lang chain'],
-            'tensorflow': ['tf'],
-            'pytorch': ['torch'],
-            'scikit': ['sklearn', 'scikit-learn'],
-        }
-        
+
         for job_skill in job_skills:
-            # Direct match
+            # Direct match on canonical names
             if job_skill in cv_skills:
                 matches.append(job_skill)
                 continue
-            
-            # Check synonyms
-            matched = False
-            for canonical, aliases in synonyms.items():
-                if job_skill in aliases or job_skill == canonical:
-                    # Check if CV has canonical or any alias
-                    if canonical in cv_skills or any(alias in cv_skills for alias in aliases):
-                        matches.append(job_skill)
-                        matched = True
-                        break
-            
-            if matched:
-                continue
-            
+
             # Fuzzy partial match (e.g., "python" matches "python3")
             for cv_skill in cv_skills:
                 if len(job_skill) >= 4 and (job_skill in cv_skill or cv_skill in job_skill):
                     matches.append(job_skill)
                     break
-        
+
         return matches
     
     def _has_skill_match(self, skill: str, cv_skills: set) -> bool:
