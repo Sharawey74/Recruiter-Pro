@@ -188,6 +188,7 @@ class HybridScoringAgent:
         # 5. Build score breakdown
         return ScoreBreakdown(
             skill_score=skill_match.match_ratio,
+            title_score=title_score,
             experience_score=experience_score,
             education_score=education_score,
             keyword_score=keyword_score,

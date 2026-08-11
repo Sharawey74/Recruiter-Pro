@@ -162,6 +162,10 @@ class ScoreBreakdown(BaseModel):
     """Detailed scoring breakdown"""
     # Rule-based scores (0-1)
     skill_score: float = Field(0.0, ge=0.0, le=1.0)
+    # Title similarity carries 17% of rule_based_score but was computed and then
+    # discarded, so the reported components could not reconstruct the total.
+    # Defaults to 0.0 so existing constructions stay valid.
+    title_score: float = Field(0.0, ge=0.0, le=1.0)
     experience_score: float = Field(0.0, ge=0.0, le=1.0)
     education_score: float = Field(0.0, ge=0.0, le=1.0)
     keyword_score: float = Field(0.0, ge=0.0, le=1.0)

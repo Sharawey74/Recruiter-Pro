@@ -511,6 +511,7 @@ async def match_to_single_job(
             },
             "scores_breakdown": {
                 "skill_match": round(match.score_breakdown.skill_score * 100, 1),
+                "title_match": round(match.score_breakdown.title_score * 100, 1),
                 "experience_match": round(match.score_breakdown.experience_score * 100, 1),
                 "education_match": round(match.score_breakdown.education_score * 100, 1),
                 "keyword_match": round(match.score_breakdown.keyword_score * 100, 1),
