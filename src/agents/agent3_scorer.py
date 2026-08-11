@@ -515,20 +515,32 @@ class HybridScoringAgent:
             return None
     
     def _normalize_skills(self, skills: List[str]) -> List[str]:
-        """Normalize skill names for matching"""
+        """
+        Resolve skill names to their canonical form.
+
+        The vocabulary is consulted before punctuation is stripped, not after.
+        Stripping first destroyed 16 index keys and made six canonical skills
+        unreachable by their own name -- .NET normalized to "net", which matches
+        nothing, so it passed through as the literal string. T-SQL, Monday.com,
+        Outreach.io, Stand-ups and Non-Conformance Management failed the same
+        way. The stripped form is still tried as a fallback, so inputs the
+        index does not carry verbatim ("node.js" against a "nodejs" alias)
+        still resolve.
+        """
         normalized = []
-        
+
         for skill in skills:
-            # Lowercase and strip
-            skill = skill.lower().strip()
-            
-            # Remove common variations
-            skill = skill.replace('.', '').replace('-', ' ')
-            
-            # Check canonical database for standardization
-            canonical = self._get_canonical_skill(skill)
-            normalized.append(canonical or skill)
-        
+            cleaned = skill.lower().strip()
+
+            canonical = self._get_canonical_skill(cleaned)
+            if canonical:
+                normalized.append(canonical)
+                continue
+
+            # Fall back to the punctuation-stripped form.
+            stripped = cleaned.replace('.', '').replace('-', ' ')
+            normalized.append(self._get_canonical_skill(stripped) or stripped)
+
         return normalized
     
     def _get_canonical_skill(self, skill: str) -> Optional[str]:
