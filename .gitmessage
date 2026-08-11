@@ -11,6 +11,9 @@
 #
 # Breaking change:  feat(api)!: ...   or a  BREAKING CHANGE:  footer
 #
+# Footers: Refs and BREAKING CHANGE only. Never add Co-Authored-By or any
+#          other AI-attribution trailer - every commit here is single-author.
+#
 # Full conventions: CONTRIBUTING.md
 # Enable this template:  git config commit.template .gitmessage
 # ----------------------------------------------------------------------
