@@ -101,3 +101,81 @@ class TestScoringConsequence:
         cv_skills = set(agent._normalize_skills(["Python", "Docker"]))
         job = set(agent._normalize_skills(["python", "docker"]))
         assert cv_skills == job
+
+
+class TestSubstringCollisions:
+    """
+    A0's failure mode survived in a second place.
+
+    After skills were correctly canonicalised, _find_skill_matches still granted
+    credit on raw substrings: `job_skill in cv_skill or cv_skill in job_skill`
+    for anything four characters or longer. Twenty-nine ordered collisions exist
+    among the canonical names, so a CV holding JavaScript satisfied a Java
+    requirement, and ".NET" -- which normalised to the bare string "net" --
+    satisfied "Penetration Testing", because n-e-t appears inside "PeNETration".
+
+    Partial credit is now granted on whole tokens and only in one direction:
+    holding the specialisation satisfies a requirement for the general skill,
+    never the reverse.
+    """
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("job_skill,cv_skill", [
+        ("Java", "JavaScript"),
+        ("Git", "GitHub"),
+        ("Git", "GitHub Actions"),
+        ("SQL", "MySQL"),
+        ("Swift", "SwiftUI"),
+        ("Penetration Testing", ".NET"),
+    ])
+    def test_substring_overlap_is_not_a_match(self, agent, job_skill, cv_skill):
+        cv = set(agent._normalize_skills([cv_skill]))
+        assert not agent._find_skill_matches(cv, set(agent._normalize_skills([job_skill]))), (
+            f"{cv_skill!r} should not satisfy a {job_skill!r} requirement"
+        )
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("job_skill,cv_skill", [
+        ("Ruby", "Ruby on Rails"),
+        ("React", "React Native"),
+        ("Communication", "Written Communication"),
+        (".NET", "ASP.NET"),
+    ])
+    def test_holding_the_specialisation_satisfies_the_general_skill(self, agent, job_skill, cv_skill):
+        cv = set(agent._normalize_skills([cv_skill]))
+        assert agent._find_skill_matches(cv, set(agent._normalize_skills([job_skill]))), (
+            f"{cv_skill!r} should satisfy a {job_skill!r} requirement"
+        )
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("job_skill,cv_skill", [
+        ("Ruby on Rails", "Ruby"),
+        ("React Native", "React"),
+        ("Written Communication", "Communication"),
+    ])
+    def test_the_general_skill_does_not_satisfy_the_specialisation(self, agent, job_skill, cv_skill):
+        cv = set(agent._normalize_skills([cv_skill]))
+        assert not agent._find_skill_matches(cv, set(agent._normalize_skills([job_skill]))), (
+            f"{cv_skill!r} should not satisfy a {job_skill!r} requirement"
+        )
+
+
+class TestPunctuatedSkillsResolve:
+    """Six canonical skills were unreachable by their own name -- punctuation
+    was stripped before the vocabulary was consulted, so '.NET' became 'net'."""
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("skill", [
+        ".NET", "T-SQL", "Monday.com", "Outreach.io", "Stand-ups",
+        "Non-Conformance Management",
+    ])
+    def test_punctuated_canonical_resolves_to_itself(self, agent, skill):
+        assert agent._normalize_skills([skill])[0] == skill
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize("given,expected", [
+        ("node.js", "Node.js"), ("dev-ops", "DevOps"), ("c++", "C++"),
+    ])
+    def test_stripped_fallback_still_resolves(self, agent, given, expected):
+        """Forms the index does not carry verbatim must still resolve."""
+        assert agent._normalize_skills([given])[0] == expected

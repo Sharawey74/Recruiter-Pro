@@ -9,6 +9,7 @@ Architecture:
 """
 import json
 import logging
+import re
 from collections import Counter
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
@@ -262,11 +263,22 @@ class HybridScoringAgent:
         the vocabulary recognised. The two cases it did cover (devops, ai) were
         genuine vocabulary gaps and are now canonical entries in skills.json.
 
-        Its remaining behaviour, the substring fallback below, is kept here
-        deliberately and removed separately -- it changes match results, so it
-        needs its own measurement.
+        Partial credit is granted on whole tokens, not raw substrings. The
+        previous rule was `job_skill in cv_skill or cv_skill in job_skill`,
+        which credited any pair sharing a character run of four or more --
+        "Java" against "JavaScript", "Git" against "GitHub Actions", "SQL"
+        against "MySQL", and ".NET" reduced to "net" against the "net" inside
+        "PeNETration Testing". Twenty-nine such collisions exist among the 669
+        canonical names.
+
+        Requiring the job skill's tokens to be a subset of the CV skill's
+        tokens removes all of those while keeping the cases where one skill
+        genuinely contains the other as a named concept: "Communication"
+        against "Written Communication" still matches, because "communication"
+        is a whole token of it.
         """
         matches = []
+        cv_token_sets = [(s, self._skill_tokens(s)) for s in cv_skills]
 
         for job_skill in job_skills:
             # Direct match on canonical names
@@ -274,14 +286,24 @@ class HybridScoringAgent:
                 matches.append(job_skill)
                 continue
 
-            # Fuzzy partial match (e.g., "python" matches "python3")
-            for cv_skill in cv_skills:
-                if len(job_skill) >= 4 and (job_skill in cv_skill or cv_skill in job_skill):
+            job_tokens = self._skill_tokens(job_skill)
+            if not job_tokens:
+                continue
+
+            for _cv_skill, cv_tokens in cv_token_sets:
+                if job_tokens < cv_tokens:
                     matches.append(job_skill)
                     break
 
         return matches
-    
+
+    @staticmethod
+    def _skill_tokens(skill: str) -> frozenset:
+        """Split a skill into comparable whole tokens, ignoring punctuation."""
+        return frozenset(
+            t for t in re.split(r"[^a-z0-9+#]+", skill.lower()) if t
+        )
+
     def _has_skill_match(self, skill: str, cv_skills: set) -> bool:
         """Check if a skill has a match in CV skills"""
         return len(self._find_skill_matches(cv_skills, {skill})) > 0
