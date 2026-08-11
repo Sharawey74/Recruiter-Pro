@@ -6,10 +6,13 @@ Output: Raw unstructured text blocks.
 """
 import sys
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Dict, List, Optional
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 # File processing imports
 try:
@@ -17,14 +20,14 @@ try:
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
-    print("Warning: pdfminer.six not available. PDF parsing disabled.")
+    logger.warning("pdfminer.six not available. PDF parsing disabled.")
 
 try:
     from docx import Document
     DOCX_AVAILABLE = True
 except ImportError:
     DOCX_AVAILABLE = False
-    print("Warning: python-docx not available. DOCX parsing disabled.")
+    logger.warning("python-docx not available. DOCX parsing disabled.")
 
 try:
     import fitz  # PyMuPDF
@@ -42,16 +45,25 @@ class RawParser:
     Strictly NO NLP/AI (No SpaCy, No NLTK).
     """
     
+    # A CV that extracts fewer characters than this is not a CV we parsed --
+    # it is almost always a scanned image PDF with no text layer. Returning the
+    # near-empty string produced a profile with no skills, which scored as a
+    # poor match rather than as a failed parse.
+    MIN_EXTRACTED_CHARS = 50
+
     def __init__(self, output_dir: str = "data/processed/raw_profiles"):
         """
         Initialize the parser.
-        
+
         Args:
-            output_dir: Directory to save parsed raw profiles
+            output_dir: Where parse_profile(save=True) writes, if used at all.
+
+        Constructing a parser has no side effects: no directory is created and
+        nothing is logged. The directory is created lazily on the first actual
+        save. Previously __init__ ran mkdir() and printed, so importing the
+        module was enough to touch the filesystem.
         """
         self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
-        print(f"[OK] Agent 1 (RawParser) initialized. Output dir: {self.output_dir}")
     
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """
@@ -77,7 +89,7 @@ class RawParser:
                 doc.close()
                 return text
             except Exception as e:
-                print(f"PyMuPDF extraction failed: {e}")
+                logger.warning(f"PyMuPDF extraction failed: {e}")
         
         # Fallback to pdfminer.six
         if PDF_AVAILABLE:
@@ -160,14 +172,26 @@ class RawParser:
             text = self.extract_text_from_txt(str(file_path))
         else:
             raise ValueError(f"Unsupported file format: {suffix}. Supported: .pdf, .docx, .txt")
-        
+
+        # Fail loudly on a document we did not actually read. A scanned image
+        # PDF has no text layer, so extraction returns near-nothing; that used
+        # to flow through as a CV with no skills and score as a weak match
+        # instead of as a parse failure the user could act on.
+        if len(text.strip()) < self.MIN_EXTRACTED_CHARS:
+            raise ValueError(
+                f"Extracted only {len(text.strip())} characters from {file_path.name}. "
+                f"The file is probably a scanned image with no text layer, or empty. "
+                f"Minimum is {self.MIN_EXTRACTED_CHARS}."
+            )
+
         # Use filename as profile_id if not provided
         if not profile_id:
             profile_id = f"profile_{file_path.stem}"
-        
+
         return self.parse_profile(text, profile_id)
     
-    def parse_profile(self, profile_text: str, profile_id: Optional[str] = None) -> Dict:
+    def parse_profile(self, profile_text: str, profile_id: Optional[str] = None,
+                      save: bool = False) -> Dict:
         """
         Parse a profile text into raw sections using Regex/Rule-based logic.
         
@@ -196,9 +220,12 @@ class RawParser:
             "parser_version": "v2.0_raw_only"
         }
         
-        # 4. Save to file
-        self._save_output(profile_data, profile_id)
-        
+        # Writing is opt-in. Every parse used to drop a JSON into
+        # data/processed/raw_profiles/ that nothing ever read -- 66 orphaned
+        # files had accumulated, most of them named after pytest temp files.
+        if save:
+            self._save_output(profile_data, profile_id)
+
         return profile_data
 
     def parse_job(self, job_data: Dict) -> Dict:
@@ -265,7 +292,8 @@ class RawParser:
         return {k: v.strip() for k, v in sections.items()}
 
     def _save_output(self, data: Dict, profile_id: str):
-        """Save raw parsed data to JSON."""
+        """Save raw parsed data to JSON. Creates the directory on first use."""
+        self.output_dir.mkdir(parents=True, exist_ok=True)
         output_path = self.output_dir / f"{profile_id}.json"
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)

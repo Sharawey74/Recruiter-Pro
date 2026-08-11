@@ -112,3 +112,56 @@ class TestParseProfile:
         a.pop("parsed_at", None)
         b.pop("parsed_at", None)
         assert a == b
+
+
+class TestNoSideEffectsOnConstruction:
+    """
+    Constructing an agent must not touch the filesystem. __init__ used to run
+    mkdir() and print, so merely importing and instantiating created
+    data/processed/raw_profiles/ and wrote to stdout.
+    """
+
+    @pytest.mark.unit
+    def test_construction_creates_no_directory(self, tmp_path):
+        target = tmp_path / "should_not_exist"
+        RawParser(output_dir=str(target))
+        assert not target.exists()
+
+    @pytest.mark.unit
+    def test_construction_prints_nothing(self, tmp_path, capsys):
+        RawParser(output_dir=str(tmp_path / "x"))
+        assert capsys.readouterr().out == ""
+
+    @pytest.mark.unit
+    def test_parsing_writes_nothing_by_default(self, tmp_path):
+        target = tmp_path / "out"
+        RawParser(output_dir=str(target)).parse_profile(CV_TEXT, profile_id="p1")
+        assert not target.exists(), "parse_profile wrote to disk without being asked"
+
+    @pytest.mark.unit
+    def test_saving_is_opt_in_and_creates_the_directory(self, tmp_path):
+        target = tmp_path / "out"
+        RawParser(output_dir=str(target)).parse_profile(CV_TEXT, profile_id="p1", save=True)
+        assert (target / "p1.json").is_file()
+
+
+class TestShortExtractionIsRejected:
+    """A scanned image PDF extracts almost nothing. That must fail loudly
+    rather than score as a candidate with no skills."""
+
+    @pytest.mark.unit
+    def test_near_empty_file_raises(self, parser, tmp_path):
+        f = tmp_path / "scanned.txt"
+        f.write_text("Jane\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="scanned image|characters"):
+            parser.parse_file(str(f))
+
+    @pytest.mark.unit
+    def test_a_real_cv_passes_the_guard(self, parser, tmp_path):
+        f = tmp_path / "cv.txt"
+        f.write_text(CV_TEXT, encoding="utf-8")
+        assert parser.parse_file(str(f))["raw_text"]
+
+    @pytest.mark.unit
+    def test_the_threshold_is_stated_not_magic(self):
+        assert isinstance(RawParser.MIN_EXTRACTED_CHARS, int)
