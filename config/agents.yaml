@@ -19,12 +19,16 @@ agents:
     timeout_seconds: 30
 
 scoring:
-  # Rule-based weights (must sum to 1.0)
-  skill_weight: 0.60
-  experience_weight: 0.25
-  education_weight: 0.10
+  # Rule-based weights (must sum to 1.0).
+  # This block is the only definition of these weights. Agent 3 reads them at
+  # scoring time; nothing is hardcoded. Changing a value here changes every
+  # score the product returns, so measure the impact before merging.
+  skill_weight: 0.50
+  title_weight: 0.17
+  experience_weight: 0.20
+  education_weight: 0.08
   keyword_weight: 0.05
-  
+
   # Hybrid weights (must sum to 1.0)
   ml_weight: 0.40
   rule_weight: 0.60

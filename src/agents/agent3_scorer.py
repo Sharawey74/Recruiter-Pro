@@ -150,14 +150,16 @@ class HybridScoringAgent:
         keyword_score = self._score_keywords(cv, job)
         title_score = self._score_title_similarity(cv, job)
         
-        # Calculate weighted rule-based score with enhanced weights
-        # Skills: 50%, Title: 17%, Experience: 20%, Education: 8%, Keywords: 5%
+        # Weighted rule-based score. The weights live in config/agents.yaml and
+        # nowhere else -- they used to be hardcoded here while config declared a
+        # different set that nothing read, so retuning the YAML did nothing.
+        weights = self.scoring_config
         rule_based_score = (
-            skill_match.match_ratio * 0.50 +
-            title_score * 0.17 +
-            experience_score * 0.20 +
-            education_score * 0.08 +
-            keyword_score * 0.05
+            skill_match.match_ratio * weights.skill_weight +
+            title_score * weights.title_weight +
+            experience_score * weights.experience_weight +
+            education_score * weights.education_weight +
+            keyword_score * weights.keyword_weight
         )
         
         # 2. ML-based scoring (if enabled)

@@ -54,12 +54,17 @@ class DatabaseConfig:
 @dataclass
 class ScoringConfig:
     """Scoring algorithm configuration"""
-    # Weights for rule-based scoring
-    skill_weight: float = 0.60
-    experience_weight: float = 0.25
-    education_weight: float = 0.10
+    # Weights for rule-based scoring. These are the values Agent 3 actually
+    # applies -- previously the scorer hardcoded them and these were decorative,
+    # so editing them changed nothing. title_weight was missing entirely even
+    # though title similarity has always carried 17% of the rule-based score.
+    # config/agents.yaml is the only place these should be changed.
+    skill_weight: float = 0.50
+    title_weight: float = 0.17
+    experience_weight: float = 0.20
+    education_weight: float = 0.08
     keyword_weight: float = 0.05
-    
+
     # ML model settings
     ml_enabled: bool = True
     ml_model_path: str = "ML/models/opt_rf_model.joblib"
@@ -71,15 +76,38 @@ class ScoringConfig:
     review_threshold: float = 0.50
     reject_threshold: float = 0.50
     
+    def __post_init__(self):
+        # validate() used to run only from from_yaml(), and only when the file
+        # happened to contain a 'scoring' block. Both Config() fallback paths
+        # skipped it, so an invalid weight set could load silently.
+        self.validate()
+
     def validate(self):
         """Validate configuration"""
-        total_weight = self.skill_weight + self.experience_weight + self.education_weight + self.keyword_weight
+        rule_weights = {
+            "skill_weight": self.skill_weight,
+            "title_weight": self.title_weight,
+            "experience_weight": self.experience_weight,
+            "education_weight": self.education_weight,
+            "keyword_weight": self.keyword_weight,
+        }
+        total_weight = sum(rule_weights.values())
         if abs(total_weight - 1.0) > 0.01:
-            raise ValueError(f"Rule weights must sum to 1.0, got {total_weight}")
-        
+            # get_config() runs at import time, so this surfaces as an ImportError
+            # traceback. Name the file and show the values or it is unreadable.
+            detail = ", ".join(f"{k}={v}" for k, v in rule_weights.items())
+            raise ValueError(
+                f"Rule weights must sum to 1.0, got {total_weight:.4f} ({detail}). "
+                f"These are set in config/agents.yaml under 'scoring:'."
+            )
+
         ml_total = self.ml_weight + self.rule_weight
         if abs(ml_total - 1.0) > 0.01:
-            raise ValueError(f"ML and rule weights must sum to 1.0, got {ml_total}")
+            raise ValueError(
+                f"ML and rule weights must sum to 1.0, got {ml_total:.4f} "
+                f"(ml_weight={self.ml_weight}, rule_weight={self.rule_weight}). "
+                f"These are set in config/agents.yaml under 'scoring:'."
+            )
 
 
 @dataclass
