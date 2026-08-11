@@ -21,6 +21,7 @@ import logging
 from datetime import datetime
 
 from src.agents.pipeline import MatchingPipeline
+from src.core.config import get_config
 from src.storage.database import get_database
 from src.storage.models import JobPosting
 
@@ -69,8 +70,11 @@ def load_jobs() -> List[JobPosting]:
     bare array - see JOBS_DATASET_SPEC.md. The legacy pipe-separated shape and
     the jobs_cleaned.json fallback were removed when that corpus was archived
     (data/archive/jobs-legacy-2026-08-09/); nothing produces them any more.
+
+    The path comes from config rather than being hardcoded here, so the corpus
+    and the vocabulary it was generated against are configured in one place.
     """
-    jobs_path = Path("data/json/jobs.json")
+    jobs_path = Path(get_config().jobs_data_path)
 
     if not jobs_path.exists():
         logger.warning(f"Jobs file not found: {jobs_path}")

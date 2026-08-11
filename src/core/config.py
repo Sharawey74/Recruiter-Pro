@@ -133,7 +133,10 @@ class Config:
     agent4: AgentConfig = field(default_factory=AgentConfig)
     
     # Data paths
-    jobs_data_path: str = "data/jobs/jobs.json"
+    # Was "data/jobs/jobs.json" - a directory that has never existed in this
+    # repo. Nothing read the field, so the wrong value went unnoticed; load_jobs()
+    # now reads it, which is what makes it wrong in a way anyone would catch.
+    jobs_data_path: str = "data/json/jobs.json"
     # The controlled vocabulary the job corpus was generated against: 667
     # canonical skills, 1,523 aliases, covering all eight job categories.
     # Replaces skills_canonical.json, which held 105 engineering-leaning skills
