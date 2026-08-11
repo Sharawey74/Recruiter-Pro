@@ -6,6 +6,10 @@
 # and any `!` rule for a path inside it is silently ignored.
 docs/*
 DEVELOPER_GUIDE.md
+JOBS_DATASET_SPEC.md
+PASS3_PROMPT.md
+CONTRIBUTING.md
+TASKS.md
 
 # Architecture Decision Records are public — they are the record of why the
 # system is shaped the way it is, and must survive the blanket docs/ ignore.
@@ -14,8 +18,8 @@ DEVELOPER_GUIDE.md
 # ====================
 # Planning & Analysis (Internal)
 # ====================
-# Working notes and audit reports that feed TASKS.md. The backlog is tracked;
-# the raw reports it was derived from are not.
+# Working notes and audit reports behind the backlog. Neither these reports
+# nor TASKS.md itself are tracked; both are kept local to the working copy.
 Plans/
 
 # ====================
@@ -28,6 +32,14 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+
+# ====================
+# Dependencies
+# ====================
+# Only the runtime requirements are tracked. The training and developer
+# dependency sets are environment-specific and kept out of the repo.
+requirements-ml.txt
+requirements-dev.txt
 
 # ====================
 # Virtual Environments
