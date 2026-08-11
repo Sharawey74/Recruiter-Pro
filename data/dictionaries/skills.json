@@ -4,8 +4,8 @@
     "schema_version": "2.1",
     "generated_at": "2026-08-09",
     "family_count": 15,
-    "canonical_count": 669,
-    "alias_count": 1531
+    "canonical_count": 679,
+    "alias_count": 1554
   },
   "families": {
     "programming_languages": {
@@ -390,6 +390,34 @@
         "accessibility",
         "a11y",
         "wcag"
+      ],
+      "Android": [
+        "android",
+        "android development",
+        "android sdk"
+      ],
+      "iOS": [
+        "ios",
+        "ios development"
+      ],
+      "Mobile Development": [
+        "mobile development",
+        "mobile app development",
+        "app development"
+      ],
+      "Embedded Systems": [
+        "embedded systems",
+        "embedded",
+        "firmware development"
+      ],
+      "Blockchain": [
+        "blockchain",
+        "distributed ledger",
+        "smart contracts"
+      ],
+      "Internet of Things": [
+        "internet of things",
+        "iot"
       ]
     },
     "databases": {
@@ -971,6 +999,18 @@
         "artificial intelligence",
         "ai",
         "a.i."
+      ],
+      "Apache Hadoop": [
+        "hadoop",
+        "apache hadoop",
+        "hdfs"
+      ],
+      "Data Science": [
+        "data science"
+      ],
+      "Data Analysis": [
+        "data analysis",
+        "data analytics"
       ]
     },
     "sales_and_crm": {
@@ -2905,6 +2945,9 @@
         "client presentation",
         "client presentations",
         "pitching to clients"
+      ],
+      "Leadership": [
+        "leadership"
       ]
     }
   }

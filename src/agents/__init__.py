@@ -6,11 +6,7 @@ from .agent2_extractor import CandidateExtractor
 from .agent3_scorer import HybridScoringAgent
 from .agent4_llm_explainer import LLMExplainerAgent, get_explainer_agent
 
-# Pipeline (temporary alias to core.orchestrator)
-try:
-    from .pipeline import MatchingPipeline, get_pipeline
-except ImportError:
-    from ..core.orchestrator import MatchingPipeline, get_pipeline
+from .pipeline import MatchingPipeline, get_pipeline
 
 __all__ = [
     'RawParser',
