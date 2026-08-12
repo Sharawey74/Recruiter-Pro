@@ -9,7 +9,7 @@ from datetime import datetime
 
 from src.storage.models import CVProfile, JobPosting, DecisionType
 from src.agents.agent3_scorer import HybridScoringAgent
-from src.agents.agent4_llm_explainer import get_explainer_agent
+from src.agents.agent4_factory import get_explainer_agent
 from src.agents.pipeline import MatchingPipeline
 
 

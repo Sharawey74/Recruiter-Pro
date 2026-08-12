@@ -28,6 +28,7 @@ from .agent1_parser import RawParser
 from .agent2_extractor import CandidateExtractor
 from .agent3_scorer import HybridScoringAgent
 from .agent4_factory import get_explainer_agent
+from .explaining import ExplanationContext
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -278,16 +279,22 @@ class MatchingPipeline:
         # actually being returned.
         if generate_explanations:
             explainer = self.explainer_for(use_langchain)
-            for match in top_matches[:self.MAX_EXPLANATIONS]:
-                if match.final_score < 0.6:
-                    break  # sorted, so nothing below this qualifies either
-                try:
-                    match.decision.explanation = explainer.generate_explanation(
-                        match, use_llm=use_llm
-                    )
-                except Exception as e:
-                    # An explanation is a nice-to-have; the match is the product.
-                    logger.warning(f"Explanation failed for {match.job_id}: {e}")
+            eligible = [
+                m for m in top_matches[:self.MAX_EXPLANATIONS]
+                if m.final_score >= 0.6
+            ]
+            if eligible:
+                # One batched call. The provider owns the fallback chain, so
+                # this cannot raise and every match gets an explanation --
+                # tagged with what produced it, so a rule-based fallback is
+                # visible rather than passed off as model output.
+                explanations = explainer.explain(
+                    [ExplanationContext.from_match_result(m) for m in eligible],
+                    use_llm=use_llm,
+                )
+                for match, explanation in zip(eligible, explanations):
+                    match.decision.explanation = explanation.text
+                    match.explanation_source = explanation.source
 
         # Persist once, after the loop, and only what is returned.
         #

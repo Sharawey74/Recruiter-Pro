@@ -44,9 +44,16 @@ requests==2.31.0             # the Ollama provider calls the HTTP API directly
 pyyaml==6.0.1
 python-dotenv==1.0.0
 
+# Used by src/agents/explaining/openrouter.py against OpenRouter's
+# OpenAI-compatible endpoint. Re-added by the commit that first imports it
+# (ADR-2 action item 7) rather than pinned on the strength of an intention --
+# it spent the previous period pinned with a comment and zero imports.
+# The OpenRouter provider is optional: without this package, is_available()
+# returns False and explanations fall back to rule-based.
+openai==1.51.0
+
 # Removed - pinned but never imported anywhere in src/ or scripts/:
 #   crewai==0.86.0      0 imports
-#   openai==1.51.0      0 imports (re-add with OpenRouterProvider, TASKS.md 4.7)
 #   ollama==0.4.4       0 imports (Agent 4 uses requests against Ollama's HTTP API)
 #   spacy==3.7.2        0 imports
 #   streamlit==1.29.0   0 imports
