@@ -13,7 +13,7 @@ Endpoints:
 """
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query
+from fastapi import FastAPI, File, Request, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 import tempfile
@@ -127,6 +127,58 @@ app.add_middleware(
     allow_headers=["*"],
 )
 logger.info(f"CORS restricted to: {', '.join(_cors_origins)}")
+
+# ============================================
+# RATE LIMITING
+# ============================================
+#
+# Per-IP limits on the two endpoints that do real work. This protects the
+# instance from abuse on a public URL; it is not what protects the LLM quota --
+# that is the explanation cap in the pipeline plus the daily budget in
+# explaining/budget.py. Both layers are needed: a rate limiter still permits
+# 5 uploads a minute forever, and a quota still permits one client to consume
+# all of it.
+#
+# slowapi is optional. If it is not installed the app runs unlimited with a
+# warning rather than failing to start, because a missing rate limiter should
+# not take down a local dev server.
+_api_config = get_config().api
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+    from slowapi.util import get_remote_address
+
+    limiter = Limiter(
+        key_func=get_remote_address,
+        enabled=_api_config.rate_limit_enabled,
+    )
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    RATE_LIMITING = True
+    if _api_config.rate_limit_enabled:
+        logger.info(
+            f"Rate limits: /match {_api_config.match_rate_limit}, "
+            f"/upload {_api_config.upload_rate_limit} (per IP)"
+        )
+    else:
+        logger.warning("Rate limiting is DISABLED by config")
+except ImportError:
+    RATE_LIMITING = False
+    logger.warning(
+        "slowapi not installed - endpoints are UNLIMITED. "
+        "This is unsafe on a public URL. pip install slowapi"
+    )
+
+    class _NoLimiter:
+        """No-op stand-in so the decorators below are always valid."""
+
+        @staticmethod
+        def limit(_spec):
+            def decorator(fn):
+                return fn
+            return decorator
+
+    limiter = _NoLimiter()
 
 # ============================================
 # GLOBAL COMPONENTS
@@ -379,7 +431,8 @@ async def get_jobs(
 
 
 @app.post("/upload")
-async def upload_cv(file: UploadFile = File(...)):
+@limiter.limit(_api_config.upload_rate_limit)
+async def upload_cv(request: Request, file: UploadFile = File(...)):
     """
     Upload and parse CV file
     
@@ -448,7 +501,9 @@ async def upload_cv(file: UploadFile = File(...)):
 
 
 @app.post("/match")
+@limiter.limit(_api_config.match_rate_limit)
 async def match_cv(
+    request: Request,
     file: UploadFile = File(..., description="CV file (PDF, DOCX, or TXT)"),
     top_k: int = Query(10, ge=1, le=50, description="Number of top matches to return"),
     explain: bool = Query(False, description="Generate AI explanations (slower)"),
@@ -594,7 +649,9 @@ async def match_cv(
 
 
 @app.post("/match/single")
+@limiter.limit(_api_config.match_rate_limit)
 async def match_to_single_job(
+    request: Request,
     file: UploadFile = File(...),
     job_id: str = Query(..., description="Job ID to match against"),
     explain: bool = Query(True, description="Generate AI explanation")

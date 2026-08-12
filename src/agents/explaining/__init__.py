@@ -20,6 +20,7 @@ import logging
 from typing import List, Optional
 
 from . import insights
+from .budget import CallBudget, Throttle
 from .langchain_provider import LangChainProvider
 from .ollama import OllamaProvider
 from .openrouter import OpenRouterProvider
@@ -80,10 +81,16 @@ class ExplainerAgent:
     if the request raised in between.
     """
 
-    def __init__(self, provider: Optional[LLMProvider] = None, config=None):
+    def __init__(
+        self,
+        provider: Optional[LLMProvider] = None,
+        config=None,
+        budget: Optional[CallBudget] = None,
+    ):
         self.config = config
         self.provider = provider if provider is not None else build_provider(config)
         self.fallback = RuleBasedProvider()
+        self.budget = budget if budget is not None else CallBudget()
 
     @property
     def llm_available(self) -> bool:
@@ -109,6 +116,13 @@ class ExplainerAgent:
         if not use_llm or self.provider.name == SOURCE_RULE_BASED:
             return self.fallback.explain(batch)
 
+        # Check the day's budget before spending any of it. Degrading here --
+        # rather than after the provider starts returning 429s -- is what makes
+        # running out of quota a slightly plainer explanation instead of a
+        # stall followed by an error.
+        if not self.budget.has_headroom(len(batch)):
+            return self.fallback.explain(batch)
+
         try:
             if not self.provider.is_available():
                 logger.info(f"Provider {self.provider.name} unavailable; using rule-based.")
@@ -126,6 +140,11 @@ class ExplainerAgent:
                 f"for {len(batch)} contexts; using rule-based for the batch."
             )
             return self.fallback.explain(batch)
+
+        # Record only what the provider actually produced. A failed call that
+        # fell back cost nothing on the quota, and counting it would degrade
+        # the instance early on the strength of the provider's own errors.
+        self.budget.record(sum(1 for r in results if r is not None))
 
         return [
             item if item is not None else self.fallback.explain([context])[0]
@@ -164,5 +183,7 @@ __all__ = [
     "OpenRouterProvider",
     "RuleBasedProvider",
     "build_provider",
+    "CallBudget",
+    "Throttle",
     "SOURCE_RULE_BASED",
 ]

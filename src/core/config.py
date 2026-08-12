@@ -123,6 +123,18 @@ class LLMConfig:
     cache_enabled: bool = True
     cache_ttl_hours: int = 24
     
+    # Daily call budget for the whole instance, not per user. At
+    # quota_degrade_at of this, explanations switch to rule-based for the rest
+    # of the day: running out degrades the demo instead of breaking it, and it
+    # does so before the provider starts returning 429s rather than after.
+    # 0 disables the counter.
+    daily_quota: int = 200
+    quota_degrade_at: float = 0.90
+
+    # Concurrent calls allowed to the provider. Free tiers rate-limit hard, and
+    # the failure mode of exceeding one is a 429 storm rather than a queue.
+    max_concurrent_calls: int = 2
+
     # LangChain mode selection
     use_langchain: bool = False  # False = Direct HTTP (fast), True = LangChain (advanced)
     streaming: bool = False      # Enable streaming responses
@@ -142,6 +154,14 @@ class APIConfig:
     cors_origins: list = field(default_factory=lambda: ["http://localhost:3000"])
     api_docs_enabled: bool = True
     max_upload_size_mb: int = 10
+
+    # Endpoint rate limits, per client IP. These protect the instance from
+    # abuse on a public URL; they are not the thing that protects the LLM
+    # quota -- that is the explanation cap in the pipeline plus llm_daily_quota
+    # below. Set rate_limit_enabled=false to disable (tests, local load runs).
+    rate_limit_enabled: bool = True
+    match_rate_limit: str = "5/minute"
+    upload_rate_limit: str = "10/minute"
 
 
 @dataclass
@@ -241,6 +261,22 @@ class Config:
             self.api.port = int(os.getenv('API_PORT'))
         if os.getenv('CORS_ORIGINS'):
             self.api.cors_origins = os.getenv('CORS_ORIGINS').split(',')
+        if os.getenv('RATE_LIMIT_ENABLED'):
+            self.api.rate_limit_enabled = os.getenv('RATE_LIMIT_ENABLED').lower() == 'true'
+        if os.getenv('MATCH_RATE_LIMIT'):
+            self.api.match_rate_limit = os.getenv('MATCH_RATE_LIMIT')
+        if os.getenv('UPLOAD_RATE_LIMIT'):
+            self.api.upload_rate_limit = os.getenv('UPLOAD_RATE_LIMIT')
+
+        # LLM budget
+        if os.getenv('LLM_DAILY_QUOTA'):
+            self.llm.daily_quota = int(os.getenv('LLM_DAILY_QUOTA'))
+        if os.getenv('LLM_QUOTA_DEGRADE_AT'):
+            self.llm.quota_degrade_at = float(os.getenv('LLM_QUOTA_DEGRADE_AT'))
+        if os.getenv('LLM_MAX_CONCURRENT_CALLS'):
+            self.llm.max_concurrent_calls = int(os.getenv('LLM_MAX_CONCURRENT_CALLS'))
+        if os.getenv('LLM_PROVIDER'):
+            self.llm.provider = os.getenv('LLM_PROVIDER')
         
         # Environment
         if os.getenv('ENV'):

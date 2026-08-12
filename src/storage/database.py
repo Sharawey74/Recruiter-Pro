@@ -142,9 +142,56 @@ class Database:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            
+
+            # Daily LLM call counter. In the database rather than in memory so
+            # the budget survives a restart -- an in-process counter resets to
+            # zero every deploy, which on a free tier that restarts on idle
+            # means no budget at all.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS llm_usage (
+                    day TEXT PRIMARY KEY,
+                    calls INTEGER NOT NULL DEFAULT 0
+                )
+            """)
+
             conn.commit()
             self._initialized = True
+
+    def record_llm_calls(self, count: int = 1, day: Optional[str] = None) -> int:
+        """
+        Add to today's LLM call count and return the new total.
+
+        One statement, so two workers incrementing at once cannot lose a count
+        the way read-modify-write would.
+        """
+        if not self._initialized:
+            self.initialize_schema()
+
+        day = day or datetime.utcnow().strftime("%Y-%m-%d")
+        with self.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO llm_usage (day, calls) VALUES (?, ?)
+                ON CONFLICT(day) DO UPDATE SET calls = calls + excluded.calls
+                """,
+                (day, count),
+            )
+            row = conn.execute(
+                "SELECT calls FROM llm_usage WHERE day = ?", (day,)
+            ).fetchone()
+        return row["calls"] if row else count
+
+    def llm_calls_today(self, day: Optional[str] = None) -> int:
+        """How many LLM calls have been made today. 0 if none yet."""
+        if not self._initialized:
+            self.initialize_schema()
+
+        day = day or datetime.utcnow().strftime("%Y-%m-%d")
+        with self.get_connection() as conn:
+            row = conn.execute(
+                "SELECT calls FROM llm_usage WHERE day = ?", (day,)
+            ).fetchone()
+        return row["calls"] if row else 0
     
     def save_match(self, match: MatchResult) -> int:
         """

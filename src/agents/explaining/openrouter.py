@@ -22,6 +22,7 @@ import os
 from typing import List, Optional
 
 from . import prompt
+from .budget import Throttle, retry_after_seconds
 from .protocol import Explanation, ExplanationContext
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,13 @@ class OpenRouterProvider:
 
     name = "openrouter"
 
-    def __init__(self, llm_config, api_key: Optional[str] = None, model: Optional[str] = None):
+    def __init__(
+        self,
+        llm_config,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        throttle: Optional[Throttle] = None,
+    ):
         """
         Args:
             llm_config: supplies temperature, max_tokens and timeout_seconds.
@@ -48,6 +55,9 @@ class OpenRouterProvider:
         self._api_key = api_key or os.getenv(ENV_KEY)
         self.model = model or os.getenv("OPENROUTER_MODEL") or DEFAULT_MODEL
         self._client = None
+        self.throttle = throttle or Throttle(
+            getattr(llm_config, "max_concurrent_calls", 2)
+        )
 
     def is_available(self) -> bool:
         """
@@ -88,17 +98,25 @@ class OpenRouterProvider:
 
     def _one(self, client, context: ExplanationContext) -> Optional[Explanation]:
         try:
-            completion = client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": prompt.SYSTEM},
-                    {"role": "user", "content": prompt.build(context)},
-                ],
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
-                timeout=self.config.timeout_seconds,
-            )
+            # Bounded concurrency, and a shared backoff if the provider has
+            # told us to wait. Free tiers answer excess concurrency with 429s
+            # rather than a queue, so the queue has to be ours.
+            with self.throttle:
+                completion = client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": prompt.SYSTEM},
+                        {"role": "user", "content": prompt.build(context)},
+                    ],
+                    temperature=self.config.temperature,
+                    max_tokens=self.config.max_tokens,
+                    timeout=self.config.timeout_seconds,
+                )
         except Exception as e:  # noqa: BLE001 - quota, timeout, auth, network
+            # Honour Retry-After when the provider sends one: guessing a
+            # backoff when the server has stated the answer is a slower way to
+            # get rate-limited again.
+            self.throttle.back_off(retry_after_seconds(e))
             # Never include the exception's request context, which can echo
             # headers. The message alone is enough to diagnose.
             logger.warning(f"OpenRouter request failed: {type(e).__name__}: {e}")

@@ -16,6 +16,7 @@ import logging
 from typing import List, Optional
 
 from . import prompt
+from .budget import Throttle
 from .protocol import Explanation, ExplanationContext
 
 logger = logging.getLogger(__name__)
@@ -33,8 +34,13 @@ class OllamaProvider:
 
     name = "ollama"
 
-    def __init__(self, llm_config):
+    def __init__(self, llm_config, throttle=None):
         self.config = llm_config
+        # A local Ollama has no quota, but it does have finite VRAM: parallel
+        # generations on one small GPU are slower than serialising them.
+        self.throttle = throttle or Throttle(
+            getattr(llm_config, "max_concurrent_calls", 2)
+        )
 
     def is_available(self) -> bool:
         """Ping Ollama and confirm the configured model is actually pulled."""
@@ -69,19 +75,20 @@ class OllamaProvider:
 
     def _generate(self, context: ExplanationContext) -> Optional[str]:
         try:
-            response = requests.post(
-                f"{self.config.base_url}/api/generate",
-                json={
-                    "model": self.config.model,
-                    "prompt": f"{prompt.SYSTEM}\n\n{prompt.build(context)}",
-                    "stream": False,
-                    "options": {
-                        "temperature": self.config.temperature,
-                        "num_predict": self.config.max_tokens,
+            with self.throttle:
+                response = requests.post(
+                    f"{self.config.base_url}/api/generate",
+                    json={
+                        "model": self.config.model,
+                        "prompt": f"{prompt.SYSTEM}\n\n{prompt.build(context)}",
+                        "stream": False,
+                        "options": {
+                            "temperature": self.config.temperature,
+                            "num_predict": self.config.max_tokens,
+                        },
                     },
-                },
-                timeout=self.config.timeout_seconds,
-            )
+                    timeout=self.config.timeout_seconds,
+                )
         except Exception as e:  # noqa: BLE001 - a provider failure is not an outage
             logger.warning(f"Ollama request failed: {e}")
             return None
