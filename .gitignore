@@ -94,6 +94,15 @@ $RECYCLE.BIN/
 # file never existed.
 
 # ====================
+# Test artifacts
+# ====================
+# Plots written directly into models/experiments/ by a test run. Two of these
+# were committed by accident. Tests now write to tmp_path, so anything landing
+# here again came from a real training run in a dated subdirectory -- which
+# stays tracked.
+models/experiments/*.png
+
+# ====================
 # Logs
 # ====================
 *.log
