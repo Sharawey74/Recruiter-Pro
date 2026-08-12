@@ -87,7 +87,11 @@ $RECYCLE.BIN/
 .env
 .env.local
 .env.*.local
-.env.example
+
+# .env.example is deliberately NOT ignored. It carries the variable names with
+# no values, and it is the only place a new contributor can discover what the
+# application reads from the environment. It was listed here, which is why the
+# file never existed.
 
 # ====================
 # Logs
