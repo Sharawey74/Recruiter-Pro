@@ -57,7 +57,11 @@ jobs:
           PYTHONHASHSEED: "0"
           LLM_PROVIDER: rule_based
           RATE_LIMIT_ENABLED: "false"
-        run: pytest --cov=src --cov-report=term-missing --cov-branch
+        # --cov-fail-under makes the coverage number a floor rather than a
+        # figure in a log nobody reads. It sits just under the current 80% so
+        # ordinary work is not blocked by rounding, and it moves up when
+        # coverage does.
+        run: pytest --cov=src --cov-report=term-missing --cov-branch --cov-fail-under=79
 
       - name: Validate the job corpus
         run: python scripts/validate_corpus.py --jobs data/json/jobs.json --skills data/dictionaries/skills.json

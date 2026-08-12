@@ -120,8 +120,11 @@ class LLMConfig:
     temperature: float = 0.2
     max_tokens: int = 500
     timeout_seconds: int = 120  # Increased to 120 seconds for AI Matching Engine
-    cache_enabled: bool = True
-    cache_ttl_hours: int = 24
+    # cache_enabled / cache_ttl_hours were removed with src/storage/cache.py:
+    # the module was a docstring and `pass`, imported by nothing, and these two
+    # settings configured it. Explanation caching is a reasonable idea, but a
+    # config key that switches nothing is worse than its absence -- it reads as
+    # a feature.
     
     # Daily call budget for the whole instance, not per user. At
     # quota_degrade_at of this, explanations switch to rule-based for the rest
