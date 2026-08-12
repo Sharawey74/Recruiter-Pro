@@ -1,0 +1,31 @@
+Jordan Ellis
+jordan.ellis@example.com
++44 7700 900123
+Manchester, United Kingdom
+
+Summary
+Backend engineer with 8 years of experience building and operating payment
+systems at scale. Comfortable owning a service end to end, from schema design
+through to on-call.
+
+Technical Skills
+Python, JavaScript, TypeScript, PostgreSQL, Redis, Docker, Kubernetes, AWS,
+Terraform, Git, Linux, REST API, GraphQL, Machine Learning
+
+Experience
+Senior Software Engineer, Northbank Payments (2019 - present)
+  Led the migration of the settlement service from a monolith to three
+  independently deployable services, cutting median settlement latency from
+  400ms to 90ms.
+  Introduced contract testing between services, which removed a recurring class
+  of integration failure.
+
+Software Engineer, Griffin Analytics (2016 - 2019)
+  Built the ingestion pipeline handling roughly 40 million events per day.
+  Maintained the internal Python client library used by six teams.
+
+Education
+BSc Computer Science, University of Manchester
+
+Certifications
+AWS Certified Solutions Architect - Associate

@@ -725,7 +725,10 @@ async def match_to_single_job(
                 "underqualified": match.score_breakdown.underqualified
             },
             "explanation": match.decision.explanation if explain else None,
-            "timestamp": match.timestamp.isoformat()
+            "explanation_source": match.explanation_source,
+            # MatchResult has created_at, not timestamp. This raised
+            # AttributeError on every call, so /match/single always 500'd.
+            "timestamp": match.created_at.isoformat()
         }
     
     except Exception as e:
@@ -753,13 +756,17 @@ async def get_match_history(
     Returns recent CV-job matches stored in the system
     """
     try:
-        # Get matches from database
-        all_matches = db.get_all_matches()
-        
-        # Paginate
+        # Every line of this handler was wrong, and nothing caught it because
+        # the only tests covering the API targeted /api/v1/*, a surface this
+        # repo has never served. db.get_all_matches() does not exist; the rows
+        # are MatchHistory, which has no score_breakdown, no cv_name, no
+        # nested decision and no timestamp. The endpoint returned 500 on every
+        # call it has ever received.
+        all_matches = db.get_top_matches(limit=skip + limit)
+
         total = len(all_matches)
-        matches = all_matches[skip:skip+limit]
-        
+        matches = all_matches[skip:skip + limit]
+
         return {
             "total": total,
             "skip": skip,
@@ -769,13 +776,13 @@ async def get_match_history(
                 {
                     "match_id": m.match_id,
                     "cv_id": m.cv_id,
-                    "cv_name": m.cv_name,
+                    "cv_name": m.candidate_name,
                     "job_id": m.job_id,
                     "job_title": m.job_title,
-                    "score": round(m.score_breakdown.hybrid_score * 100, 1),
-                    "decision": m.decision.decision.value,
-                    "confidence": round(m.decision.confidence * 100, 1),
-                    "timestamp": m.timestamp.isoformat()
+                    "score": round(m.final_score * 100, 1),
+                    "decision": m.decision,
+                    "confidence": round(m.confidence * 100, 1),
+                    "timestamp": m.created_at.isoformat() if m.created_at else None,
                 }
                 for m in matches
             ]

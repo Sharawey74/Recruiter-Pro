@@ -26,7 +26,17 @@ class TestMLPipelineIntegration:
     
     @pytest.fixture
     def sample_dataset_file(self, tmp_path):
-        """Create a temporary dataset file"""
+        """
+        A temporary dataset with a fixed seed and a fixed class balance.
+
+        This used to call np.random.* with no seed, so every run got a
+        different label distribution. test_pipeline_with_smote failed whenever
+        the draw came out balanced enough that SMOTE's sampling_strategy=0.7
+        would have required removing minority samples -- which looked like an
+        intermittent SMOTE bug and was in fact an unseeded fixture. Seeded and
+        with a fixed 30/70 split now, so the outcome is the same on every run.
+        """
+        rng = np.random.default_rng(42)
         data = pd.DataFrame({
             'Skills': [
                 'Python, Machine Learning, SQL',
@@ -40,13 +50,18 @@ class TestMLPipelineIntegration:
                 'Python, FastAPI, MongoDB',
                 'Java, Spring, Hibernate',
             ] * 10,  # 100 samples
-            'Experience': np.random.randint(1, 15, 100),
-            'Education': np.random.choice(['Bachelor', 'Master', 'PhD'], 100),
-            'Certifications': np.random.choice(['AWS', 'GCP', 'Azure', 'None'], 100),
-            'Projects Count': np.random.randint(1, 30, 100),
-            'Job Role': np.random.choice(['Engineer', 'Senior Engineer', 'Lead'], 100),
-            'Salary': np.random.randint(60000, 200000, 100),
-            'Recruiter Decision': np.random.choice(['Hire', 'Reject'], 100)
+            'Experience': rng.integers(1, 15, 100),
+            'Education': rng.choice(['Bachelor', 'Master', 'PhD'], 100),
+            'Certifications': rng.choice(['AWS', 'GCP', 'Azure', 'None'], 100),
+            'Projects Count': rng.integers(1, 30, 100),
+            'Job Role': rng.choice(['Engineer', 'Senior Engineer', 'Lead'], 100),
+            'Salary': rng.integers(60000, 200000, 100),
+            # 30/70, fixed. Deliberately imbalanced, because that is what
+            # SMOTE exists to correct and what real ATS data looks like -- and
+            # because the pipeline pins sampling_strategy=0.7, which raises on
+            # any dataset already more balanced than that. A 50/50 fixture
+            # fails deterministically; an unseeded draw failed intermittently.
+            'Recruiter Decision': ['Hire'] * 30 + ['Reject'] * 70
         })
         
         filepath = tmp_path / "test_dataset.csv"

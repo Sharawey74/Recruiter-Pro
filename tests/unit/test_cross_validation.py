@@ -116,84 +116,87 @@ class TestCrossValidator:
     
     @pytest.mark.unit
     @pytest.mark.ml
-    def test_learning_curve_basic(self, sample_data, simple_model):
+    def test_learning_curve_basic(self, sample_data, simple_model, tmp_path):
         """Test learning curve generation"""
         X, y = sample_data
-        cv = CrossValidationEvaluator(n_folds=3)
-        
-        train_sizes, train_scores, val_scores = cv.plot_learning_curves(
+        cv = CrossValidationEvaluator(n_folds=3, output_dir=str(tmp_path))
+
+        result = cv.plot_learning_curves(
             simple_model, X.values, y.values, model_name='TestModel'
         )
-        
-        # Should return arrays
+
+        # Returns a dict, not a tuple. These tests unpacked three values and
+        # had never passed against this implementation.
+        train_sizes = result['train_sizes']
         assert len(train_sizes) > 0
-        assert train_scores.shape[0] == len(train_sizes)
-        assert val_scores.shape[0] == len(train_sizes)
+        assert result['train_scores'].shape[0] == len(train_sizes)
+        assert result['val_scores'].shape[0] == len(train_sizes)
     
     @pytest.mark.unit
     @pytest.mark.ml
-    def test_learning_curve_train_sizes(self, sample_data, simple_model):
+    def test_learning_curve_train_sizes(self, sample_data, simple_model, tmp_path):
         """Test learning curve with custom train sizes"""
         X, y = sample_data
         cv = CrossValidationEvaluator(n_folds=3)
         
         custom_sizes = np.linspace(0.2, 1.0, 5)
-        train_sizes, train_scores, val_scores = cv.plot_learning_curves(
+        result = cv.plot_learning_curves(
             simple_model, X.values, y.values, train_sizes=custom_sizes, model_name='TestModel'
         )
-        
-        assert len(train_sizes) == 5
+
+        assert len(result['train_sizes']) == 5
     
     @pytest.mark.unit
     @pytest.mark.ml
-    def test_learning_curve_increasing_performance(self, sample_data, simple_model):
+    def test_learning_curve_increasing_performance(self, sample_data, simple_model, tmp_path):
         """Test that learning curve shows improving performance"""
         X, y = sample_data
-        cv = CrossValidationEvaluator(n_folds=3)
-        
-        train_sizes, train_scores, val_scores = cv.plot_learning_curves(
+        cv = CrossValidationEvaluator(n_folds=3, output_dir=str(tmp_path))
+
+        result = cv.plot_learning_curves(
             simple_model, X.values, y.values, model_name='TestModel'
         )
-        
+
         # Mean validation score should generally increase
-        val_means = val_scores.mean(axis=1)
+        val_means = result['val_scores'].mean(axis=1)
         # Last score should be >= first score (with some tolerance)
         assert val_means[-1] >= val_means[0] - 0.1
     
     @pytest.mark.unit
     @pytest.mark.ml
-    def test_validation_curve_basic(self, sample_data, simple_model):
+    def test_validation_curve_basic(self, sample_data, simple_model, tmp_path):
         """Test validation curve generation"""
         X, y = sample_data
-        cv = CrossValidationEvaluator(n_folds=3)
-        
+        cv = CrossValidationEvaluator(n_folds=3, output_dir=str(tmp_path))
+
         param_range = [0.001, 0.01, 0.1, 1.0, 10.0]
-        train_scores, val_scores = cv.plot_validation_curve(
+        result = cv.plot_validation_curve(
             simple_model, X.values, y.values,
             param_name='C',
-            param_range=param_range
+            param_range=param_range,
+            model_name='TestModel',
         )
-        
-        assert train_scores.shape[0] == len(param_range)
-        assert val_scores.shape[0] == len(param_range)
+
+        assert result['train_scores'].shape[0] == len(param_range)
+        assert result['val_scores'].shape[0] == len(param_range)
     
     @pytest.mark.unit
     @pytest.mark.ml
-    def test_validation_curve_scores_vary(self, sample_data, simple_model):
+    def test_validation_curve_scores_vary(self, sample_data, simple_model, tmp_path):
         """Test that validation curve shows varying performance"""
         X, y = sample_data
-        cv = CrossValidationEvaluator(n_folds=3)
-        
+        cv = CrossValidationEvaluator(n_folds=3, output_dir=str(tmp_path))
+
         param_range = [0.001, 0.01, 0.1, 1.0, 10.0]
-        train_scores, val_scores = cv.plot_validation_curve(
+        result = cv.plot_validation_curve(
             simple_model, X.values, y.values,
             param_name='C',
             param_range=param_range,
             model_name='TestModel'
         )
-        
+
         # Scores should vary across parameter range
-        val_std = val_scores.mean(axis=1).std()
+        val_std = result['val_scores'].mean(axis=1).std()
         assert val_std > 0  # Some variation expected
     
     @pytest.mark.unit

@@ -1,123 +1,137 @@
 """
-Test Enhanced Agent 3 Matching
-Compare old vs new scoring for Abdelrahman's resume
+Agents 1 -> 2 -> 3 against a real file on disk.
+
+This file previously contained a demo script: it parsed a resume that was not
+in the repository, printed a scoring table, and asserted **nothing**. pytest
+collected it because of the name, so it counted toward the suite while being
+incapable of failing for any reason except the missing file -- which is exactly
+how it failed, on every run, for as long as it existed.
+
+Rewritten as the test the name promised. It is the only coverage that starts
+from a file rather than a constructed CVProfile, so it is what would catch a
+break in the hand-off between the three agents.
 """
-import sys
+import json
 from pathlib import Path
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+import pytest
 
 from src.agents.agent1_parser import RawParser
 from src.agents.agent2_extractor import CandidateExtractor
 from src.agents.agent3_scorer import HybridScoringAgent
 from src.storage.models import CVProfile, JobPosting
-import json
-import uuid
 
-def test_enhanced_matching():
-    print("\n" + "="*100)
-    print("TESTING ENHANCED AGENT 3 MATCHING")
-    print("="*100)
-    
-    # Load Abdelrahman's resume
-    resume_path = "test_resume_abdelrahman.txt"
-    
-    # Parse CV
-    parser = RawParser()
-    extractor = CandidateExtractor()
-    scorer = HybridScoringAgent()
-    
-    print(f"\n📄 Parsing resume: {resume_path}")
-    result = parser.parse_file(resume_path)
-    cv_text = result.get('raw_text', '')
-    
-    print("🔍 Extracting candidate data...")
-    extracted = extractor.extract(cv_text)
-    
-    # Build CV profile
-    cv = CVProfile(
-        cv_id=str(uuid.uuid4()),
-        file_name=resume_path,
-        file_path=resume_path,
-        name=extracted.get('name', 'Abdelrahman Mohamed'),
-        email=extracted.get('email'),
-        skills=extracted.get('skills', []),
-        experience_years=extracted.get('experience_years', 3),
-        education=', '.join(extracted.get('education', [])) if isinstance(extracted.get('education'), list) else extracted.get('education', 'Bachelor'),
-        raw_text=cv_text,
-        extracted_data=extracted
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SAMPLE_CV = Path(__file__).resolve().parents[1] / "fixtures" / "sample_cv.txt"
+
+
+@pytest.fixture(scope="module")
+def parsed_cv():
+    """The real Agent 1 -> Agent 2 hand-off, from a real file."""
+    raw = RawParser().parse_file(str(SAMPLE_CV))
+    extracted = CandidateExtractor().extract(raw.get("raw_text", ""))
+
+    education = extracted.get("education") or None
+    if isinstance(education, list):
+        education = ", ".join(education) or None
+
+    return CVProfile(
+        cv_id="enhanced-matching",
+        file_name=SAMPLE_CV.name,
+        file_path=str(SAMPLE_CV),
+        name=extracted.get("name"),
+        email=extracted.get("email"),
+        skills=extracted.get("skills", []),
+        experience_years=extracted.get("experience_years"),
+        education=education,
+        raw_text=raw.get("raw_text", ""),
+        extracted_data=extracted,
     )
-    
-    print(f"\n✅ Candidate Profile:")
-    print(f"   Name: {cv.name}")
-    print(f"   Experience: {cv.experience_years} years")
-    print(f"   Skills ({len(cv.skills)}): {', '.join(cv.skills[:15])}{'...' if len(cv.skills) > 15 else ''}")
-    
-    # Load jobs
-    print(f"\n📦 Loading jobs from data/json/jobs_cleaned.json...")
-    with open('data/json/jobs_cleaned.json', 'r', encoding='utf-8') as f:
-        jobs_data = json.load(f)
-    
-    jobs = [JobPosting(**j) for j in jobs_data[:4000]]
-    print(f"✅ Loaded {len(jobs)} jobs")
-    
-    # Score against all jobs
-    print(f"\n⚡ Scoring candidate against {len(jobs)} jobs...")
-    matches = []
-    
-    for i, job in enumerate(jobs):
-        if (i + 1) % 1000 == 0:
-            print(f"   Processed {i+1}/{len(jobs)}...")
-        
-        score = scorer.score_match(cv, job, include_ml=False)
-        matches.append({
-            'job': job,
-            'score': score
-        })
-    
-    # Sort by hybrid score
-    matches.sort(key=lambda x: x['score'].hybrid_score, reverse=True)
-    
-    # Display top 15 matches
-    print(f"\n" + "="*100)
-    print("TOP 15 MATCHED JOBS")
-    print("="*100)
-    
-    for i, match in enumerate(matches[:15], 1):
-        job = match['job']
-        score = match['score']
-        
-        print(f"\n{i}. {job.title}")
-        print(f"   Company: {job.company_name}")
-        print(f"   Location: {job.location_city}, {job.location_country} ({job.remote_type})")
-        print(f"   Seniority: {job.seniority_level} | Experience: {job.min_experience_years}-{job.max_experience_years} years")
-        print(f"   📊 SCORES:")
-        print(f"      • Overall Score: {score.hybrid_score*100:.1f}%")
-        print(f"      • Skills Match: {score.skill_score*100:.1f}% ({len(score.matched_skills)}/{len(job.required_skills)} required)")
-        print(f"      • Title Match: {score.hybrid_score*100 - (score.skill_score*50 + score.experience_score*20 + score.education_score*8 + score.keyword_score*5):.1f}% (NEW!)")
-        print(f"      • Experience: {score.experience_score*100:.1f}%")
-        print(f"      • Education: {score.education_score*100:.1f}%")
-        print(f"   ✅ Matched Skills: {', '.join(score.matched_skills[:8])}{'...' if len(score.matched_skills) > 8 else ''}")
-        if score.missing_skills:
-            print(f"   ⚠️  Missing Skills: {', '.join(score.missing_skills[:5])}{'...' if len(score.missing_skills) > 5 else ''}")
-    
-    # Statistics
-    print(f"\n" + "="*100)
-    print("MATCHING STATISTICS")
-    print("="*100)
-    
-    excellent = sum(1 for m in matches if m['score'].hybrid_score >= 0.75)
-    good = sum(1 for m in matches if 0.60 <= m['score'].hybrid_score < 0.75)
-    moderate = sum(1 for m in matches if 0.50 <= m['score'].hybrid_score < 0.60)
-    poor = sum(1 for m in matches if m['score'].hybrid_score < 0.50)
-    
-    print(f"Excellent matches (≥75%): {excellent} ({excellent/len(matches)*100:.1f}%)")
-    print(f"Good matches (60-74%): {good} ({good/len(matches)*100:.1f}%)")
-    print(f"Moderate matches (50-59%): {moderate} ({moderate/len(matches)*100:.1f}%)")
-    print(f"Poor matches (<50%): {poor} ({poor/len(matches)*100:.1f}%)")
-    
-    print(f"\n✨ Enhanced matching complete!")
 
-if __name__ == "__main__":
-    test_enhanced_matching()
+
+@pytest.fixture(scope="module")
+def jobs():
+    payload = json.loads(
+        (PROJECT_ROOT / "data/json/jobs.json").read_text(encoding="utf-8")
+    )
+    return [JobPosting(**j) for j in payload["jobs"][:120]]
+
+
+@pytest.mark.integration
+class TestAgentHandoff:
+    """Each agent's output has to be usable by the next one."""
+
+    def test_agent1_extracts_text(self, parsed_cv):
+        assert len(parsed_cv.raw_text) > 200
+
+    def test_agent2_finds_the_contact_details(self, parsed_cv):
+        assert parsed_cv.email == "jordan.ellis@example.com"
+        assert parsed_cv.name
+
+    def test_agent2_finds_the_skills_the_cv_lists(self, parsed_cv):
+        skills = {s.lower() for s in parsed_cv.skills}
+        for expected in ("python", "docker", "kubernetes", "postgresql"):
+            assert expected in skills, f"{expected} missing from {sorted(skills)}"
+
+    def test_agent2_reads_the_experience(self, parsed_cv):
+        assert parsed_cv.experience_years == 8
+
+    def test_agent2_output_is_canonical_for_agent3(self, parsed_cv):
+        """
+        The point of the shared vocabulary: a skill Agent 2 extracts must be
+        one Agent 3 can match. Before they shared an index, Agent 2 could
+        produce names Agent 3 had never heard of and the candidate silently
+        lost the points.
+        """
+        matcher = HybridScoringAgent().skill_matcher
+        canonical = set(matcher.skills_index.values())
+        for skill in parsed_cv.skills:
+            assert skill in canonical, f"{skill!r} is not a canonical name"
+
+
+@pytest.mark.integration
+class TestScoringAcrossTheCorpus:
+    def test_every_job_scores_in_range(self, parsed_cv, jobs):
+        agent = HybridScoringAgent()
+        for breakdown in agent.score_matches(parsed_cv, jobs, include_ml=False):
+            assert 0.0 <= breakdown.hybrid_score <= 1.0
+            assert 0.0 <= breakdown.skill_score <= 1.0
+
+    def test_the_breakdown_reconstructs_the_rule_score(self, parsed_cv, jobs):
+        """
+        Every returned component, weighted, must add up to rule_based_score.
+        title_score was computed, weighted at 17% and then discarded, so the
+        components the API returned could not reconstruct the total.
+        """
+        agent = HybridScoringAgent()
+        w = agent.scoring_config
+        for b in agent.score_matches(parsed_cv, jobs[:40], include_ml=False):
+            expected = (
+                b.skill_score * w.skill_weight
+                + b.title_score * w.title_weight
+                + b.experience_score * w.experience_weight
+                + b.education_score * w.education_weight
+                + b.keyword_score * w.keyword_weight
+            )
+            assert b.rule_based_score == pytest.approx(expected, abs=1e-12)
+
+    def test_a_backend_cv_beats_unrelated_roles(self, parsed_cv, jobs):
+        """
+        The product claim, at its coarsest: this CV should rank an engineering
+        job above a job sharing none of its skills. A0 broke exactly this --
+        every skill collapsed to its family name, so a Python CV matched a Java
+        job perfectly.
+        """
+        agent = HybridScoringAgent()
+        scored = list(zip(jobs, agent.score_matches(parsed_cv, jobs, include_ml=False)))
+        scored.sort(key=lambda pair: -pair[1].hybrid_score)
+
+        best_job, best = scored[0]
+        worst_job, worst = scored[-1]
+        assert best.hybrid_score > worst.hybrid_score
+        assert best.matched_skills, f"top match {best_job.job_id} matched no skills at all"
+
+    def test_scoring_does_not_mutate_the_cv(self, parsed_cv, jobs):
+        before = list(parsed_cv.skills)
+        HybridScoringAgent().score_matches(parsed_cv, jobs[:20], include_ml=False)
+        assert parsed_cv.skills == before

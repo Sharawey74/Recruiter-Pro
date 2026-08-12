@@ -6,6 +6,12 @@ to detect underfitting/overfitting.
 """
 
 import numpy as np
+import matplotlib
+# Non-interactive backend, selected before pyplot is imported. Without it,
+# matplotlib picks TkAgg and raises TclError anywhere there is no display --
+# CI, a container, a headless server. Nothing here needs an interactive window;
+# every figure is written to a file.
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import (

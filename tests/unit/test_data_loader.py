@@ -168,10 +168,13 @@ class TestATSDataLoader:
             loader = ATSDataLoader(temp_path)
             df_loaded = loader.load_data()
             
-            # Data loader doesn't fill missing values, just verify it loads
-            # Note: AI Score column is excluded by load_data()
+            # The loader calls drop_duplicates(), so 10 copies of 3 identical
+            # rows collapse back to 3. This asserted 30 and had never passed:
+            # the expectation was wrong, not the code. Pinning the real
+            # behaviour makes the deduplication a tested contract instead of an
+            # accident.
             assert df_loaded is not None
-            assert len(df_loaded) == 30  # Should have 30 rows
+            assert len(df_loaded) == 3, "identical rows should be deduplicated"
             assert 'AI Score (0-100)' not in df_loaded.columns  # AI Score should be excluded
         finally:
             if os.path.exists(temp_path):
