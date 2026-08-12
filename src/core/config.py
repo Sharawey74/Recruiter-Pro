@@ -136,7 +136,10 @@ class APIConfig:
     port: int = 8000
     reload: bool = False
     workers: int = 1
-    cors_origins: list = field(default_factory=lambda: ["http://localhost:8501"])
+    # The frontend is Next.js on :3000. This defaulted to :8501 -- Streamlit --
+    # which nothing in this repo serves; the value was never read by the API
+    # module anyway, so the mismatch was invisible.
+    cors_origins: list = field(default_factory=lambda: ["http://localhost:3000"])
     api_docs_enabled: bool = True
     max_upload_size_mb: int = 10
 

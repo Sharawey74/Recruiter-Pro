@@ -11,6 +11,8 @@ Endpoints:
 - POST /match/single  - Match CV to specific job
 - GET  /history       - View match history
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
@@ -28,6 +30,74 @@ from src.storage.models import JobPosting
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Startup and shutdown, as one context manager.
+
+    Replaces @app.on_event("startup"/"shutdown"), deprecated since FastAPI
+    0.93 and slated for removal. The startup half also used to reference
+    pipeline.agent3.ml_predictor, an attribute that stopped existing when the
+    ML scorer was extracted -- so the server raised AttributeError before
+    serving a request. See the commit message.
+    """
+    global jobs_cache
+    
+    logger.info("=" * 60)
+    logger.info("🚀 Starting Recruiter Pro AI API Server...")
+    logger.info("=" * 60)
+    
+    # Load jobs
+    logger.info("Loading jobs from database...")
+    jobs_cache = load_jobs()
+    logger.info(f"✅ Loaded {len(jobs_cache)} jobs")
+    
+    # Initialize database
+    logger.info("Initializing database...")
+    try:
+        # Database is auto-initialized when get_database() is called
+        logger.info("[OK] Database ready")
+    except Exception as e:
+        logger.warning(f"[WARN] Database initialization failed: {e}")
+    
+    # Check ML model
+    if pipeline.agent3.ml_scorer.enabled:
+        model_info = pipeline.agent3.ml_scorer.predictor.get_model_info()
+        logger.info(f"[OK] ML model loaded: {model_info.get('model_name', 'Unknown')}")
+        logger.info(f"   Test Recall: {model_info.get('test_recall', 'N/A')}")
+    else:
+        # Loud on purpose. The previous single-line warning scrolled past in a
+        # wall of startup output, so the project ran without its headline
+        # feature for a long time without anyone noticing. State the
+        # consequence and the remedy, not just the fact.
+        logger.warning("!" * 60)
+        logger.warning("[WARN] ML model NOT loaded - scoring is RULE-BASED ONLY")
+        logger.warning("       The hybrid ML+rules scoring is not running.")
+        logger.warning("       Expected: models/production/ats_model.joblib")
+        logger.warning("                 models/production/feature_engineer.joblib")
+        logger.warning("       Regenerate with: python -m src.ml_engine.train \\")
+        logger.warning("                          --data-path data/AI_Resume_Screening.csv")
+        logger.warning("!" * 60)
+    
+    # Check Ollama
+    if hasattr(pipeline, 'config') and pipeline.config.llm.enabled:
+        logger.info(f"✅ Ollama enabled: {pipeline.config.llm.model}")
+    else:
+        logger.info("ℹ️  Ollama disabled (explanations will be basic)")
+    
+    logger.info("=" * 60)
+    logger.info("✅ API Server Ready!")
+    logger.info(f"📖 API Docs: http://localhost:8000/docs")
+    logger.info(f"📖 ReDoc: http://localhost:8000/redoc")
+    logger.info("=" * 60)
+
+
+    yield
+
+    logger.info("👋 Shutting down API Server...")
+
+
+
 
 # ============================================
 # FASTAPI APP SETUP
@@ -38,17 +108,26 @@ app = FastAPI(
     description="AI-powered resume matching with 4-agent pipeline",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Enable CORS (allow frontend to call API)
+#
+# allow_origins=["*"] with allow_credentials=True is not a permissive setting --
+# it is a broken one. The CORS spec forbids the combination, so browsers reject
+# the response outright and every credentialed cross-origin call fails. It also
+# ignored config.api.cors_origins and the CORS_ORIGINS env var, both of which
+# already existed.
+_cors_origins = get_config().api.cors_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (restrict in production)
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+logger.info(f"CORS restricted to: {', '.join(_cors_origins)}")
 
 # ============================================
 # GLOBAL COMPONENTS
@@ -60,6 +139,85 @@ db = get_database()
 
 # Jobs cache (loaded on startup)
 jobs_cache: List[JobPosting] = []
+
+# Upload guards
+ALLOWED_UPLOAD_SUFFIXES = ('.pdf', '.docx', '.txt')
+
+# What the bytes must actually start with, regardless of what the name claims.
+# PDF is %PDF-, DOCX is a zip (PK\x03\x04). TXT has no signature, so it is
+# checked by decoding instead.
+_MAGIC = {
+    '.pdf': b'%PDF-',
+    '.docx': b'PK\x03\x04',
+}
+
+
+async def read_upload(file: UploadFile) -> tuple[bytes, str]:
+    """
+    Validate an upload and return (content, suffix).
+
+    Three checks the API did not previously make, in the order that matters:
+
+    1. **Size, before reading.** `await file.read()` pulled the whole body into
+       memory with no cap at three separate endpoints, so a 500 MB POST took the
+       process down. config.api.max_upload_size_mb (10) existed and was never
+       consulted. Checked against the declared size first, then against the
+       bytes actually read -- a client controls the Content-Length header, so
+       the declared size is a hint, not a guarantee.
+    2. **Extension.** Unchanged, but now in one place instead of three.
+    3. **Content.** The extension was previously trusted outright: a .exe
+       renamed to .pdf was handed straight to the parser. The magic bytes are
+       cheap to check and catch the accidental case as well as the deliberate
+       one.
+
+    Raises HTTPException on any failure; callers get bytes or an error.
+    """
+    if not file.filename:
+        raise HTTPException(400, "No filename provided")
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in ALLOWED_UPLOAD_SUFFIXES:
+        raise HTTPException(
+            400,
+            f"Unsupported file type: {suffix}. Use PDF, DOCX, or TXT"
+        )
+
+    max_bytes = get_config().api.max_upload_size_mb * 1024 * 1024
+
+    # Reject on the declared size before reading anything.
+    if file.size is not None and file.size > max_bytes:
+        raise HTTPException(
+            413,
+            f"File too large: {file.size / 1024 / 1024:.1f} MB. "
+            f"Maximum is {get_config().api.max_upload_size_mb} MB"
+        )
+
+    content = await file.read()
+
+    # And again on what actually arrived.
+    if len(content) > max_bytes:
+        raise HTTPException(
+            413,
+            f"File too large: {len(content) / 1024 / 1024:.1f} MB. "
+            f"Maximum is {get_config().api.max_upload_size_mb} MB"
+        )
+
+    if not content:
+        raise HTTPException(400, "Uploaded file is empty")
+
+    expected = _MAGIC.get(suffix)
+    if expected and not content.startswith(expected):
+        raise HTTPException(
+            400,
+            f"File content does not match its {suffix} extension"
+        )
+    if suffix == '.txt':
+        try:
+            content.decode('utf-8')
+        except UnicodeDecodeError:
+            raise HTTPException(400, "Text file is not valid UTF-8")
+
+    return content, suffix
 
 
 def load_jobs() -> List[JobPosting]:
@@ -236,17 +394,10 @@ async def upload_cv(file: UploadFile = File(...)):
     """
     logger.info(f"Uploading file: {file.filename}")
     
-    # Validate file type
-    if not file.filename:
-        raise HTTPException(400, "No filename provided")
-    
-    file_ext = Path(file.filename).suffix.lower()
-    if file_ext not in ['.pdf', '.docx', '.txt']:
-        raise HTTPException(400, f"Unsupported file type: {file_ext}. Use PDF, DOCX, or TXT")
-    
+    content, file_ext = await read_upload(file)
+
     # Save uploaded file temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
-        content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
     
@@ -321,14 +472,10 @@ async def match_cv(
     if not jobs_cache:
         raise HTTPException(503, "No jobs loaded. Please contact administrator.")
     
-    # Validate file
-    file_ext = Path(file.filename).suffix.lower()
-    if file_ext not in ['.pdf', '.docx', '.txt']:
-        raise HTTPException(400, f"Unsupported file type: {file_ext}")
-    
+    content, file_ext = await read_upload(file)
+
     # Save file temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
-        content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
     
@@ -471,14 +618,10 @@ async def match_to_single_job(
     if not job:
         raise HTTPException(404, f"Job {job_id} not found")
     
-    # Validate file
-    file_ext = Path(file.filename).suffix.lower()
-    if file_ext not in ['.pdf', '.docx', '.txt']:
-        raise HTTPException(400, f"Unsupported file type: {file_ext}")
-    
+    content, file_ext = await read_upload(file)
+
     # Save file temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
-        content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
     
@@ -693,67 +836,6 @@ async def clear_match_history():
 # ============================================
 # STARTUP & SHUTDOWN
 # ============================================
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize components when server starts"""
-    global jobs_cache
-    
-    logger.info("=" * 60)
-    logger.info("🚀 Starting Recruiter Pro AI API Server...")
-    logger.info("=" * 60)
-    
-    # Load jobs
-    logger.info("Loading jobs from database...")
-    jobs_cache = load_jobs()
-    logger.info(f"✅ Loaded {len(jobs_cache)} jobs")
-    
-    # Initialize database
-    logger.info("Initializing database...")
-    try:
-        # Database is auto-initialized when get_database() is called
-        logger.info("[OK] Database ready")
-    except Exception as e:
-        logger.warning(f"[WARN] Database initialization failed: {e}")
-    
-    # Check ML model
-    if pipeline.agent3.ml_scorer.enabled:
-        model_info = pipeline.agent3.ml_scorer.predictor.get_model_info()
-        logger.info(f"[OK] ML model loaded: {model_info.get('model_name', 'Unknown')}")
-        logger.info(f"   Test Recall: {model_info.get('test_recall', 'N/A')}")
-    else:
-        # Loud on purpose. The previous single-line warning scrolled past in a
-        # wall of startup output, so the project ran without its headline
-        # feature for a long time without anyone noticing. State the
-        # consequence and the remedy, not just the fact.
-        logger.warning("!" * 60)
-        logger.warning("[WARN] ML model NOT loaded - scoring is RULE-BASED ONLY")
-        logger.warning("       The hybrid ML+rules scoring is not running.")
-        logger.warning("       Expected: models/production/ats_model.joblib")
-        logger.warning("                 models/production/feature_engineer.joblib")
-        logger.warning("       Regenerate with: python -m src.ml_engine.train \\")
-        logger.warning("                          --data-path data/AI_Resume_Screening.csv")
-        logger.warning("!" * 60)
-    
-    # Check Ollama
-    if hasattr(pipeline, 'config') and pipeline.config.llm.enabled:
-        logger.info(f"✅ Ollama enabled: {pipeline.config.llm.model}")
-    else:
-        logger.info("ℹ️  Ollama disabled (explanations will be basic)")
-    
-    logger.info("=" * 60)
-    logger.info("✅ API Server Ready!")
-    logger.info(f"📖 API Docs: http://localhost:8000/docs")
-    logger.info(f"📖 ReDoc: http://localhost:8000/redoc")
-    logger.info("=" * 60)
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup when server shuts down"""
-    logger.info("👋 Shutting down API Server...")
-    # Add any cleanup code here if needed
-
 
 # ============================================
 # RUN SERVER (for development)
