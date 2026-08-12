@@ -60,14 +60,13 @@ jobs:
         # --cov-fail-under makes coverage a floor rather than a figure in a log
         # nobody reads.
         #
-        # The threshold is 77, not 80, and the difference is worth stating.
-        # --cov-branch changes what is being counted: statement coverage is
-        # 80%, but with branches included the same suite reports 77.51%,
-        # because a covered `if` whose else-branch never runs counts once
-        # rather than twice. The stricter measure is the right one to enforce
-        # -- an untaken branch is untested code -- so the number goes down and
-        # the gate stays honest. It moves up when coverage does.
-        run: pytest --cov=src --cov-report=term-missing --cov-branch --cov-fail-under=77
+        # The threshold is on the branch-inclusive measure, which is the
+        # stricter one: a covered `if` whose else-branch never runs counts once
+        # rather than twice, so this number is always lower than statement
+        # coverage. Currently 81.66% branch-inclusive, 84% statement. Enforcing
+        # the stricter figure is the point -- an untaken branch is untested
+        # code. It moves up when coverage does.
+        run: pytest --cov=src --cov-report=term-missing --cov-branch --cov-fail-under=81
 
       - name: Validate the job corpus
         run: python scripts/validate_corpus.py --jobs data/json/jobs.json --skills data/dictionaries/skills.json
