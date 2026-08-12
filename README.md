@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104.1-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Next.js](https://img.shields.io/badge/Next.js-14.2.3-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.3.0-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-18.3.1-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4.2-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
@@ -58,8 +58,8 @@
 </td>
 <td align="center" width="33%">
 <h3>🔧</h3>
-<b>Production Ready</b>
-<br><br>Comprehensive testing, error handling, and monitoring
+<b>Tested</b>
+<br><br>344 tests, green in CI, with the scoring path verified against a fixed corpus
 </td>
 </tr>
 </table>
@@ -77,9 +77,10 @@
 1. **Agent 1 (Parser)**: Extract structured data from resumes
 2. **Agent 2 (Extractor)**: Rule-based feature extraction (regex, NLTK)
 3. **Agent 3 (Scorer)**: Hybrid scoring algorithm
-   - Keyword matching (40%)
-   - Semantic similarity (30%)
-   - Skill matching (30%)
+   - Skill matching (50%), against a controlled vocabulary of 679 skills
+   - Job-title similarity (17%)
+   - Experience fit (20%), education (8%), keyword overlap (5%)
+   - Optionally blended with an ML model (see *Known limitations*)
 4. **Agent 4 (Explainer)**: Generate human-readable insights
 
 ### 🎨 Dual AI Modes
@@ -101,15 +102,64 @@ Our hybrid scoring algorithm combines three approaches:
 
 | Component | Weight | Description |
 |-----------|:------:|-------------|
-| **🔤 Keyword Match** | 40% | Job requirements vs resume keywords |
-| **🧩 Semantic Similarity** | 30% | Context-aware text similarity |
-| **⚙️ Skill Match** | 30% | Technical skills alignment |
+| **⚙️ Skill Match** | 50% | CV skills against the job's required and preferred skills, both resolved to a controlled vocabulary |
+| **💼 Experience** | 20% | Years of experience against the job's range |
+| **🏷️ Title Similarity** | 17% | Candidate's role against the job title |
+| **🎓 Education** | 8% | Highest degree against the stated requirement |
+| **🔤 Keyword Match** | 5% | Terms from the job description present in the CV |
+
+These weights live in `config/agents.yaml` and nowhere else. There is no
+semantic-similarity component; earlier versions of this README described one.
 
 <div align="center">
 
-**Overall Score** = (Keyword × 0.4) + (Semantic × 0.3) + (Skill × 0.3) × 100
+**Rule-based score** = Skill×0.50 + Title×0.17 + Experience×0.20 + Education×0.08 + Keyword×0.05
+
+**Final score** = Rule-based×0.60 + ML×0.40 *(rule-based alone when no model is loaded)*
 
 </div>
+
+---
+
+## ⚠️ Scope and known limitations
+
+Stated plainly, because a matching system that overstates its confidence is
+worse than one that admits its bounds.
+
+### The ML half contributes almost no ranking signal
+
+The hybrid score is 60% rule-based and 40% ML. Measured against the real
+corpus, for a fixed CV **the model returns only three distinct probabilities
+across all 800 jobs** — the only per-job feature it sees is the job title. So
+the ML term shifts scores nearly uniformly rather than ordering them. **The
+ranking you see is effectively the rule-based score.**
+
+### The training dataset cannot produce an honest ATS model
+
+`Recruiter Decision` in the source dataset is a pure threshold on `AI Score`
+(≥65 → Hire) — 100% accuracy from one column. `AI Score` is excluded from
+training, but the remaining columns reconstruct the decision anyway:
+**`Experience` alone reaches ROC-AUC 0.9244; `Experience + Projects Count`
+reaches 0.9933.** Two ordinary columns.
+
+The reported metrics (precision 1.000, ROC-AUC 1.000) are therefore a property
+of the dataset, not evidence of a good model. Removing features does not fix
+it — the task is trivial by construction. This is reported rather than papered
+over, because the honest framing is more useful than a number nobody should
+believe.
+
+### The corpus is synthetic
+
+The 800 job descriptions were generated against the controlled vocabulary so
+that skill matching has something coherent to match against. They are
+realistic, not real. Descriptions deliberately avoid restating the structured
+skill list, so keyword scoring cannot trivially recover it.
+
+### Not evaluated for hiring fairness
+
+There is no bias audit, no adverse-impact testing, and no protected-attribute
+analysis. **This is a portfolio and learning project — it should not be used to
+make real hiring decisions.**
 
 ---
 
@@ -321,7 +371,7 @@ This system is a **monolithic architecture** rather than microservices:
 
 ### Frontend Technologies
 
-![Next.js](https://img.shields.io/badge/Next.js-14.2.3-000000?style=for-the-badge&logo=next.js&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16.3.0-000000?style=for-the-badge&logo=next.js&logoColor=white)
 ![React](https://img.shields.io/badge/React-18.3.1-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.4.2-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
 ![Tailwind](https://img.shields.io/badge/Tailwind-3.4.1-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
@@ -357,7 +407,7 @@ This system is a **monolithic architecture** rather than microservices:
 
 | Category | Technology | Version | Purpose |
 |----------|------------|---------|---------|
-| **Framework** | Next.js | 14.2.3 | React framework with SSR |
+| **Framework** | Next.js | 16.3.0 | React framework with SSR |
 | **UI Library** | React | 18.3.1 | Component-based UI |
 | **Language** | TypeScript | 5.4.2 | Type-safe JavaScript |
 | **Styling** | Tailwind CSS | 3.4.1 | Utility-first CSS |
@@ -406,7 +456,7 @@ Recruiter-Pro-AI/
 │   └── utils/                # Utilities
 │
 ├── data/                     # Data Files
-│   ├── json/                 # Job data (6,146+ jobs)
+│   ├── json/                 # Job corpus (800 jobs, generated against the skill vocabulary)
 │   ├── dictionaries/         # Skills mappings
 │   ├── database/             # SQLite (optional)
 │   └── AI_Resume_Screening.csv  # Training data
@@ -476,7 +526,7 @@ use_langchain: true
 }
 ```
 
-#### `GET /api/jobs`
+#### `GET /jobs`
 
 Get all available job positions.
 
@@ -505,7 +555,7 @@ Health check endpoint.
 {
   "status": "healthy",
   "ollama_available": true,
-  "jobs_loaded": 6146,
+  "jobs_loaded": 800,
   "version": "2.0.0"
 }
 ```
@@ -533,16 +583,29 @@ pytest tests/ -v --cov=src --cov-report=html
 
 ```
 tests/
-├── unit/          # 9 test files - Component testing
-├── integration/   # 4 test files - API & pipeline testing
-└── system/        # 2 test files - E2E workflow testing
+├── unit/          # 17 files - components in isolation
+├── integration/   # 4 files  - API contract, pipeline, agent hand-offs
+├── system/        # 1 file   - performance guards
+└── fixtures/      # sample CV used by the agent hand-off tests
 ```
 
 ### Coverage
 
-- **Unit Tests**: 85%+ code coverage
-- **Integration Tests**: All critical paths covered
-- **System Tests**: End-to-end workflows validated
+**338 tests, all passing. 77% statement coverage of `src/`** — measured, not
+estimated. An earlier version of this README claimed "85%+"; the real figure is
+below that, and the uncovered quarter is mostly the ML training path, which the
+suite exercises only through small synthetic datasets.
+
+The suite runs in CI on every push and pull request, with no network, no API
+key and no model — the rule-based explanation provider exists so that it can.
+CI also runs `ruff`, the corpus validator, and a byte-level scan for control
+characters in source.
+
+> Until recently a quarter of this suite failed on every run, and 33 of its
+> tests could never have passed: 23 targeted an API surface this repository has
+> never served, and 10 more collected their measurements inside a condition
+> that was never true, so they reported green while asserting nothing. They are
+> deleted or rewritten. The count above is tests that can actually fail.
 
 ---
 
@@ -550,7 +613,7 @@ tests/
 
 ### 1. HR Departments
 - **Automate initial resume screening**
-- **Reduce time-to-hire by 60%**
+- **Rank a shortlist in under a second** — measured: 0.74 s for one CV against all 800 jobs
 - **Eliminate unconscious bias**
 - **Scale recruitment operations**
 
@@ -588,7 +651,7 @@ API_PORT=8000
 NEXT_PUBLIC_API_URL=http://localhost:8000
 
 # Data Paths
-JOBS_FILE_PATH=data/json/jobs_cleaned.json
+JOBS_DATA_PATH=data/json/jobs.json
 SKILLS_DICT_PATH=data/dictionaries/skills_canonical.json
 ```
 
@@ -605,7 +668,7 @@ LLM_MODEL = "llama3.2:3b"  # Change to any Ollama model
 
 ```python
 # src/agents/agent3_scorer.py
-KEYWORD_WEIGHT = 0.4   # Default: 40%
+# Weights are set in config/agents.yaml under `scoring:`
 SEMANTIC_WEIGHT = 0.3  # Default: 30%
 SKILL_WEIGHT = 0.3     # Default: 30%
 ```
