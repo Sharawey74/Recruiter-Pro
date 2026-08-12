@@ -31,8 +31,13 @@ from .components import (
     score_keywords,
     score_title_similarity,
 )
+from .ml_scorer import MLScorer
+from .skill_matcher import SkillMatch, SkillMatcher
 
 __all__ = [
+    "SkillMatch",
+    "SkillMatcher",
+    "MLScorer",
     "score_experience",
     "score_title_similarity",
     "score_education",

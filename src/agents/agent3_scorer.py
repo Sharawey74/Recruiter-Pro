@@ -1,20 +1,26 @@
 """
 Agent 3: Hybrid Scoring Agent
-Combines rule-based scoring with ML predictions for robust matching
 
-Architecture:
-- Rule-based scoring: Skill matching, experience, education (60% weight)
-- ML scoring: ATS engine predictions (40% weight)
-- Hybrid score: Weighted combination of both approaches
+Composes the scoring collaborators in src/agents/scoring/ and blends their
+output. It holds no scoring logic of its own: its job is to hold the two
+dependencies, apply the configured weights, and assemble a ScoreBreakdown.
+
+    SkillMatcher   owns the skill vocabulary
+    MLScorer       owns the ATS model
+    components     the scorers that depend on nothing
+
+Every weight below comes from config/agents.yaml and nowhere else. The
+percentages this docstring used to quote (60/25/10/5) were wrong on two counts:
+they had never matched the runtime values, and they omitted title similarity
+entirely -- which is 17% of every rule-based score.
 """
 import logging
-from typing import Dict, Optional
 
 from ..storage.models import ScoreBreakdown, CVProfile, JobPosting
 from ..core.config import get_config
 from ..core.vocabulary import load_alias_index
-from ..ml_engine.ats_predictor import ATSPredictor
 from .scoring import components
+from .scoring.ml_scorer import MLScorer
 from .scoring.skill_matcher import SkillMatch, SkillMatcher
 
 logging.basicConfig(level=logging.INFO)
@@ -27,34 +33,24 @@ __all__ = ["HybridScoringAgent", "SkillMatch"]
 class HybridScoringAgent:
     """
     Agent 3: Hybrid Scorer
-    
-    Combines rule-based and ML approaches for robust scoring:
-    1. Rule-based: Skills (60%), Experience (25%), Education (10%), Keywords (5%)
-    2. ML-based: ATS Engine prediction (optional)
-    3. Hybrid: Weighted combination based on configuration
+
+    1. Rule-based: skills, title, experience, education and keywords, each
+       weighted by config/agents.yaml
+    2. ML-based: ATS Engine prediction (optional; absent model -> rule-based)
+    3. Hybrid: rule_weight/ml_weight blend of the two
     """
     
     def __init__(self, config=None):
         self.config = config or get_config()
         self.scoring_config = self.config.scoring
         
-        # Initialize ML predictor if enabled
-        self.ml_predictor = None
-        if self.scoring_config.ml_enabled:
-            try:
-                self.ml_predictor = ATSPredictor(model_dir="models/production")
-                if self.ml_predictor.load_model():
-                    logger.info("[OK] ML Predictor initialized for hybrid scoring")
-                    model_info = self.ml_predictor.get_model_info()
-                    logger.info(f"   Model: {model_info.get('model_name', 'Unknown')}")
-                    logger.info(f"   Test Recall: {model_info.get('test_metrics', {}).get('recall', 'N/A')}")
-                else:
-                    logger.warning("[WARN] Failed to load ML model. Using rule-based only.")
-                    self.ml_predictor = None
-            except Exception as e:
-                logger.warning(f"[WARN] ML Predictor unavailable: {e}. Using rule-based only.")
-                self.ml_predictor = None
-        
+        # The model is loaded here, not inside MLScorer's constructor: 2.7 says
+        # constructing a scorer must not read the filesystem. An unloadable
+        # model yields an inert scorer and a warning, never an exception.
+        self.ml_scorer = (
+            MLScorer.load() if self.scoring_config.ml_enabled else MLScorer(None)
+        )
+
         # The vocabulary is read once, here, and handed to the matcher that
         # owns it. Nothing else in this class needs it.
         self.skill_matcher = SkillMatcher(
@@ -101,14 +97,9 @@ class HybridScoringAgent:
         
         # 2. ML-based scoring (if enabled)
         ml_score = None
-        ml_probability = None
-        if include_ml and self.ml_predictor:
-            ml_result = self._get_ml_score(cv, job)
-            if ml_result:
-                # Convert ml_score from 0-100 to 0-1 scale
-                ml_score = ml_result['ml_score'] / 100.0 if ml_result['ml_score'] > 1 else ml_result['ml_score']
-                ml_probability = ml_result['probability']
-        
+        if include_ml:
+            ml_score = self.ml_scorer.score(cv, job)
+
         # 3. Calculate hybrid score
         if ml_score is not None:
             hybrid_score = (
@@ -138,30 +129,4 @@ class HybridScoringAgent:
             overqualified=overqualified,
             underqualified=underqualified
         )
-    
-    def _get_ml_score(self, cv: CVProfile, job: JobPosting) -> Optional[Dict]:
-        """Get ML model prediction score"""
-        if not self.ml_predictor:
-            return None
-        
-        try:
-            # Prepare CV data for ML predictor
-            cv_data = {
-                'Skills': ', '.join(cv.skills),
-                'Experience': cv.experience_years or 0,
-                'Education': cv.education or 'Bachelor',
-                'Certifications': cv.extracted_data.get('certifications', 'None'),
-                'Job Role': job.title,
-                'Projects Count': cv.extracted_data.get('projects_count', 0),
-                'Salary': cv.extracted_data.get('expected_salary', 50000)
-            }
-            
-            # Get prediction from ML predictor
-            result = self.ml_predictor.predict(cv_data, use_optimal_threshold=True)
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"ML scoring failed: {e}")
-            return None
     
