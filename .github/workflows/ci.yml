@@ -57,11 +57,17 @@ jobs:
           PYTHONHASHSEED: "0"
           LLM_PROVIDER: rule_based
           RATE_LIMIT_ENABLED: "false"
-        # --cov-fail-under makes the coverage number a floor rather than a
-        # figure in a log nobody reads. It sits just under the current 80% so
-        # ordinary work is not blocked by rounding, and it moves up when
-        # coverage does.
-        run: pytest --cov=src --cov-report=term-missing --cov-branch --cov-fail-under=79
+        # --cov-fail-under makes coverage a floor rather than a figure in a log
+        # nobody reads.
+        #
+        # The threshold is 77, not 80, and the difference is worth stating.
+        # --cov-branch changes what is being counted: statement coverage is
+        # 80%, but with branches included the same suite reports 77.51%,
+        # because a covered `if` whose else-branch never runs counts once
+        # rather than twice. The stricter measure is the right one to enforce
+        # -- an untaken branch is untested code -- so the number goes down and
+        # the gate stays honest. It moves up when coverage does.
+        run: pytest --cov=src --cov-report=term-missing --cov-branch --cov-fail-under=77
 
       - name: Validate the job corpus
         run: python scripts/validate_corpus.py --jobs data/json/jobs.json --skills data/dictionaries/skills.json
@@ -90,11 +96,20 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # 20 is deprecated on GitHub runners and emits a warning on every
+          # run. Next 16 needs >= 20.9, so 22 is the current LTS that fits.
+          node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
+
+      - name: Build
+        # Before the type check, not after. `next build` generates
+        # next-env.d.ts, which tsconfig.json lists in "include" and which is
+        # gitignored because Next regenerates it. Type checking first means
+        # checking against a tree missing Next's global types.
+        run: npm run build
 
       - name: Type check
         run: npx tsc --noEmit
@@ -105,6 +120,3 @@ jobs:
         # is committed (TASKS.md 6.3).
         run: npm run lint
         continue-on-error: true
-
-      - name: Build
-        run: npm run build

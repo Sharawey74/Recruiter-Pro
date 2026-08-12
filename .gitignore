@@ -194,7 +194,10 @@ frontend/.env.*.local
 frontend/build/
 *.tsbuildinfo
 next-env.d.ts
-package-lock.json
+# package-lock.json is tracked on purpose. `npm ci` -- which CI runs and
+# which is the only reproducible install -- refuses to run without it, and
+# actions/setup-node cannot cache without it either. Ignoring the lockfile
+# of an application means every install resolves differently.
 
 # ====================
 # Temporary Files

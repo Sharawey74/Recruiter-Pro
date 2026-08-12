@@ -11,7 +11,10 @@
 
 -r requirements.txt
 
-xgboost>=2.0,<3.0            # MISSING BEFORE - 2 imports
+xgboost>=3.0,<4.0            # MISSING BEFORE - 2 imports. The range was <3.0, which
+                             # excluded the installed 3.0.2 -- so CI would have
+                             # installed 2.x and tested a different major version
+                             # than anyone had run.
 imbalanced-learn>=0.11,<1.0  # MISSING BEFORE - 2 imports, imported as `imblearn`
 matplotlib>=3.7,<4.0         # MISSING BEFORE - 1 import, learning curves
 seaborn>=0.13,<1.0           # MISSING BEFORE - 1 import
