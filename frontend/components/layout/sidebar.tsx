@@ -2,80 +2,73 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Upload, BarChart3, Briefcase, Circle, History, Star } from "lucide-react";
-import { useEffect, useState } from "react";
-import { checkHealth } from "@/lib/api";
+import {
+  LayoutDashboard,
+  FileUp,
+  Briefcase,
+  BarChart3,
+  History,
+  Star,
+  ScanLine,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { name: "Dashboard", href: "/", icon: Home },
+/**
+ * Primary navigation.
+ *
+ * Every route the app serves is here. Two of them — /jobs and /upload — had
+ * pages, were fully built, and appeared in no menu, so the only way to reach
+ * them was to type the URL.
+ *
+ * The spec is explicit that the sidebar is for navigation alone ("avoid legacy
+ * sidebar widgets"), which is why the API-status and scoring-mode readouts that
+ * used to sit at the bottom of it now live in the top bar.
+ */
+const NAV_ITEMS = [
+  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Upload", href: "/upload", icon: FileUp },
+  { name: "Jobs", href: "/jobs", icon: Briefcase },
   { name: "Results", href: "/results", icon: BarChart3 },
   { name: "History", href: "/history", icon: History },
   { name: "Shortlist", href: "/shortlist", icon: Star },
-];
+] as const;
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [apiStatus, setApiStatus] = useState<"online" | "offline">("offline");
-  const [scoringMode, setScoringMode] = useState<"hybrid" | "rules-only" | "unknown">(
-    "unknown"
-  );
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      try {
-        const health = await checkHealth();
-        setApiStatus(health.status === "healthy" ? "online" : "offline");
-        const mlLoaded = health.components?.ml_model_loaded;
-        setScoringMode(
-          mlLoaded === undefined ? "unknown" : mlLoaded ? "hybrid" : "rules-only"
-        );
-      } catch {
-        setApiStatus("offline");
-        setScoringMode("unknown");
-      }
-    };
-
-    checkStatus();
-    const interval = setInterval(checkStatus, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-gradient-to-b from-gray-900 to-gray-800 border-r border-white/10 flex flex-col">
-      {/* Logo */}
-      <div className="p-6 border-b border-white/10">
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center text-2xl shadow-lg shadow-purple-500/30 group-hover:shadow-purple-500/50 transition-all">
-            <Briefcase className="w-6 h-6 text-white" />
-          </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">AI Resume</span>
+    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-white/10 bg-surface-container-low/40 shadow-glow-lg backdrop-blur-xl">
+      <div className="border-b border-white/10 p-gutter">
+        <Link href="/" className="block">
+          <h1 className="text-headline-lg font-bold tracking-tight text-primary">
+            Recruiter Pro
+          </h1>
+          <p className="label-sm mt-1 text-tertiary">CV Intelligence</p>
         </Link>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4">
-        <ul className="space-y-2">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            const Icon = item.icon;
+      <nav className="flex-1 overflow-y-auto px-4 py-6">
+        <ul className="space-y-1">
+          {NAV_ITEMS.map(({ name, href, icon: Icon }) => {
+            // Exact match for "/", prefix match elsewhere, so /jobs/ENG-0001
+            // keeps Jobs highlighted.
+            const isActive =
+              href === "/" ? pathname === "/" : pathname.startsWith(href);
 
             return (
-              <li key={item.href}>
+              <li key={href}>
                 <Link
-                  href={item.href}
+                  href={href}
+                  aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-lg transition-all",
+                    "flex items-center gap-4 rounded px-4 py-3 transition-all duration-300 active:scale-95",
                     isActive
-                      ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/30"
-                      : "text-gray-400 hover:bg-white/5 hover:text-white"
+                      ? "border-r-4 border-primary bg-primary/10 font-bold text-primary"
+                      : "font-medium text-on-surface-variant hover:bg-primary/5 hover:text-primary"
                   )}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="font-medium">{item.name}</span>
-                  {isActive && (
-                    <Circle className="w-2 h-2 fill-current ml-auto animate-pulse" />
-                  )}
+                  <Icon className="h-5 w-5 shrink-0" aria-hidden />
+                  <span>{name}</span>
                 </Link>
               </li>
             );
@@ -83,46 +76,11 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* API Status */}
-      <div className="p-4 border-t border-white/10 space-y-2">
-        <div className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-lg">
-          <Circle
-            className={cn(
-              "w-3 h-3 fill-current",
-              apiStatus === "online" ? "text-green-500" : "text-red-500"
-            )}
-          />
-          <div>
-            <p className="text-sm font-medium text-white">API Status</p>
-            <p className="text-xs text-gray-400 capitalize">{apiStatus}</p>
-          </div>
-        </div>
-
-        {/* Scoring mode. Rule-based-only means the ML model failed to load and
-            the hybrid scoring is not running — previously invisible in the UI. */}
-        {apiStatus === "online" && scoringMode !== "unknown" && (
-          <div
-            className="flex items-center gap-3 px-4 py-3 bg-white/5 rounded-lg"
-            title={
-              scoringMode === "hybrid"
-                ? "Scores combine the ML model with rule-based matching"
-                : "ML model not loaded — scores come from rule-based matching only"
-            }
-          >
-            <Circle
-              className={cn(
-                "w-3 h-3 fill-current",
-                scoringMode === "hybrid" ? "text-green-500" : "text-amber-500"
-              )}
-            />
-            <div>
-              <p className="text-sm font-medium text-white">Scoring</p>
-              <p className="text-xs text-gray-400" aria-live="polite">
-                {scoringMode === "hybrid" ? "Hybrid (ML + rules)" : "Rules only"}
-              </p>
-            </div>
-          </div>
-        )}
+      <div className="p-gutter">
+        <Link href="/upload" className="btn-primary w-full">
+          <ScanLine className="h-5 w-5" aria-hidden />
+          Analyze Resume
+        </Link>
       </div>
     </aside>
   );

@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
     global jobs_cache
     
     logger.info("=" * 60)
-    logger.info("🚀 Starting Recruiter Pro AI API Server...")
+    logger.info("🚀 Starting Recruiter Pro API server...")
     logger.info("=" * 60)
     
     # Load jobs
@@ -939,7 +939,12 @@ async def get_match_history_v2(
                 "job_title": m.job_title,
                 **(job_payload(job_details) if job_details else MISSING_JOB_PAYLOAD),
                 "candidate_name": getattr(m, 'candidate_name', None),
-                "cv_filename": getattr(m, 'cv_id', None),  # Use cv_id as filename fallback
+                # cv_id is a UUID. It went out as `cv_filename`, so the history
+                # table printed a raw UUID under every candidate's name as
+                # though it were the document they uploaded. The filename is
+                # not stored, so the honest answer is null.
+                "cv_id": getattr(m, 'cv_id', None),
+                "cv_filename": None,
                 # Use individual score fields from MatchHistory. Same names as
                 # /match: one match shape, whether it arrived from a live run
                 # or from storage.

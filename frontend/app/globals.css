@@ -3,20 +3,126 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: #0f1729;
-    --foreground: #ffffff;
-  }
-  
   body {
-    @apply bg-navy-900 text-white;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    @apply bg-background text-on-background font-sans text-body-md antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Technical metadata — IDs, statuses, counts — sets in JetBrains Mono, per
+     the spec's "tech-first narrative". Applied via .label-sm below. */
+  .label-sm {
+    @apply font-mono text-label-sm uppercase;
+  }
+
+  /* Borders are "soft": never pure white, only slightly lighter than the
+     surface they sit on. */
+  * {
+    border-color: theme("colors.outline-variant" / 40%);
+  }
+
+  /* The stock focus ring is invisible on a #051424 background. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-secondary-container ring-offset-2 ring-offset-background;
+  }
+
+  ::selection {
+    @apply bg-primary/30 text-primary;
+  }
+
+  /* Scrollbars, so a light-grey system bar does not sit against the dark UI. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-container-lowest;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-surface-container-highest;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-bright;
+  }
+}
+
+@layer components {
+  /*
+   * Level 1 elevation: a semi-transparent surface over a blur. The spec
+   * achieves depth through glassmorphism and tonal layering rather than
+   * shadows, so this is the base for every card and panel.
+   */
+  .glass-panel {
+    @apply border border-white/10 bg-surface-container-low/40 backdrop-blur-xl;
+  }
+
+  /* Level 2: modals and popovers sit at higher opacity. */
+  .glass-panel-raised {
+    @apply border border-white/10 bg-surface-container-high/80 backdrop-blur-xl;
+  }
+
+  /*
+   * A card edge drawn as a purple-to-blue gradient at 20% opacity. Done with
+   * a masked pseudo-element because a gradient cannot be a border-color; the
+   * mask punches out the middle so only the 1px ring paints.
+   */
+  .gradient-border-card {
+    @apply relative overflow-hidden rounded-lg bg-surface-container-low/60 backdrop-blur-xl;
+  }
+  .gradient-border-card::before {
+    content: "";
+    @apply pointer-events-none absolute inset-0 rounded-lg;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(208, 188, 255, 0.25), rgba(173, 198, 255, 0.25));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+  }
+
+  /* Capsule status chip: low-opacity fill, high-saturation text. */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-label-sm;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded bg-primary px-6 py-3
+           font-semibold text-on-primary transition-all duration-300
+           hover:shadow-glow disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:shadow-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded border border-primary/40
+           bg-transparent px-6 py-3 font-semibold text-primary transition-all duration-300
+           hover:bg-primary hover:text-on-primary hover:shadow-glow
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded border border-white/10
+           bg-surface-container px-4 py-2 text-sm text-on-surface transition-colors
+           hover:bg-surface-bright disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  /* Inputs sit darker than their container and illuminate on focus. */
+  .field {
+    @apply w-full rounded border border-outline-variant bg-surface-container-high px-4 py-3
+           text-on-surface placeholder-tertiary/50 transition-colors
+           focus:border-secondary focus:outline-none;
   }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  /* Honours the OS "reduce motion" setting for the pulse and skeleton
+     animations this interface leans on. */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pulse,
+    .animate-spin,
+    .animate-fade-up {
+      animation: none !important;
+    }
   }
 }
