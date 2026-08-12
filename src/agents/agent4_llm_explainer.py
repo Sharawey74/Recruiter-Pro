@@ -71,17 +71,22 @@ class LLMExplainerAgent:
             logger.warning(f"LLM unavailable: {e}")
             return False
     
-    def generate_explanation(self, match_result: MatchResult) -> str:
+    def generate_explanation(self, match_result: MatchResult, use_llm: bool = True) -> str:
         """
         Generate detailed explanation for a match result
-        
+
         Args:
             match_result: Complete match result with scores and decision
-        
+            use_llm: Per-call override. The API used to express "no LLM for this
+                request" by assigning False to self.llm_available on the shared
+                pipeline singleton and restoring it afterwards, which leaked
+                across concurrent requests and stuck permanently if the request
+                raised in between. It is an argument now.
+
         Returns:
             Human-readable explanation text
         """
-        if self.llm_available:
+        if self.llm_available and use_llm:
             try:
                 return self._generate_llm_explanation(match_result)
             except Exception as e:

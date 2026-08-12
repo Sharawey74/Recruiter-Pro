@@ -117,13 +117,14 @@ Keep it under 150 words, professional, and fact-based. Use actual skill names pr
         else:
             return "Below Requirements"
     
-    def generate_explanation(self, match_result: MatchResult) -> str:
+    def generate_explanation(self, match_result: MatchResult, use_llm: bool = True) -> str:
         """
         Generate explanation using LangChain
-        
-        Falls back to rule-based if LLM unavailable
+
+        Falls back to rule-based if the LLM is unavailable or `use_llm` is
+        False. See the note in agent4_llm_explainer on why this is a parameter.
         """
-        if not self.llm_available:
+        if not self.llm_available or not use_llm:
             return self._generate_rule_based_explanation(match_result)
         
         try:

@@ -30,6 +30,8 @@ from src.storage.models import JobPosting
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -91,12 +93,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"📖 ReDoc: http://localhost:8000/redoc")
     logger.info("=" * 60)
 
-
     yield
 
     logger.info("👋 Shutting down API Server...")
-
-
 
 
 # ============================================
@@ -439,11 +438,13 @@ async def upload_cv(file: UploadFile = File(...)):
         raise HTTPException(500, f"Failed to process CV: {str(e)}")
     
     finally:
-        # Clean up temporary file
+        # Clean up temporary file. Narrow: a bare except here would also
+        # swallow KeyboardInterrupt and SystemExit, and would hide a genuine
+        # permission problem that leaks a temp file on every request.
         try:
             Path(tmp_path).unlink()
-        except:
-            pass
+        except OSError as e:
+            logger.warning(f"Could not remove temp file {tmp_path}: {e}")
 
 
 @app.post("/match")
@@ -480,36 +481,26 @@ async def match_cv(
         tmp_path = tmp.name
     
     try:
-        # Handle LangChain mode switch if requested
-        original_agent = pipeline.agent4
-        if use_langchain and not hasattr(pipeline.agent4, 'chain'):
-            # Need to swap to LangChain agent
-            from src.agents.agent4_factory import get_explainer_agent
-            pipeline.agent4 = get_explainer_agent(use_langchain=True, config=pipeline.config)
-            logger.info("🔄 Switched to LangChain mode for this request")
-        
-        # Temporarily disable LLM if use_llm is False
-        original_llm_enabled = pipeline.agent4.llm_available
-        if not use_llm:
-            pipeline.agent4.llm_available = False
-            logger.info("⚙️ LLM disabled - using rule-based explanations only")
-        
-        # Run full 4-agent pipeline on all jobs
+        # Per-request options are arguments, not mutations of the shared
+        # pipeline.
+        #
+        # This block used to reassign pipeline.agent4 and flip
+        # pipeline.agent4.llm_available for the duration of the request, then
+        # put them back. The pipeline is a module-level singleton, so two
+        # concurrent requests with different settings saw each other's; and the
+        # restore was not in a finally block, so any request that raised in
+        # between left the singleton altered for every request after it.
         logger.info(f"Running pipeline against {len(jobs_cache)} jobs...")
-        
+
         matches = pipeline.process_cv_batch(
             cv_file_path=tmp_path,
             jobs=jobs_cache,
             top_k=top_k,
-            generate_explanations=explain
+            generate_explanations=explain,
+            use_llm=use_llm,
+            use_langchain=use_langchain,
         )
-        
-        # Restore original settings
-        if not use_llm:
-            pipeline.agent4.llm_available = original_llm_enabled
-        if use_langchain and not hasattr(original_agent, 'chain'):
-            pipeline.agent4 = original_agent  # Restore original agent
-        
+
         # Format results for Next.js frontend
         results = []
         for match in matches:
@@ -593,11 +584,13 @@ async def match_cv(
         raise HTTPException(500, f"Matching failed: {str(e)}")
     
     finally:
-        # Clean up
+        # Clean up temporary file. Narrow: a bare except here would also
+        # swallow KeyboardInterrupt and SystemExit, and would hide a genuine
+        # permission problem that leaks a temp file on every request.
         try:
             Path(tmp_path).unlink()
-        except:
-            pass
+        except OSError as e:
+            logger.warning(f"Could not remove temp file {tmp_path}: {e}")
 
 
 @app.post("/match/single")
@@ -683,10 +676,13 @@ async def match_to_single_job(
         raise HTTPException(500, f"Matching failed: {str(e)}")
     
     finally:
+        # Clean up temporary file. Narrow: a bare except here would also
+        # swallow KeyboardInterrupt and SystemExit, and would hide a genuine
+        # permission problem that leaks a temp file on every request.
         try:
             Path(tmp_path).unlink()
-        except:
-            pass
+        except OSError as e:
+            logger.warning(f"Could not remove temp file {tmp_path}: {e}")
 
 
 @app.get("/history")

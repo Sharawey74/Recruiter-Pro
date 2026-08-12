@@ -171,12 +171,42 @@ class MatchingPipeline:
             logger.error(f"[ERROR] Pipeline failed: {e}")
             raise
     
+    # Explanations are LLM calls. On a public URL the number of them per upload
+    # has to be bounded by something other than the corpus size.
+    MAX_EXPLANATIONS = 3
+
+    def explainer_for(self, use_langchain: bool = False):
+        """
+        Return the explainer for this request without reconfiguring the shared one.
+
+        The API used to assign a new agent onto pipeline.agent4 for the duration
+        of a request and put the old one back afterwards. Two requests with
+        different modes raced, and the restore was not in a finally block, so a
+        request that raised left the singleton swapped for every later request.
+
+        The LangChain explainer is built once, on first use, and cached. Worst
+        case under concurrency is that two get constructed and one is discarded;
+        neither request sees the other's mode.
+        """
+        if not use_langchain:
+            return self.agent4
+
+        if getattr(self, '_agent4_langchain', None) is None:
+            from src.agents.agent4_factory import get_explainer_agent
+            self._agent4_langchain = get_explainer_agent(
+                use_langchain=True, config=self.config
+            )
+            logger.info("LangChain explainer created (cached for later requests)")
+        return self._agent4_langchain
+
     def process_cv_batch(
         self,
         cv_file_path: str,
         jobs: List[JobPosting],
         top_k: int = 10,
-        generate_explanations: bool = True
+        generate_explanations: bool = True,
+        use_llm: bool = True,
+        use_langchain: bool = False
     ) -> List[MatchResult]:
         """
         Process one CV against multiple jobs
@@ -227,22 +257,37 @@ class MatchingPipeline:
         matches = []
         for job, score_breakdown in zip(jobs, breakdowns):
             start_time = time.time()
-
             decision = self._make_decision(score_breakdown)
-            
-            # Generate explanation only for top candidates
-            explanation = None
-            if generate_explanations and score_breakdown.hybrid_score >= 0.6:
-                match_temp = self._build_match_result(cv, job, score_breakdown, decision, None, start_time)
-                explanation = self.agent4.generate_explanation(match_temp)
-                decision.explanation = explanation
-            
-            match_result = self._build_match_result(cv, job, score_breakdown, decision, explanation, start_time)
-            matches.append(match_result)
+            matches.append(
+                self._build_match_result(cv, job, score_breakdown, decision, None, start_time)
+            )
 
         # Sort by score and return top K
         matches.sort(key=lambda m: m.final_score, reverse=True)
         top_matches = matches[:top_k]
+
+        # Explain only after ranking, and only a bounded number.
+        #
+        # Explanations used to be generated inside the scoring loop for every
+        # job scoring >= 0.6 -- one LLM call each, with nothing bounding the
+        # count but the size of the corpus. On a public URL that is an
+        # unmetered outbound bill triggered by a single upload, and most of
+        # those calls were for jobs that never made the returned top-K anyway.
+        #
+        # Now: rank first, then explain at most MAX_EXPLANATIONS of what is
+        # actually being returned.
+        if generate_explanations:
+            explainer = self.explainer_for(use_langchain)
+            for match in top_matches[:self.MAX_EXPLANATIONS]:
+                if match.final_score < 0.6:
+                    break  # sorted, so nothing below this qualifies either
+                try:
+                    match.decision.explanation = explainer.generate_explanation(
+                        match, use_llm=use_llm
+                    )
+                except Exception as e:
+                    # An explanation is a nice-to-have; the match is the product.
+                    logger.warning(f"Explanation failed for {match.job_id}: {e}")
 
         # Persist once, after the loop, and only what is returned.
         #
