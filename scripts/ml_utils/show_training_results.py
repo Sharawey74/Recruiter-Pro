@@ -1,9 +1,7 @@
 """
 Quick script to display training results metadata
 """
-import os
 import json
-import joblib
 from pathlib import Path
 
 # Find the latest experiment
@@ -73,17 +71,17 @@ if summary_path.exists():
         
         best_results = summary['models'][best_model_name]
         
-        print(f"Best Parameters:")
+        print("Best Parameters:")
         for param, value in best_results.get('best_params', {}).items():
             print(f"  {param}: {value}")
         
-        print(f"\nValidation Metrics:")
+        print("\nValidation Metrics:")
         val_metrics = best_results.get('val_metrics', {})
         for metric in ['accuracy', 'precision', 'recall', 'f1', 'roc_auc']:
             if metric in val_metrics:
                 print(f"  {metric.replace('_', ' ').title():<20} {val_metrics[metric]:.4f}")
         
-        print(f"\nConfusion Matrix:")
+        print("\nConfusion Matrix:")
         if 'true_positives' in val_metrics:
             print(f"  True Positives:  {val_metrics.get('true_positives', 0):4d}")
             print(f"  True Negatives:  {val_metrics.get('true_negatives', 0):4d}")
@@ -111,12 +109,12 @@ if prod_dir.exists():
     if prod_model.exists():
         print(f"✅ Production Model: {prod_model.name}")
     else:
-        print(f"❌ Production Model: Not found")
+        print("❌ Production Model: Not found")
     
     if prod_fe.exists():
         print(f"✅ Feature Engineer: {prod_fe.name}")
     else:
-        print(f"❌ Feature Engineer: Not found")
+        print("❌ Feature Engineer: Not found")
     
     if prod_meta.exists():
         print(f"✅ Model Metadata: {prod_meta.name}")
@@ -130,12 +128,12 @@ if prod_dir.exists():
         
         test_metrics = meta.get('test_metrics', {})
         if test_metrics:
-            print(f"\n  Test Set Performance:")
+            print("\n  Test Set Performance:")
             for metric in ['recall', 'f1', 'roc_auc', 'precision', 'accuracy']:
                 if metric in test_metrics:
                     print(f"    {metric.replace('_', ' ').title():<15} {test_metrics[metric]:.4f}")
     else:
-        print(f"❌ Model Metadata: Not found")
+        print("❌ Model Metadata: Not found")
 else:
     print("❌ Production directory not found")
 

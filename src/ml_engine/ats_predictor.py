@@ -224,7 +224,7 @@ class ATSPredictor:
             feature_names = [f"feature_{i}" for i in range(len(importances))]
         
         # Create importance dict
-        importance_dict = dict(zip(feature_names, importances))
+        importance_dict = dict(zip(feature_names, importances, strict=True))
         
         # Sort and return top N
         sorted_importance = sorted(importance_dict.items(), key=lambda x: x[1], reverse=True)

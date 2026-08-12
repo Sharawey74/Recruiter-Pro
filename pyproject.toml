@@ -1,0 +1,47 @@
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+extend-exclude = '''
+/(
+  | data/archive
+  | models
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+exclude = ["data/archive", "models", "frontend"]
+
+[tool.ruff.lint]
+# Deliberately not the full default set. `flake8 src/` reports 1,565 issues,
+# almost all whitespace, and a rule set nobody can get to zero is a rule set
+# everyone learns to ignore. This is the subset that catches real defects --
+# including the two classes that actually bit this project: F821 (undefined
+# name, which is the logger-without-import bug) and F401 (unused import, which
+# is how dead code hides).
+select = [
+    "E4",   # imports
+    "E7",   # statement-level mistakes
+    "E9",   # syntax / IO errors
+    "F",    # pyflakes: undefined names, unused imports, f-string errors
+    "W6",   # deprecated constructs
+    "B",    # flake8-bugbear: mutable defaults, unused loop vars, ...
+]
+ignore = [
+    "E722",  # bare except -- handled deliberately, see the noqa comments
+    "B008",  # function call in a default argument: FastAPI's Depends/File idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may shadow builtins in fixtures and import for side effects.
+"tests/**" = ["F811", "F401"]
+
+# These modify sys.path before importing from src/, so their imports cannot be
+# at the top of the file. That is the cost of being runnable as scripts.
+"src/ml_engine/train.py" = ["E402"]
+"scripts/**" = ["E402"]
+
+# One-off data-preparation script kept for provenance, not maintained to the
+# same bar as src/.
+"scripts/data_prep/clean_jobs_dataset.py" = ["E402", "E701", "F841"]

@@ -48,7 +48,7 @@ def main():
     ]
     
     try:
-        result = subprocess.run(cmd, cwd=os.getcwd(), check=True)
+        subprocess.run(cmd, cwd=os.getcwd(), check=True)
         
         print("\n" + "="*80)
         print("✅ TRAINING COMPLETE!")

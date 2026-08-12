@@ -9,7 +9,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ class RawParser:
             try:
                 return pdf_extract_text(pdf_path)
             except Exception as e:
-                raise RuntimeError(f"PDF extraction failed: {e}")
+                raise RuntimeError(f"PDF extraction failed: {e}") from e
         
         raise RuntimeError("No PDF parsing library available. Install pdfminer.six or PyMuPDF.")
     
@@ -122,7 +122,7 @@ class RawParser:
             text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
             return text
         except Exception as e:
-            raise RuntimeError(f"DOCX extraction failed: {e}")
+            raise RuntimeError(f"DOCX extraction failed: {e}") from e
     
     def extract_text_from_txt(self, txt_path: str) -> str:
         """
@@ -141,13 +141,13 @@ class RawParser:
         try:
             with open(txt_path, 'r', encoding='utf-8') as f:
                 return f.read()
-        except Exception as e:
+        except Exception:
             try:
                 # Try with different encoding
                 with open(txt_path, 'r', encoding='latin-1') as f:
                     return f.read()
             except Exception as e2:
-                raise RuntimeError(f"TXT extraction failed: {e2}")
+                raise RuntimeError(f"TXT extraction failed: {e2}") from e2
     
     def parse_file(self, file_path: str, profile_id: Optional[str] = None) -> Dict:
         """

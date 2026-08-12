@@ -5,7 +5,6 @@ import joblib
 import json
 from pathlib import Path
 import numpy as np
-import pandas as pd
 
 # Load a sample to get feature names
 from src.ml_engine.data_loader import ATSDataLoader
@@ -81,22 +80,22 @@ if lr_path.exists():
     models_metadata['Logistic Regression'] = lr_meta
     
     # Print formatted
-    print(f"│ 📋 Hyperparameters:" + " "*79 + "│")
+    print("│ 📋 Hyperparameters:" + " "*79 + "│")
     for key, value in lr_meta.get('hyperparameters', {}).items():
         print(f"│   • {key:<20} {str(value):<75} │")
     
-    print(f"│" + " "*98 + "│")
-    print(f"│ 🎯 Regularization Strategy:" + " "*69 + "│")
-    print(f"│   • Type: L1 (Lasso) - Feature Selection" + " "*55 + "│")
+    print("│" + " "*98 + "│")
+    print("│ 🎯 Regularization Strategy:" + " "*69 + "│")
+    print("│   • Type: L1 (Lasso) - Feature Selection" + " "*55 + "│")
     print(f"│   • Strength (C): {lr_meta['hyperparameters']['C']} (higher = less regularization)" + " "*28 + "│")
     
-    print(f"│" + " "*98 + "│")
-    print(f"│ ⚖️  Class Imbalance Handling:" + " "*67 + "│")
+    print("│" + " "*98 + "│")
+    print("│ ⚖️  Class Imbalance Handling:" + " "*67 + "│")
     print(f"│   • SMOTE Sampling: {lr_meta['smote']['sampling_strategy']} (70% minority class)" + " "*38 + "│")
-    print(f"│   • Class Weights: Balanced" + " "*69 + "│")
+    print("│   • Class Weights: Balanced" + " "*69 + "│")
     
-    print(f"│" + " "*98 + "│")
-    print(f"│ ⭐ Top 10 Most Important Features:" + " "*63 + "│")
+    print("│" + " "*98 + "│")
+    print("│ ⭐ Top 10 Most Important Features:" + " "*63 + "│")
     for i, feat in enumerate(lr_meta.get('top_features', []), 1):
         feat_name = feat['feature'][:40]
         coef = feat['coefficient']
@@ -152,24 +151,24 @@ if rf_path.exists():
     models_metadata['Random Forest'] = rf_meta
     
     # Print formatted
-    print(f"│ 📋 Hyperparameters:" + " "*79 + "│")
+    print("│ 📋 Hyperparameters:" + " "*79 + "│")
     for key, value in rf_meta.get('hyperparameters', {}).items():
         print(f"│   • {key:<20} {str(value):<75} │")
     
-    print(f"│" + " "*98 + "│")
-    print(f"│ 🎯 Regularization Strategy:" + " "*69 + "│")
+    print("│" + " "*98 + "│")
+    print("│ 🎯 Regularization Strategy:" + " "*69 + "│")
     print(f"│   • Max Depth: {rf_meta['hyperparameters']['max_depth']} (prevents overfitting)" + " "*46 + "│")
     print(f"│   • Min Samples Split: {rf_meta['hyperparameters']['min_samples_split']} (requires more samples to split)" + " "*29 + "│")
     print(f"│   • Min Samples Leaf: {rf_meta['hyperparameters']['min_samples_leaf']} (minimum samples per leaf node)" + " "*32 + "│")
     print(f"│   • Max Features: {rf_meta['hyperparameters']['max_features']} (feature sampling per split)" + " "*35 + "│")
     
-    print(f"│" + " "*98 + "│")
-    print(f"│ ⚖️  Class Imbalance Handling:" + " "*67 + "│")
+    print("│" + " "*98 + "│")
+    print("│ ⚖️  Class Imbalance Handling:" + " "*67 + "│")
     print(f"│   • SMOTE Sampling: {rf_meta['smote']['sampling_strategy']} (70% minority class)" + " "*38 + "│")
-    print(f"│   • Class Weights: Balanced" + " "*69 + "│")
+    print("│   • Class Weights: Balanced" + " "*69 + "│")
     
-    print(f"│" + " "*98 + "│")
-    print(f"│ ⭐ Top 10 Most Important Features:" + " "*63 + "│")
+    print("│" + " "*98 + "│")
+    print("│ ⭐ Top 10 Most Important Features:" + " "*63 + "│")
     for i, feat in enumerate(rf_meta.get('top_features', []), 1):
         feat_name = feat['feature'][:40]
         imp = feat['importance']
@@ -191,10 +190,10 @@ print()
 # Summary
 print("📊 TRAINING STATUS SUMMARY:")
 print("-"*100)
-print(f"✅ Logistic Regression - TRAINED & SAVED")
-print(f"✅ Random Forest - TRAINED & SAVED")  
-print(f"❌ XGBoost - NOT TRAINED (training interrupted)")
-print(f"❌ Production Deployment - INCOMPLETE (no test evaluation)")
+print("✅ Logistic Regression - TRAINED & SAVED")
+print("✅ Random Forest - TRAINED & SAVED")  
+print("❌ XGBoost - NOT TRAINED (training interrupted)")
+print("❌ Production Deployment - INCOMPLETE (no test evaluation)")
 print("-"*100)
 print()
 print("💡 To complete the training pipeline:")

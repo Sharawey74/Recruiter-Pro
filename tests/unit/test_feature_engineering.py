@@ -322,8 +322,8 @@ class TestFeatureEngineer:
         engineer = FeatureEngineer()
         X, feature_names = engineer.fit_transform(data)
         
-        python_idx = feature_names.index('has_python')
-        ml_idx = feature_names.index('has_machine_learning')
+        feature_names.index('has_python')
+        feature_names.index('has_machine_learning')
         
         # Both rows should have same values (case-insensitive match)
         np.testing.assert_array_almost_equal(X[0], X[1])

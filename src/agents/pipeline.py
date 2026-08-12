@@ -13,9 +13,8 @@ Design: Layered pipeline with error handling and logging
 import time
 import uuid
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional
 from pathlib import Path
-from datetime import datetime
 
 from ..storage.models import (
     CVProfile, JobPosting, MatchResult, MatchDecision,
@@ -256,7 +255,7 @@ class MatchingPipeline:
         breakdowns = self.agent3.score_matches(cv, jobs)
 
         matches = []
-        for job, score_breakdown in zip(jobs, breakdowns):
+        for job, score_breakdown in zip(jobs, breakdowns, strict=True):
             start_time = time.time()
             decision = self._make_decision(score_breakdown)
             matches.append(
@@ -292,7 +291,7 @@ class MatchingPipeline:
                     [ExplanationContext.from_match_result(m) for m in eligible],
                     use_llm=use_llm,
                 )
-                for match, explanation in zip(eligible, explanations):
+                for match, explanation in zip(eligible, explanations, strict=True):
                     match.decision.explanation = explanation.text
                     match.explanation_source = explanation.source
 

@@ -467,7 +467,7 @@ class JobDataCleaner:
             with open(self.output_path, 'w', encoding='utf-8') as f:
                 json.dump(cleaned_jobs, f, indent=2, ensure_ascii=False)
             
-            print(f"✅ Successfully saved cleaned jobs!")
+            print("✅ Successfully saved cleaned jobs!")
             
         except Exception as e:
             print(f"❌ Failed to save output file: {e}")

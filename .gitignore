@@ -36,10 +36,11 @@ __pycache__/
 # ====================
 # Dependencies
 # ====================
-# Only the runtime requirements are tracked. The training and developer
-# dependency sets are environment-specific and kept out of the repo.
-requirements-ml.txt
-requirements-dev.txt
+# All three requirement sets are tracked. requirements-ml.txt and
+# requirements-dev.txt were ignored here for a period; CI is a clean clone and
+# cannot install what is not in the repository, so the suite could not run and
+# "the tests pass" was a claim only reproducible on one machine. They hold
+# pinned public package names -- nothing environment-specific, nothing secret.
 
 # ====================
 # Virtual Environments

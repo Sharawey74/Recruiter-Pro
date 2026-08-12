@@ -258,5 +258,12 @@ class TestProviderSelection:
         absent setting and should land on the configured default -- only a name
         that was actually chosen and is not recognised is a typo worth
         degrading for.
+
+        Reads the default from config rather than naming "ollama": CI sets
+        LLM_PROVIDER=rule_based, and a test that hardcodes one environment's
+        value is testing the environment, not the behaviour.
         """
-        assert build_provider(name=name).name == "ollama"
+        from src.core.config import get_config
+
+        expected = (get_config().llm.provider or "ollama").lower()
+        assert build_provider(name=name).name == expected

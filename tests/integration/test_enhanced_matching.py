@@ -123,7 +123,7 @@ class TestScoringAcrossTheCorpus:
         job perfectly.
         """
         agent = HybridScoringAgent()
-        scored = list(zip(jobs, agent.score_matches(parsed_cv, jobs, include_ml=False)))
+        scored = list(zip(jobs, agent.score_matches(parsed_cv, jobs, include_ml=False), strict=True))
         scored.sort(key=lambda pair: -pair[1].hybrid_score)
 
         best_job, best = scored[0]

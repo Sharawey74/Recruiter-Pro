@@ -3,7 +3,6 @@ Script to prepare training data from CSV and create JSON files for jobs and samp
 """
 import pandas as pd
 import json
-import random
 from pathlib import Path
 
 def prepare_jobs_json():
@@ -67,7 +66,7 @@ def prepare_jobs_json():
         json.dump(jobs, f, indent=2, ensure_ascii=False)
     
     print(f"✓ Created {output_path} with {len(jobs)} jobs")
-    print(f"  (Filtered out jobs with missing titles)")
+    print("  (Filtered out jobs with missing titles)")
     
     return jobs
 
@@ -336,12 +335,12 @@ def main():
     print("\n" + "=" * 60)
     print("Data Preparation Complete!")
     print("=" * 60)
-    print(f"\nCreated files:")
+    print("\nCreated files:")
     print(f"  • data/json/jobs.json ({len(jobs)} jobs)")
     print(f"  • data/json/resumes_sample.json ({len(resumes)} resumes)")
-    print(f"\nNext steps:")
-    print(f"  1. Run: python src/agents/agent1_parser.py (to test parser)")
-    print(f"  2. Run: pytest tests/test_agent1_parser.py (to run tests)")
+    print("\nNext steps:")
+    print("  1. Run: python src/agents/agent1_parser.py (to test parser)")
+    print("  2. Run: pytest tests/test_agent1_parser.py (to run tests)")
 
 
 if __name__ == "__main__":

@@ -137,7 +137,7 @@ class TestMLPipelineIntegration:
         
         engineer = FeatureEngineer()
         X_train_transformed, _ = engineer.fit_transform(X_train)
-        X_test_transformed = engineer.transform(X_test)
+        engineer.transform(X_test)
         
         from sklearn.linear_model import LogisticRegression
         model = LogisticRegression(random_state=42, max_iter=1000)
@@ -175,7 +175,7 @@ class TestMLPipelineIntegration:
         
         engineer = FeatureEngineer()
         X_train_transformed, _ = engineer.fit_transform(X_train)
-        X_test_transformed = engineer.transform(X_test)
+        engineer.transform(X_test)
         
         from sklearn.linear_model import LogisticRegression
         model = LogisticRegression(random_state=42, max_iter=1000)

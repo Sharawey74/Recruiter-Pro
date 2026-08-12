@@ -114,7 +114,7 @@ def test_structured_insights(sample_match):
     agent = get_explainer_agent(use_langchain=False)
     insights = agent.generate_structured_insights(sample_match)
     
-    print(f"\nInsights:")
+    print("\nInsights:")
     print(f"  Strengths: {insights['strengths']}")
     print(f"  Weaknesses: {insights['weaknesses']}")
     print(f"  Recommendations: {insights['recommendations']}")

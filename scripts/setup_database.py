@@ -74,7 +74,6 @@ def setup_database(clear_existing: bool = False):
 
 def seed_test_data():
     """Seed database with test data for development"""
-    from datetime import datetime
     from src.storage.models import (
         MatchResult, ScoreBreakdown, MatchDecision, DecisionType
     )

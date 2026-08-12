@@ -6,7 +6,6 @@ Reads the shared skill vocabulary; owns no private skill list.
 import re
 import logging
 from typing import Dict, List, Optional, Set
-from pathlib import Path
 
 from ..core.config import get_config
 from ..core.vocabulary import load_alias_index
@@ -71,7 +70,7 @@ class CandidateExtractor:
             self.logger.warning("Empty or too short text provided")
             return self._empty_profile()
         
-        lines = [l.strip() for l in text.split('\n') if l.strip()]
+        lines = [line.strip() for line in text.split('\n') if line.strip()]
         
         # Extract all fields
         name = self._extract_name(lines, text)

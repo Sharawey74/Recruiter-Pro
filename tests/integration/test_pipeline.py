@@ -99,7 +99,7 @@ class TestAgent3Scorer:
         score = agent3.score_match(overqualified_cv, sample_job)
         
         # Should flag as overqualified (15 years >> 3 required)
-        assert score.overqualified == True
+        assert score.overqualified is True
     
     def test_underqualified_detection(self, agent3, sample_cv, sample_job):
         """Test underqualification detection"""
@@ -111,7 +111,7 @@ class TestAgent3Scorer:
         score = agent3.score_match(underqualified_cv, sample_job)
         
         # Should flag as underqualified
-        assert score.underqualified == True
+        assert score.underqualified is True
 
 
 class TestAgent4Explainer:

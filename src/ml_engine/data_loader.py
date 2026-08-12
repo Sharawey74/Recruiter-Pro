@@ -5,7 +5,6 @@ Handles loading, cleaning, and stratified train/val/test splitting.
 """
 
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
 from typing import Tuple
 import logging
@@ -124,7 +123,7 @@ class ATSDataLoader:
         )
         
         # Log split statistics
-        logger.info(f"✅ Split complete:")
+        logger.info("✅ Split complete:")
         logger.info(f"  Train: {len(train_df)} samples ({len(train_df)/len(self.df)*100:.1f}%)")
         logger.info(f"  Val:   {len(val_df)} samples ({len(val_df)/len(self.df)*100:.1f}%)")
         logger.info(f"  Test:  {len(test_df)} samples ({len(test_df)/len(self.df)*100:.1f}%)")

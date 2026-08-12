@@ -76,8 +76,11 @@ class TestModels:
         
         assert 0.0 <= score.hybrid_score <= 1.0
         
-        # Test validation enforces range
-        with pytest.raises(Exception):  # Pydantic will raise ValidationError
+        # Test validation enforces range. Naming ValidationError rather than
+        # Exception matters: a bare Exception passes if the constructor fails
+        # for any reason at all, including a typo in the field name.
+        from pydantic import ValidationError
+        with pytest.raises(ValidationError):
             ScoreBreakdown(hybrid_score=1.5)
     
     def test_match_decision_creation(self):

@@ -12,7 +12,6 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from src.ml_engine.data_loader import ATSDataLoader
-from src.ml_engine.feature_engineering import FeatureEngineer
 from src.ml_engine.evaluation_criteria import EvaluationCriteria
 
 # Helper function to convert numpy types to Python types
@@ -165,7 +164,7 @@ for model_name, model_path in model_configs:
     val_meets_criteria, val_checks = EvaluationCriteria.meets_criteria(val_metrics)
     val_optimal_threshold, _ = EvaluationCriteria.find_optimal_threshold(y_val, y_val_proba, target_recall=0.90)
     
-    print(f"📊 VALIDATION SET METRICS:")
+    print("📊 VALIDATION SET METRICS:")
     print(f"  Recall: {val_metrics['recall']:.4f}, F1: {val_metrics['f1']:.4f}, ROC-AUC: {val_metrics['roc_auc']:.4f}")
     print(f"  Composite: {val_composite:.4f}, Meets Criteria: {val_meets_criteria}")
     print()
@@ -178,7 +177,7 @@ for model_name, model_path in model_configs:
     test_meets_criteria, test_checks = EvaluationCriteria.meets_criteria(test_metrics)
     test_optimal_threshold, _ = EvaluationCriteria.find_optimal_threshold(y_test, y_test_proba, target_recall=0.90)
     
-    print(f"📊 TEST SET METRICS:")
+    print("📊 TEST SET METRICS:")
     print(f"  Recall: {test_metrics['recall']:.4f}, F1: {test_metrics['f1']:.4f}, ROC-AUC: {test_metrics['roc_auc']:.4f}")
     print(f"  Composite: {test_composite:.4f}, Meets Criteria: {test_meets_criteria}")
     print()

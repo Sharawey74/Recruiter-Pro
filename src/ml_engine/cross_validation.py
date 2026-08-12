@@ -18,7 +18,7 @@ from sklearn.model_selection import (
     StratifiedKFold, cross_val_score, learning_curve, validation_curve
 )
 from sklearn.base import BaseEstimator
-from typing import Dict, List, Tuple
+from typing import Dict
 import logging
 import os
 
@@ -172,11 +172,11 @@ class CrossValidationEvaluator:
         logger.info(f"  Final train-val gap: {final_gap:.4f}")
         
         if final_gap > 0.15:
-            logger.warning(f"  ⚠️  Large train-val gap! Likely OVERFITTING")
+            logger.warning("  ⚠️  Large train-val gap! Likely OVERFITTING")
         elif val_mean[-1] < 0.75:
-            logger.warning(f"  ⚠️  Low validation score! Likely UNDERFITTING")
+            logger.warning("  ⚠️  Low validation score! Likely UNDERFITTING")
         else:
-            logger.info(f"  ✅ Good bias-variance tradeoff")
+            logger.info("  ✅ Good bias-variance tradeoff")
         
         return {
             'train_sizes': train_sizes_abs,
@@ -280,7 +280,7 @@ class CrossValidationEvaluator:
         mean = cv_results['mean']
         cv_coefficient = (std / mean) * 100 if mean > 0 else float('inf')
         
-        logger.info(f"Variance Analysis:")
+        logger.info("Variance Analysis:")
         logger.info(f"  Mean: {mean:.4f}")
         logger.info(f"  Std:  {std:.4f}")
         logger.info(f"  CV%:  {cv_coefficient:.2f}%")

@@ -187,7 +187,7 @@ class ATSModelTrainer:
                 verbose=1
             )
         else:
-            logger.info(f"Using GridSearchCV...")
+            logger.info("Using GridSearchCV...")
             search = GridSearchCV(
                 pipeline,
                 param_grid=param_grid,
@@ -202,7 +202,7 @@ class ATSModelTrainer:
         search.fit(X_train, y_train)
         
         logger.info(f"✅ Best CV recall: {search.best_score_:.4f}")
-        logger.info(f"Best parameters:")
+        logger.info("Best parameters:")
         for param, value in search.best_params_.items():
             logger.info(f"  {param}: {value}")
         
@@ -271,7 +271,7 @@ class ATSModelTrainer:
         Returns:
             Dictionary of all model results
         """
-        logger.info(f"\n🚀 Starting training pipeline for 3 models...\n")
+        logger.info("\n🚀 Starting training pipeline for 3 models...\n")
         
         # 1. Logistic Regression
         lr_pipeline, lr_params = self.create_logistic_regression_pipeline()
@@ -348,7 +348,7 @@ class ATSModelTrainer:
             logger.info(f"   Composite Score: {valid_models[best_name]['composite_score']:.4f}")
         else:
             # If no model meets criteria, select best by recall
-            logger.warning(f"\n⚠️  No model meets all criteria. Selecting best by recall...")
+            logger.warning("\n⚠️  No model meets all criteria. Selecting best by recall...")
             best_name = max(self.models.items(), key=lambda x: x[1]['val_metrics']['recall'])[0]
             self.best_model = self.models[best_name]['model']
             self.best_model_name = best_name

@@ -3,7 +3,6 @@ Job Normalization Script
 Converts raw jobs.json to canonical format with exactly 3 jobs
 """
 import json
-import os
 import re
 from pathlib import Path
 

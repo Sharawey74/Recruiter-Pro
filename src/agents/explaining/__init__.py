@@ -148,7 +148,7 @@ class ExplainerAgent:
 
         return [
             item if item is not None else self.fallback.explain([context])[0]
-            for item, context in zip(results, batch)
+            for item, context in zip(results, batch, strict=True)
         ]
 
     def generate_explanation(self, match_result, use_llm: bool = True) -> str:

@@ -26,7 +26,7 @@ if lr_path.exists():
         # SMOTE parameters
         if 'smote' in lr_model.named_steps:
             smote = lr_model.named_steps['smote']
-            print(f"\nSMOTE Configuration:")
+            print("\nSMOTE Configuration:")
             print(f"  Sampling Strategy: {smote.sampling_strategy}")
             print(f"  k_neighbors: {smote.k_neighbors}")
         
@@ -45,7 +45,7 @@ if lr_path.exists():
             # Feature importance (coefficients for Logistic Regression)
             if hasattr(clf, 'coef_'):
                 coef = np.abs(clf.coef_[0])
-                print(f"\n  Top 10 Feature Coefficients (absolute):")
+                print("\n  Top 10 Feature Coefficients (absolute):")
                 top_indices = np.argsort(coef)[-10:][::-1]
                 for idx in top_indices:
                     print(f"    Feature {idx}: {coef[idx]:.4f}")
@@ -65,7 +65,7 @@ if rf_path.exists():
         # SMOTE parameters
         if 'smote' in rf_model.named_steps:
             smote = rf_model.named_steps['smote']
-            print(f"\nSMOTE Configuration:")
+            print("\nSMOTE Configuration:")
             print(f"  Sampling Strategy: {smote.sampling_strategy}")
             print(f"  k_neighbors: {smote.k_neighbors}")
         
@@ -85,7 +85,7 @@ if rf_path.exists():
             # Feature importance
             if hasattr(clf, 'feature_importances_'):
                 importances = clf.feature_importances_
-                print(f"\n  Top 10 Feature Importances:")
+                print("\n  Top 10 Feature Importances:")
                 top_indices = np.argsort(importances)[-10:][::-1]
                 for idx in top_indices:
                     print(f"    Feature {idx}: {importances[idx]:.4f}")

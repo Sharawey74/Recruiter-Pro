@@ -4,6 +4,7 @@ SQLite wrapper with connection pooling and query helpers
 """
 import sqlite3
 import json
+import threading
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from pathlib import Path
@@ -30,6 +31,12 @@ class Database:
         self.db_path = db_path
         self._ensure_db_dir()
         self._initialized = False
+        # Schema creation is lazy, and every write path checks the flag first.
+        # Without a lock, concurrent first-writers all saw _initialized False
+        # and ran CREATE TABLE at once; the losers raised and their writes were
+        # dropped. It showed up as the LLM budget recording 11 of 20 concurrent
+        # increments -- an undercount, so the instance would overspend.
+        self._init_lock = threading.Lock()
     
     def _ensure_db_dir(self):
         """Ensure database directory exists"""
@@ -46,6 +53,13 @@ class Database:
         # that persists in the database file.
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA synchronous=NORMAL")
+        # Wait for a competing writer instead of failing instantly. SQLite's
+        # default busy timeout is 0: a second connection attempting to write
+        # raises "database is locked" immediately. That surfaced as the LLM
+        # budget losing 9 of 20 concurrent increments -- each failure was
+        # caught and logged by CallBudget.record, so the counter simply
+        # undercounted and the instance would have overspent its quota.
+        conn.execute("PRAGMA busy_timeout=5000")
         try:
             yield conn
             conn.commit()
@@ -56,7 +70,13 @@ class Database:
             conn.close()
     
     def initialize_schema(self):
-        """Create database tables if they don't exist"""
+        """Create database tables if they don't exist. Safe to call concurrently."""
+        with self._init_lock:
+            if self._initialized:
+                return
+            self._create_schema()
+
+    def _create_schema(self):
         with self.get_connection() as conn:
             cursor = conn.cursor()
             

@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     roc_auc_score, confusion_matrix, classification_report,
-    precision_recall_curve, roc_curve
+    precision_recall_curve
 )
 from typing import Dict, Tuple
 import logging
@@ -160,7 +160,7 @@ class EvaluationCriteria:
         logger.info(f"{'='*60}")
         
         # Primary metrics
-        logger.info(f"\n📊 PRIMARY METRICS:")
+        logger.info("\n📊 PRIMARY METRICS:")
         logger.info(f"  Recall (Sensitivity):    {metrics.get('recall', 0):.4f} {'✅' if metrics.get('recall', 0) >= EvaluationCriteria.THRESHOLDS['recall_min'] else '❌'}")
         logger.info(f"  F1 Score:                {metrics.get('f1', 0):.4f} {'✅' if metrics.get('f1', 0) >= EvaluationCriteria.THRESHOLDS['f1_min'] else '❌'}")
         logger.info(f"  ROC-AUC:                 {metrics.get('roc_auc', 0):.4f} {'✅' if metrics.get('roc_auc', 0) >= EvaluationCriteria.THRESHOLDS['roc_auc_min'] else '❌'}")
@@ -168,14 +168,14 @@ class EvaluationCriteria:
         logger.info(f"  Accuracy:                {metrics.get('accuracy', 0):.4f} {'✅' if metrics.get('accuracy', 0) >= EvaluationCriteria.THRESHOLDS['accuracy_min'] else '❌'}")
         
         # Business metrics
-        logger.info(f"\n💼 BUSINESS METRICS:")
+        logger.info("\n💼 BUSINESS METRICS:")
         logger.info(f"  False Negative Rate:     {metrics.get('false_negative_rate', 0):.4f} (missed good candidates)")
         logger.info(f"  False Positive Rate:     {metrics.get('false_positive_rate', 0):.4f} (wasted interviews)")
         logger.info(f"  Specificity:             {metrics.get('specificity', 0):.4f} (true rejection rate)")
         
         # Confusion matrix
         if all(k in metrics for k in ['true_positives', 'true_negatives', 'false_positives', 'false_negatives']):
-            logger.info(f"\n📋 CONFUSION MATRIX:")
+            logger.info("\n📋 CONFUSION MATRIX:")
             logger.info(f"  True Positives:  {metrics['true_positives']:4d} (correctly identified qualified)")
             logger.info(f"  True Negatives:  {metrics['true_negatives']:4d} (correctly rejected unqualified)")
             logger.info(f"  False Positives: {metrics['false_positives']:4d} (false alarms)")
@@ -192,7 +192,7 @@ class EvaluationCriteria:
         
         # Detailed classification report
         if y_true is not None and y_pred is not None:
-            logger.info(f"\n📈 DETAILED CLASSIFICATION REPORT:")
+            logger.info("\n📈 DETAILED CLASSIFICATION REPORT:")
             logger.info(f"\n{classification_report(y_true, y_pred, target_names=['Reject', 'Hire'])}")
         
         logger.info(f"{'='*60}\n")

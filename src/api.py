@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Request, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from typing import List
 import tempfile
 from pathlib import Path
 import json
@@ -89,8 +89,8 @@ async def lifespan(app: FastAPI):
     
     logger.info("=" * 60)
     logger.info("✅ API Server Ready!")
-    logger.info(f"📖 API Docs: http://localhost:8000/docs")
-    logger.info(f"📖 ReDoc: http://localhost:8000/redoc")
+    logger.info("📖 API Docs: http://localhost:8000/docs")
+    logger.info("📖 ReDoc: http://localhost:8000/redoc")
     logger.info("=" * 60)
 
     yield
@@ -266,7 +266,7 @@ async def read_upload(file: UploadFile) -> tuple[bytes, str]:
         try:
             content.decode('utf-8')
         except UnicodeDecodeError:
-            raise HTTPException(400, "Text file is not valid UTF-8")
+            raise HTTPException(400, "Text file is not valid UTF-8") from None
 
     return content, suffix
 
@@ -488,7 +488,7 @@ async def upload_cv(request: Request, file: UploadFile = File(...)):
         raise
     except Exception as e:
         logger.error(f"Failed to process CV: {e}", exc_info=True)
-        raise HTTPException(500, f"Failed to process CV: {str(e)}")
+        raise HTTPException(500, f"Failed to process CV: {str(e)}") from e
     
     finally:
         # Clean up temporary file. Narrow: a bare except here would also
@@ -636,7 +636,7 @@ async def match_cv(
     
     except Exception as e:
         logger.error(f"Matching failed: {e}", exc_info=True)
-        raise HTTPException(500, f"Matching failed: {str(e)}")
+        raise HTTPException(500, f"Matching failed: {str(e)}") from e
     
     finally:
         # Clean up temporary file. Narrow: a bare except here would also
@@ -733,7 +733,7 @@ async def match_to_single_job(
     
     except Exception as e:
         logger.error(f"Single job matching failed: {e}", exc_info=True)
-        raise HTTPException(500, f"Matching failed: {str(e)}")
+        raise HTTPException(500, f"Matching failed: {str(e)}") from e
     
     finally:
         # Clean up temporary file. Narrow: a bare except here would also
@@ -790,7 +790,7 @@ async def get_match_history(
     
     except Exception as e:
         logger.error(f"Failed to get history: {e}")
-        raise HTTPException(500, f"Failed to get history: {str(e)}")
+        raise HTTPException(500, f"Failed to get history: {str(e)}") from e
 
 
 @app.get("/match/history")
@@ -868,7 +868,7 @@ async def get_match_history_v2(
     
     except Exception as e:
         logger.error(f"Failed to get history: {e}")
-        raise HTTPException(500, f"Failed to retrieve history: {str(e)}")
+        raise HTTPException(500, f"Failed to retrieve history: {str(e)}") from e
 
 
 @app.delete("/match/history")
@@ -890,7 +890,7 @@ async def clear_match_history():
     
     except Exception as e:
         logger.error(f"Failed to clear history: {e}")
-        raise HTTPException(500, f"Failed to clear history: {str(e)}")
+        raise HTTPException(500, f"Failed to clear history: {str(e)}") from e
 
 
 # ============================================

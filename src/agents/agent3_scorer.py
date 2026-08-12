@@ -85,7 +85,10 @@ class HybridScoringAgent:
         )
         return [
             self._score_one(cv, job, ml_score)
-            for job, ml_score in zip(jobs, ml_scores)
+            # strict: score_batch returns one entry per job by contract. If
+            # that ever stops being true, fail loudly rather than silently
+            # scoring a prefix of the corpus.
+            for job, ml_score in zip(jobs, ml_scores, strict=True)
         ]
 
     def score_match(

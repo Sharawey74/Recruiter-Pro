@@ -54,7 +54,9 @@ def main(args):
     logger.info("PHASE 1: Loading and splitting data...")
     
     data_loader = ATSDataLoader(data_path=args.data_path)
-    df = data_loader.load_data(exclude_ai_score=True)
+    # The loader keeps the frame internally; split_data() reads it from
+    # there. Assigning it here implied a use that does not exist.
+    data_loader.load_data(exclude_ai_score=True)
     
     train_df, val_df, test_df = data_loader.split_data(
         test_size=args.test_size,
@@ -67,7 +69,7 @@ def main(args):
     X_val_raw, y_val = data_loader.get_X_y(val_df)
     X_test_raw, y_test = data_loader.get_X_y(test_df)
     
-    logger.info(f"✅ Data loaded and split successfully\n")
+    logger.info("✅ Data loaded and split successfully\n")
     
     # ========== PHASE 2: FEATURE ENGINEERING ==========
     logger.info("PHASE 2: Feature engineering...")
@@ -121,7 +123,7 @@ def main(args):
     # Train all models
     all_results = trainer.train_all_models(X_train, y_train, X_val, y_val)
     
-    logger.info(f"✅ All models trained\n")
+    logger.info("✅ All models trained\n")
     
     # ========== PHASE 5: FINAL TEST EVALUATION ==========
     logger.info("PHASE 5: Final evaluation on test set...")
@@ -149,7 +151,7 @@ def main(args):
         y_test, y_test_proba, target_recall=0.90
     )
     
-    logger.info(f"✅ Test evaluation complete\n")
+    logger.info("✅ Test evaluation complete\n")
     
     # ========== PHASE 6: SAVE PRODUCTION MODEL ==========
     logger.info("PHASE 6: Saving production artifacts...")

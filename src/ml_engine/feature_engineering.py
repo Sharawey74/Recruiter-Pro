@@ -5,7 +5,6 @@ Handles feature extraction, encoding, and transformation for resume data.
 Excludes AI Score to prevent data leakage.
 """
 
-import re
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, LabelEncoder

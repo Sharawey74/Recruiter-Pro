@@ -215,10 +215,15 @@ class TestEndpointRateLimit:
         not the library.
         """
         from fastapi.testclient import TestClient
-        from src.api import RATE_LIMITING, app
+        from src.api import RATE_LIMITING, _api_config, app
 
         if not RATE_LIMITING:
             pytest.skip("slowapi not installed")
+        if not _api_config.rate_limit_enabled:
+            # CI runs with RATE_LIMIT_ENABLED=false so the other suites are not
+            # throttled. There is nothing to assert when the limiter is off by
+            # configuration -- that is the configuration working.
+            pytest.skip("rate limiting disabled by config")
 
         cv = b"Jane Doe\njane@example.com\nPython, Docker\nBSc Computer Science\n"
         with TestClient(app) as client:

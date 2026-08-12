@@ -1,0 +1,106 @@
+name: CI
+
+# The suite went green for the first time in commit 2f668f1. This exists so it
+# stays that way: the project spent a long stretch with a quarter of its tests
+# failing, and because nothing enforced a bar, "no new failures" was the only
+# claim anyone could make -- a bar that demonstrably missed a total API outage
+# (c98db1a), since an already-broken module absorbs new bugs in silence.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A second push to the same branch cancels the first. Nobody needs the results
+# of a commit that has already been superseded.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Python — lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        # requirements-dev.txt pulls in requirements.txt and requirements-ml.txt.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check src/ scripts/ tests/
+
+      - name: Format check (black)
+        # Non-blocking. `black --check src/` currently reformats 28 of 30 files,
+        # and a formatting sweep is a large diff that should land as its own
+        # commit rather than being forced through by CI on unrelated work.
+        # Flip to a hard failure once that commit exists (TASKS.md 6.3).
+        run: black --check src/ scripts/ tests/
+        continue-on-error: true
+
+      - name: Test
+        # No ML model or Ollama on the runner. The rule-based provider is a
+        # first-class provider precisely so this works with no network, no
+        # key and no quota (ADR-2).
+        env:
+          PYTHONHASHSEED: "0"
+          LLM_PROVIDER: rule_based
+          RATE_LIMIT_ENABLED: "false"
+        run: pytest --cov=src --cov-report=term-missing --cov-branch
+
+      - name: Validate the job corpus
+        run: python scripts/validate_corpus.py --jobs data/json/jobs.json --skills data/dictionaries/skills.json
+
+      - name: Check for control characters in source
+        # A literal 0x08 once reached Agent 2's tokenising regex and cut skill
+        # extraction from 15 skills to 1. The terminal rendered the line as
+        # correct, so every diff, grep and review passed it. A byte-level check
+        # is the only thing that catches it.
+        #
+        # Python rather than `grep -P`: grep's -P is unavailable or
+        # locale-dependent on some platforms, and a grep that errors out exits
+        # non-zero in a way that reads as "nothing found".
+        run: python scripts/check_control_chars.py
+
+  frontend:
+    name: Next.js — lint and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        # `next lint` has never been configured in this repo -- it prompts
+        # interactively, so it has never run. Non-blocking until .eslintrc.json
+        # is committed (TASKS.md 6.3).
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build

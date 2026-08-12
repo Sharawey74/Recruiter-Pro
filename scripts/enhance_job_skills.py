@@ -244,7 +244,7 @@ def main():
         json.dump(jobs, f, indent=2, ensure_ascii=False)
     
     print("✓ Jobs enhanced successfully!")
-    print(f"\nSummary:")
+    print("\nSummary:")
     print(f"  Total jobs: {len(jobs)}")
     print(f"  Enhanced: {enhanced_count}")
     print(f"  Unchanged: {len(jobs) - enhanced_count}")
