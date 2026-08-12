@@ -114,8 +114,9 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Lint
-        # `next lint` has never been configured in this repo -- it prompts
-        # interactively, so it has never run. Non-blocking until .eslintrc.json
-        # is committed (TASKS.md 6.3).
+        # Blocking. The script was `next lint`, which prompted interactively
+        # for a config that was never committed and which Next 16 removed
+        # outright -- so this step could only ever fail, and continue-on-error
+        # meant nobody saw it. eslint.config.mjs now exists and the tree is
+        # clean, so a regression is a failure rather than a line in a log.
         run: npm run lint
-        continue-on-error: true
