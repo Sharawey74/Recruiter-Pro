@@ -784,6 +784,6 @@ If you find this project useful, please consider giving it a ⭐ on GitHub!
 <div align="center">
 
 
-[⬆ Back to Top](#-recruiter-pro-ai)
+[⬆ Back to Top](#recruiter-pro)
 
 </div>

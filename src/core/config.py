@@ -1,5 +1,5 @@
 """
-Configuration Module for Recruiter-Pro-AI
+Configuration Module for Recruiter Pro
 Centralized configuration loading from YAML and environment variables
 """
 import os

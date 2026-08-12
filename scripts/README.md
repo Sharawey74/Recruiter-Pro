@@ -1,6 +1,6 @@
 # Scripts Directory
 
-Utility scripts for Recruiter-Pro-AI project management and development.
+Utility scripts for Recruiter Pro project management and development.
 
 ## Structure
 

@@ -1,5 +1,5 @@
 """
-Run the Recruiter Pro AI API Server.
+Run the Recruiter Pro API server.
 
     python run_api.py
 
@@ -23,7 +23,7 @@ if __name__ == "__main__":
     # cannot encode them, and this file died with UnicodeEncodeError before
     # uvicorn ever started - on the platform the project's own Run.ps1 targets.
     print("=" * 60)
-    print("Starting Recruiter Pro AI API Server...")
+    print("Starting Recruiter Pro API server...")
     print("  Docs:  http://localhost:8000/docs")
     print("=" * 60)
 

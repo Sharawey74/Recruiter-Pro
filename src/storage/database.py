@@ -1,5 +1,5 @@
 """
-Database Layer for Recruiter-Pro-AI
+Database Layer for Recruiter Pro
 SQLite wrapper with connection pooling and query helpers
 """
 import sqlite3

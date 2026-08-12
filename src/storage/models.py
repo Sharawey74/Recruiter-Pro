@@ -1,5 +1,5 @@
 """
-Data Models for Recruiter-Pro-AI
+Data Models for Recruiter Pro
 Pydantic schemas for CV, Job, Match, and Decision entities
 """
 from datetime import datetime

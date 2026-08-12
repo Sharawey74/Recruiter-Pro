@@ -187,7 +187,7 @@ def main():
     """Main setup function"""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Setup Recruiter-Pro-AI Database")
+    parser = argparse.ArgumentParser(description="Setup the Recruiter Pro database")
     parser.add_argument(
         '--clear',
         action='store_true',
