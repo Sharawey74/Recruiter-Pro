@@ -171,7 +171,7 @@ async def health_check():
         "components": {
             "agents_loaded": True,
             "jobs_loaded": len(jobs_cache),
-            "ml_model_loaded": pipeline.agent3.ml_predictor is not None,
+            "ml_model_loaded": pipeline.agent3.ml_scorer.enabled,
             "database_ready": db is not None,
             "ollama_enabled": pipeline.config.llm.enabled if hasattr(pipeline, 'config') else False
         }
@@ -435,9 +435,9 @@ async def match_cv(
             # rule-based fallback that runs when the model fails to load. Both
             # produce plausible numbers, so the difference is invisible unless
             # it is stated. See TASKS.md 1.1.
-            "ml_scoring_enabled": pipeline.agent3.ml_predictor is not None,
+            "ml_scoring_enabled": pipeline.agent3.ml_scorer.enabled,
             "scoring_mode": (
-                "hybrid" if pipeline.agent3.ml_predictor is not None else "rule_based_only"
+                "hybrid" if pipeline.agent3.ml_scorer.enabled else "rule_based_only"
             )
         }
     
@@ -717,8 +717,8 @@ async def startup_event():
         logger.warning(f"[WARN] Database initialization failed: {e}")
     
     # Check ML model
-    if pipeline.agent3.ml_predictor:
-        model_info = pipeline.agent3.ml_predictor.get_model_info()
+    if pipeline.agent3.ml_scorer.enabled:
+        model_info = pipeline.agent3.ml_scorer.predictor.get_model_info()
         logger.info(f"[OK] ML model loaded: {model_info.get('model_name', 'Unknown')}")
         logger.info(f"   Test Recall: {model_info.get('test_recall', 'N/A')}")
     else:
