@@ -141,8 +141,37 @@ class TestMatchEndpoint:
             files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
         )
         for match in r.json()["matches"]:
-            for field in ("final_score", "parser_score", "matcher_score", "scorer_score"):
+            for field in ("final_score", "rule_based_score", "skill_score",
+                          "experience_score"):
                 assert 0.0 <= match[field] <= 100.0, f"{field}={match[field]}"
+
+    def test_component_scores_are_named_for_what_they_measure(self, client):
+        """
+        These went out as parser_score, matcher_score and scorer_score --
+        named after the agent a reader would assume produced them, which was
+        wrong for all three. The UI labelled the skill score "ATS" as a
+        result. The old names must not come back. See TASKS.md 5.9.
+        """
+        r = client.post(
+            "/match?top_k=1&explain=false",
+            files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
+        )
+        match = r.json()["matches"][0]
+        for gone in ("parser_score", "matcher_score", "scorer_score"):
+            assert gone not in match, f"{gone} is back in the match payload"
+
+    def test_processing_time_is_measured(self, client):
+        """
+        Reported as None on every call while the dashboard sat through 2.5s
+        of hardcoded setTimeout to imply the work was still happening.
+        """
+        r = client.post(
+            "/match?top_k=3&explain=false",
+            files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
+        )
+        body = r.json()
+        assert body["processing_time"] > 0
+        assert body["jobs_evaluated"] > 0
 
     def test_single_job_match_returns_the_full_breakdown(self, client):
         """
@@ -172,12 +201,10 @@ class TestMatchEndpoint:
 @pytest.mark.integration
 class TestHistoryEndpoints:
     """
-    Both of these returned 500 on every call they had ever received.
-
-    /history called db.get_all_matches(), a method that does not exist, then
-    read score_breakdown, cv_name, a nested decision and timestamp off
-    MatchHistory rows that carry none of them. /match/single read
-    match.timestamp off a MatchResult, which has created_at.
+    /match/history returned 500 on every call it had ever received, as did the
+    /history duplicate that has since been removed: db.get_all_matches() does
+    not exist, and the handler read score_breakdown, cv_name, a nested
+    decision and timestamp off MatchHistory rows that carry none of them.
 
     Nothing caught it because the only tests covering the API pointed at
     /api/v1/*. A 500 on an endpoint the frontend calls is exactly the class of
@@ -189,19 +216,117 @@ class TestHistoryEndpoints:
             "/match?top_k=3&explain=false",
             files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
         )
-        r = client.get("/history?limit=5")
+        r = client.get("/match/history?limit=5")
         assert r.status_code == 200
         body = r.json()
         assert "matches" in body and "total" in body
 
-    def test_history_records_carry_their_fields(self, client):
-        r = client.get("/history?limit=5")
+    def test_history_records_carry_the_fields_the_frontend_reads(self, client):
+        r = client.get("/match/history?limit=5")
         for record in r.json()["matches"]:
-            for field in ("match_id", "job_title", "score", "decision", "timestamp"):
+            for field in ("match_id", "job_title", "final_score", "status",
+                          "candidate_name", "matched_skills", "timestamp"):
                 assert field in record, f"{field} missing from a history record"
 
-    def test_match_history_alias_also_responds(self, client):
-        assert client.get("/match/history?limit=3").status_code == 200
+    def test_a_stored_match_has_the_same_shape_as_a_live_one(self, client):
+        """
+        One resource, one encoding. The removed /history served these same
+        rows as `score`/`cv_name`/`decision`, and the two shapes drifted until
+        one of them returned 500 on every call. See TASKS.md 5.8.
+        """
+        live = client.post(
+            "/match?top_k=1&explain=false",
+            files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
+        ).json()["matches"][0]
+        stored = client.get("/match/history?limit=1").json()["matches"]
+        if not stored:
+            pytest.skip("nothing persisted to compare against")
+
+        for field in ("match_id", "job_id", "job_title", "company_name",
+                      "final_score", "rule_based_score", "skill_score",
+                      "experience_score", "status", "matched_skills"):
+            assert field in live and field in stored[0], f"{field} not on both"
+
+    def test_the_duplicate_history_endpoint_is_gone(self, client):
+        assert client.get("/history?limit=5").status_code == 404
 
     def test_history_pagination_does_not_error(self, client):
-        assert client.get("/history?limit=1&skip=1").status_code == 200
+        assert client.get("/match/history?limit=1&skip=1").status_code == 200
+
+
+@pytest.mark.integration
+class TestJobFiltering:
+    """
+    The Jobs search box sent `search` for months and the API silently dropped
+    it -- FastAPI ignores unknown query parameters, so the request succeeded
+    and returned the unfiltered page. See TASKS.md 5.3.
+    """
+
+    def test_search_narrows_the_result_set(self, client):
+        everything = client.get("/jobs?limit=1").json()["total"]
+        filtered = client.get("/jobs?limit=1&search=engineer").json()
+
+        assert filtered["total"] < everything, "search did not filter anything"
+        assert filtered["total"] > 0, "nothing matched a term the corpus contains"
+
+    def test_search_is_case_insensitive(self, client):
+        lower = client.get("/jobs?limit=1&search=manager").json()["total"]
+        upper = client.get("/jobs?limit=1&search=MANAGER").json()["total"]
+        assert lower == upper
+
+    def test_a_search_matching_nothing_is_empty_not_an_error(self, client):
+        r = client.get("/jobs?search=zzzznotarealskillzzzz")
+        assert r.status_code == 200
+        assert r.json()["total"] == 0
+        assert r.json()["jobs"] == []
+
+    @pytest.mark.parametrize("param,value", [
+        ("category", "engineering"),
+        ("remote_type", "remote"),
+        ("seniority", "senior"),
+    ])
+    def test_each_facet_filters_and_every_row_honours_it(self, client, param, value):
+        body = client.get(f"/jobs?limit=50&{param}={value}").json()
+        assert body["total"] > 0, f"{param}={value} matched nothing"
+
+        field = {"seniority": "seniority_level"}.get(param, param)
+        for job in body["jobs"]:
+            assert job[field] == value
+
+    def test_filters_combine_as_and_not_or(self, client):
+        both = client.get("/jobs?limit=1&category=engineering&remote_type=remote").json()
+        one = client.get("/jobs?limit=1&category=engineering").json()
+        assert both["total"] <= one["total"]
+
+    def test_total_is_the_filtered_count_not_the_corpus_size(self, client):
+        """Paging past the end of a filtered set depends on this."""
+        body = client.get("/jobs?limit=1&category=engineering").json()
+        assert body["total"] < body["corpus_total"]
+
+    def test_facets_come_from_the_corpus(self, client):
+        facets = client.get("/jobs/facets").json()
+        assert "engineering" in facets["categories"]
+        assert set(facets["remote_types"]) <= {"remote", "hybrid", "on-site"}
+        assert facets["total"] > 0
+
+    def test_a_single_job_can_be_fetched_by_id(self, client):
+        job_id = client.get("/jobs?limit=1").json()["jobs"][0]["job_id"]
+        r = client.get(f"/jobs/{job_id}")
+        assert r.status_code == 200
+        assert r.json()["job_id"] == job_id
+
+    def test_the_detail_view_does_not_truncate_the_requirements(self, client):
+        """
+        The list view caps required_skills at 10 to keep the grid light. A
+        detail page showing a truncated requirement list is misleading.
+        """
+        listed = client.get("/jobs?limit=200").json()["jobs"]
+        capped = next((j for j in listed if len(j["required_skills"]) == 10), None)
+        if capped is None:
+            pytest.skip("no job in the corpus has 10 or more required skills")
+
+        detail = client.get(f"/jobs/{capped['job_id']}").json()
+        assert len(detail["required_skills"]) >= len(capped["required_skills"])
+
+    def test_an_unknown_job_id_is_404(self, client):
+        assert client.get("/jobs/NOPE-9999").status_code == 404

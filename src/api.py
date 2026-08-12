@@ -1,22 +1,23 @@
 """
-Recruiter-Pro-AI: Simple Unified API Server
+Recruiter Pro: Simple Unified API Server
 Clean, straightforward REST API for resume-job matching
 
 Endpoints:
 - GET  /              - Welcome message
 - GET  /health        - Server health check
-- GET  /jobs          - List available jobs
+- GET  /jobs          - List and filter available jobs
 - POST /upload        - Upload and parse CV
 - POST /match         - Match CV to all jobs (main endpoint)
 - POST /match/single  - Match CV to specific job
-- GET  /history       - View match history
+- GET  /match/history - View match history
 """
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Request, UploadFile, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Optional
 import tempfile
+import time
 from pathlib import Path
 import json
 import logging
@@ -103,7 +104,7 @@ async def lifespan(app: FastAPI):
 # ============================================
 
 app = FastAPI(
-    title="Recruiter Pro AI",
+    title="Recruiter Pro",
     description="AI-powered resume matching with 4-agent pipeline",
     version="1.0.0",
     docs_url="/docs",
@@ -355,15 +356,18 @@ def parse_experience(exp_str: str) -> tuple:
 async def root():
     """Welcome message and API info"""
     return {
-        "message": "🎯 Recruiter Pro AI - API Server",
+        "message": "Recruiter Pro - API Server",
         "version": "1.0.0",
         "status": "running",
         "endpoints": {
             "docs": "/docs",
             "health": "/health",
             "jobs": "/jobs",
+            "job_facets": "/jobs/facets",
             "upload": "/upload",
-            "match": "/match"
+            "match": "/match",
+            "match_single": "/match/single",
+            "history": "/match/history",
         }
     }
 
@@ -387,47 +391,169 @@ async def health_check():
     }
 
 
+def job_payload(job: JobPosting) -> dict:
+    """
+    One job, in the shape the frontend consumes.
+
+    /jobs, /match and /match/history all embed the same eighteen job fields.
+    They were written out three times and had already drifted -- /match
+    defaulted a missing country to 'India' while /match/history used 'Unknown'.
+    """
+    return {
+        "job_id": job.job_id,
+        "title": job.title,
+        "job_title": job.title,  # Legacy compatibility
+        "company_name": job.company_name,
+        "company": job.company_name,  # Legacy compatibility
+        "location_city": job.location_city,
+        "location_country": job.location_country,
+        "location": f"{job.location_city}, {job.location_country}",  # Legacy
+        "remote_type": job.remote_type,
+        "employment_type": job.employment_type,
+        "job_type": job.employment_type,  # Legacy compatibility
+        "seniority_level": job.seniority_level,
+        "min_experience_years": job.min_experience_years,
+        "max_experience_years": job.max_experience_years,
+        "description": job.description,
+        "required_skills": job.required_skills[:10] if job.required_skills else [],
+        "preferred_skills": job.preferred_skills[:5] if job.preferred_skills else [],
+        "posted_date": job.posted_date,
+        "category": getattr(job, "category", None),
+        # Present on all 800 corpus records. It was loaded and then dropped
+        # before serialisation, so the UI had no salary to show.
+        "salary_range": getattr(job, "salary_range", None),
+    }
+
+
+# A job the cache has no record of. Every field the frontend reads is present
+# with a neutral value, so a missing job renders as blanks rather than
+# throwing on an attribute of None.
+MISSING_JOB_PAYLOAD = {
+    "company_name": "N/A", "company": "N/A",
+    "location_city": "Unknown", "location_country": "Unknown",
+    "location": "Unknown", "remote_type": "on-site",
+    "employment_type": "full-time", "job_type": "full-time",
+    "seniority_level": "mid", "min_experience_years": 0,
+    "max_experience_years": 0, "description": None,
+    "required_skills": [], "preferred_skills": [],
+    "posted_date": None, "category": None, "salary_range": None,
+}
+
+
+def job_matches_filters(
+    job: JobPosting,
+    search: Optional[str],
+    category: Optional[str],
+    remote_type: Optional[str],
+    seniority: Optional[str],
+) -> bool:
+    """
+    Whether one job survives the /jobs filter set. All filters are AND-ed;
+    an unset filter matches everything.
+    """
+    if search:
+        needle = search.lower()
+        haystack = " ".join(filter(None, [
+            job.title,
+            job.company_name,
+            job.location_city,
+            job.description,
+            " ".join(job.required_skills or []),
+            " ".join(job.preferred_skills or []),
+        ])).lower()
+        if needle not in haystack:
+            return False
+
+    if category and (getattr(job, "category", "") or "").lower() != category.lower():
+        return False
+    if remote_type and (job.remote_type or "").lower() != remote_type.lower():
+        return False
+    if seniority and (job.seniority_level or "").lower() != seniority.lower():
+        return False
+    return True
+
+
 @app.get("/jobs")
 async def get_jobs(
     skip: int = Query(0, ge=0, description="Number of jobs to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Max jobs to return")
+    limit: int = Query(100, ge=1, le=1000, description="Max jobs to return"),
+    search: Optional[str] = Query(
+        None, description="Free text over title, company, city, skills and description"
+    ),
+    category: Optional[str] = Query(None, description="Exact job category"),
+    remote_type: Optional[str] = Query(None, description="remote | hybrid | on-site"),
+    seniority: Optional[str] = Query(
+        None, description="entry | mid | senior | lead | manager | executive"
+    ),
 ):
     """
-    Get list of available jobs
-    Returns paginated job listings with new structure
+    List available jobs, optionally filtered.
+
+    Filtering happens here rather than in the browser. The corpus is 800 jobs
+    and the page requests 12 at a time, so a client-side filter can only ever
+    search the current page -- which is why the Jobs search box did nothing:
+    the parameter was sent and silently dropped.
     """
-    total_jobs = len(jobs_cache)
-    paginated_jobs = jobs_cache[skip:skip+limit]
-    
+    matching = [
+        job for job in jobs_cache
+        if job_matches_filters(job, search, category, remote_type, seniority)
+    ]
+
+    paginated_jobs = matching[skip:skip + limit]
+
     return {
-        "total": total_jobs,
+        # The count of jobs that matched the filters, not the corpus size.
+        # Paging past the end of a filtered result set depends on this.
+        "total": len(matching),
+        "corpus_total": len(jobs_cache),
         "skip": skip,
         "limit": limit,
         "count": len(paginated_jobs),
-        "jobs": [
-            {
-                "job_id": job.job_id,
-                "title": job.title,
-                "job_title": job.title,  # Legacy compatibility
-                "company_name": job.company_name,
-                "company": job.company_name,  # Legacy compatibility
-                "location_city": job.location_city,
-                "location_country": job.location_country,
-                "location": f"{job.location_city}, {job.location_country}",  # Legacy compatibility
-                "remote_type": job.remote_type,
-                "employment_type": job.employment_type,
-                "job_type": job.employment_type,  # Legacy compatibility
-                "seniority_level": job.seniority_level,
-                "min_experience_years": job.min_experience_years,
-                "max_experience_years": job.max_experience_years,
-                "description": job.description,
-                "required_skills": job.required_skills[:10] if job.required_skills else [],
-                "preferred_skills": job.preferred_skills[:5] if job.preferred_skills else [],
-                "posted_date": job.posted_date
-            }
-            for job in paginated_jobs
-        ]
+        "filters": {
+            "search": search, "category": category,
+            "remote_type": remote_type, "seniority": seniority,
+        },
+        "jobs": [job_payload(job) for job in paginated_jobs],
     }
+
+
+@app.get("/jobs/facets")
+async def get_job_facets():
+    """
+    The distinct values behind the Jobs filter dropdowns.
+
+    Hardcoding the options in the UI means the dropdown and the corpus drift
+    apart, and a user can select a value that matches nothing.
+    """
+    def distinct(attr: str) -> List[str]:
+        return sorted({
+            value for job in jobs_cache
+            if (value := getattr(job, attr, None))
+        })
+
+    return {
+        "categories": distinct("category"),
+        "remote_types": distinct("remote_type"),
+        "seniority_levels": distinct("seniority_level"),
+        "employment_types": distinct("employment_type"),
+        "total": len(jobs_cache),
+    }
+
+
+@app.get("/jobs/{job_id}")
+async def get_job(job_id: str):
+    """One job in full. Backs the job detail page."""
+    job = next((j for j in jobs_cache if j.job_id == job_id), None)
+    if not job:
+        raise HTTPException(404, f"Job {job_id} not found")
+
+    payload = job_payload(job)
+    # The list view truncates skills to keep the grid light. A detail page
+    # showing a truncated requirement list would be actively misleading.
+    payload["required_skills"] = job.required_skills or []
+    payload["preferred_skills"] = job.preferred_skills or []
+    payload["education_level"] = getattr(job, "education_level", None)
+    return payload
 
 
 @app.post("/upload")
@@ -547,6 +673,7 @@ async def match_cv(
         # between left the singleton altered for every request after it.
         logger.info(f"Running pipeline against {len(jobs_cache)} jobs...")
 
+        started = time.perf_counter()
         matches = pipeline.process_cv_batch(
             cv_file_path=tmp_path,
             jobs=jobs_cache,
@@ -555,16 +682,17 @@ async def match_cv(
             use_llm=use_llm,
             use_langchain=use_langchain,
         )
+        elapsed = time.perf_counter() - started
 
         # Format results for Next.js frontend
         results = []
         for match in matches:
             # Get job details from cache
             job_details = next((j for j in jobs_cache if j.job_id == match.job_id), None)
-            
+
             # Calculate final score
             final_score = round(match.score_breakdown.hybrid_score * 100, 1)
-            
+
             # Auto-assign status based on score
             if final_score >= 75:
                 status = "accepted"  # Shortlist
@@ -572,33 +700,27 @@ async def match_cv(
                 status = "review"    # Manual review needed
             else:
                 status = "rejected"  # Below threshold
-            
+
             result = {
                 "match_id": match.match_id,
                 "job_id": match.job_id,
                 "job_title": match.job_title,
-                # New structure fields
-                "company_name": job_details.company_name if job_details else 'N/A',
-                "company": job_details.company_name if job_details else 'N/A',  # Legacy
-                "location_city": job_details.location_city if job_details else 'Unknown',
-                "location_country": job_details.location_country if job_details else 'India',
-                "location": f"{job_details.location_city}, {job_details.location_country}" if job_details else 'Unknown',  # Legacy
-                "remote_type": job_details.remote_type if job_details else 'on-site',
-                "employment_type": job_details.employment_type if job_details else 'full-time',
-                "job_type": job_details.employment_type if job_details else 'full-time',  # Legacy
-                "seniority_level": job_details.seniority_level if job_details else 'mid',
-                "min_experience_years": job_details.min_experience_years if job_details else 0,
-                "max_experience_years": job_details.max_experience_years if job_details else 0,
-                "description": job_details.description if job_details else None,
-                "required_skills": job_details.required_skills[:10] if job_details and job_details.required_skills else [],
-                "preferred_skills": job_details.preferred_skills[:5] if job_details and job_details.preferred_skills else [],
-                "posted_date": job_details.posted_date if job_details else None,
+                **(job_payload(job_details) if job_details else MISSING_JOB_PAYLOAD),
                 "candidate_name": match.candidate_name,  # From MatchResult
                 "cv_filename": file.filename,
                 "final_score": final_score,
-                "parser_score": round(match.score_breakdown.rule_based_score * 100, 1),
-                "matcher_score": round(match.score_breakdown.skill_score * 100, 1),
-                "scorer_score": round(match.score_breakdown.experience_score * 100, 1),
+                # Named for what they measure. These went out as parser_score,
+                # matcher_score and scorer_score -- named after the agent the
+                # caller assumed produced them, which is wrong for all three.
+                # The UI accordingly labelled the skill score "ATS" and the
+                # experience score "Matching". See TASKS.md 5.9.
+                "rule_based_score": round(match.score_breakdown.rule_based_score * 100, 1),
+                "skill_score": round(match.score_breakdown.skill_score * 100, 1),
+                "experience_score": round(match.score_breakdown.experience_score * 100, 1),
+                "ml_score": (
+                    round(match.score_breakdown.ml_score * 100, 1)
+                    if match.score_breakdown.ml_score is not None else None
+                ),
                 # MatchCard renders skill badges from these two fields. Only
                 # /match/single sent them (nested as skills.matched/.missing),
                 # so on this endpoint - the one the UI actually calls - the
@@ -609,20 +731,24 @@ async def match_cv(
                 "status": status,
                 "timestamp": datetime.now().isoformat()
             }
-            
+
             # Add explanation if requested
             if explain and match.decision.explanation:
                 result["explanation"] = match.decision.explanation
-            
+
             results.append(result)
-        
-        logger.info(f"Matching complete. Found {len(results)} matches.")
-        
+
+        logger.info(f"Matching complete. Found {len(results)} matches in {elapsed:.2f}s.")
+
         # Return format matching Next.js frontend MatchResponse interface
         return {
             "matches": results,
             "cv_text": None,  # Optional field
-            "processing_time": None,  # Optional field
+            # Measured, not None. The dashboard used to sit through 2.5s of
+            # hardcoded setTimeout to imply work that had already finished,
+            # then report no duration at all.
+            "processing_time": round(elapsed, 3),
+            "jobs_evaluated": len(jobs_cache),
             # Scoring provenance. Without this, a caller cannot tell whether the
             # scores came from the advertised hybrid ML+rules path or from the
             # rule-based fallback that runs when the model fails to load. Both
@@ -745,52 +871,31 @@ async def match_to_single_job(
             logger.warning(f"Could not remove temp file {tmp_path}: {e}")
 
 
-@app.get("/history")
-async def get_match_history(
-    limit: int = Query(50, ge=1, le=500, description="Max records to return"),
-    skip: int = Query(0, ge=0, description="Number of records to skip")
-):
+# GET /history is gone.
+#
+# It served the same rows as /match/history under a different, incompatible
+# shape -- `score` instead of `final_score`, `cv_name` instead of
+# `candidate_name`, a flat `decision` string where the other returns a status.
+# No client called it: the frontend has only ever used /match/history. Two
+# encodings of one resource is how the two drifted far enough apart that one
+# of them could return 500 on every call for months without anyone noticing.
+# See TASKS.md 5.8.
+
+
+def _decode_skill_list(raw) -> List[str]:
     """
-    Get match history from database (legacy endpoint)
-    
-    Returns recent CV-job matches stored in the system
+    MatchHistory stores skills as a JSON string. Rows written before that
+    column existed hold None, and a hand-edited database can hold anything.
     """
+    if isinstance(raw, list):
+        return raw
+    if not raw:
+        return []
     try:
-        # Every line of this handler was wrong, and nothing caught it because
-        # the only tests covering the API targeted /api/v1/*, a surface this
-        # repo has never served. db.get_all_matches() does not exist; the rows
-        # are MatchHistory, which has no score_breakdown, no cv_name, no
-        # nested decision and no timestamp. The endpoint returned 500 on every
-        # call it has ever received.
-        all_matches = db.get_top_matches(limit=skip + limit)
-
-        total = len(all_matches)
-        matches = all_matches[skip:skip + limit]
-
-        return {
-            "total": total,
-            "skip": skip,
-            "limit": limit,
-            "count": len(matches),
-            "matches": [
-                {
-                    "match_id": m.match_id,
-                    "cv_id": m.cv_id,
-                    "cv_name": m.candidate_name,
-                    "job_id": m.job_id,
-                    "job_title": m.job_title,
-                    "score": round(m.final_score * 100, 1),
-                    "decision": m.decision,
-                    "confidence": round(m.confidence * 100, 1),
-                    "timestamp": m.created_at.isoformat() if m.created_at else None,
-                }
-                for m in matches
-            ]
-        }
-    
-    except Exception as e:
-        logger.error(f"Failed to get history: {e}")
-        raise HTTPException(500, f"Failed to get history: {str(e)}") from e
+        decoded = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return decoded if isinstance(decoded, list) else []
 
 
 @app.get("/match/history")
@@ -832,29 +937,23 @@ async def get_match_history_v2(
                 "match_id": m.match_id,
                 "job_id": m.job_id,
                 "job_title": m.job_title,
-                # New structure fields from job cache
-                "company_name": job_details.company_name if job_details else 'N/A',
-                "company": job_details.company_name if job_details else 'N/A',  # Legacy
-                "location_city": job_details.location_city if job_details else 'Unknown',
-                "location_country": job_details.location_country if job_details else 'Unknown',
-                "location": f"{job_details.location_city}, {job_details.location_country}" if job_details else 'Unknown',  # Legacy
-                "remote_type": job_details.remote_type if job_details else 'on-site',
-                "employment_type": job_details.employment_type if job_details else 'full-time',
-                "job_type": job_details.employment_type if job_details else 'full-time',  # Legacy
-                "seniority_level": job_details.seniority_level if job_details else 'mid',
-                "min_experience_years": job_details.min_experience_years if job_details else 0,
-                "max_experience_years": job_details.max_experience_years if job_details else 0,
-                "description": job_details.description if job_details else None,
-                "required_skills": job_details.required_skills[:10] if job_details and job_details.required_skills else [],
-                "preferred_skills": job_details.preferred_skills[:5] if job_details and job_details.preferred_skills else [],
-                "posted_date": job_details.posted_date if job_details else None,
+                **(job_payload(job_details) if job_details else MISSING_JOB_PAYLOAD),
                 "candidate_name": getattr(m, 'candidate_name', None),
                 "cv_filename": getattr(m, 'cv_id', None),  # Use cv_id as filename fallback
-                # Use individual score fields from MatchHistory
+                # Use individual score fields from MatchHistory. Same names as
+                # /match: one match shape, whether it arrived from a live run
+                # or from storage.
                 "final_score": final_score,
-                "parser_score": round(m.rule_based_score * 100, 1),
-                "matcher_score": round(m.skill_score * 100, 1),
-                "scorer_score": round(m.experience_score * 100, 1),
+                "rule_based_score": round(m.rule_based_score * 100, 1),
+                "skill_score": round(m.skill_score * 100, 1),
+                "experience_score": round(m.experience_score * 100, 1),
+                "ml_score": (
+                    round(m.ml_score * 100, 1) if m.ml_score is not None else None
+                ),
+                # Stored on every row and never served, so History and
+                # Shortlist rendered no skill badges at all.
+                "matched_skills": _decode_skill_list(getattr(m, 'matched_skills', None)),
+                "missing_skills": _decode_skill_list(getattr(m, 'missing_skills', None)),
                 "status": status,
                 "explanation": getattr(m, 'explanation', None),
                 "timestamp": m.created_at.isoformat() if hasattr(m, 'created_at') else datetime.now().isoformat()
