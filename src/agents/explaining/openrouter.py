@@ -28,7 +28,35 @@ from .protocol import Explanation, ExplanationContext
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "openai/gpt-oss-20b:free"
+
+# Chosen for this workload, which is narrower than it looks: prompt.py sends
+# roughly 300 tokens of already-structured facts and asks for under 200 words
+# of professional prose at temperature 0.2, three times per upload
+# (pipeline.MAX_EXPLANATIONS). Nothing here needs reasoning, tool calling,
+# images or a large context -- it needs instruction-following, fluency, and
+# speed, because the request blocks the UI.
+#
+# On that basis the free tier ranks by round-trip time for ~280 output tokens:
+#
+#   nemotron-3-nano-30b-a3b   0.66s + 88 tps  ->  ~3.9s   <- this
+#   nemotron-3-super-120b     0.94s + 46 tps  ->  ~7.0s
+#   gemma-4-26b-a4b           0.96s + 38 tps  ->  ~8.3s
+#   gemma-4-31b               1.18s + 28 tps  -> ~11.2s
+#   gpt-oss-20b               3.98s + 17 tps  -> ~20.5s   <- was this
+#   nemotron-3-ultra-550b     7.28s + 15 tps  -> ~26.0s
+#
+# The previous default was the slowest practical option on the list, and it is
+# most of why the docs quoted 30-60s per CV with explanations on.
+#
+# Deliberately not the "reasoning" or omni variants: a hidden thinking budget
+# (16k tokens on nano-omni) is latency and daily quota spent on a 200-word
+# summary. Deliberately not nemotron-3.5-content-safety, which is a guardrail
+# classifier returning safe/unsafe labels rather than prose.
+#
+# Its 96.77% uptime is the lowest of the set and matters least here: an
+# unreachable provider fails is_available() and the chain falls through to
+# rule-based, so downtime costs prose quality, not availability.
+DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b:free"
 ENV_KEY = "OPENROUTER_API_KEY"
 
 
