@@ -60,25 +60,9 @@ export function HeroSlide({ stats }: { stats: Stats | null }) {
       <ParticleField />
 
       <div className="relative flex flex-col items-center gap-8 text-center">
-        <Reveal>
-          <span className="chip border border-primary/30 bg-primary/10 text-primary">
-            <span
-              className="h-1.5 w-1.5 rounded-full bg-primary"
-              style={{ animation: "landing-pulse-glow 2.4s ease-in-out infinite" }}
-              aria-hidden
-            />
-            {stats
-              ? `${stats.engine.agents}-agent pipeline · ${
-                  stats.engine.scoring_mode === "hybrid"
-                    ? "hybrid scoring"
-                    : "rule-based scoring"
-                }`
-              : "System starting"}
-          </span>
-        </Reveal>
-
         <Reveal delayMs={80}>
-          <h1 className="text-balance text-5xl font-bold leading-[1.05] tracking-tight text-on-surface md:text-7xl">
+          <h1 className="text-balance font-bold leading-[1.05] tracking-tight text-on-surface"
+            style={{ fontSize: "clamp(2.25rem, 5.5vw, 4.5rem)" }}>
             The future of
             <br />
             <span className="bg-gradient-to-r from-primary via-primary-fixed to-secondary bg-clip-text text-transparent">
@@ -88,7 +72,8 @@ export function HeroSlide({ stats }: { stats: Stats | null }) {
         </Reveal>
 
         <Reveal delayMs={160}>
-          <p className="max-w-2xl text-lg text-on-surface-variant md:text-xl">
+          <p className="max-w-2xl text-on-surface-variant"
+            style={{ fontSize: "clamp(1rem, 1.35vw, 1.25rem)" }}>
             Parse a résumé, extract its skills against a curated taxonomy, and
             score it against every open role — in one pass, with the reasoning
             shown rather than asserted.
@@ -109,7 +94,10 @@ export function HeroSlide({ stats }: { stats: Stats | null }) {
         </Reveal>
 
         <Reveal delayMs={320} className="w-full">
-          <dl className="mt-8 grid w-full grid-cols-2 gap-8 border-t border-white/10 pt-10 md:grid-cols-4">
+          <dl
+            className="mt-8 grid w-full gap-8 border-t border-white/10 pt-10"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(9rem, 1fr))" }}
+          >
             <Stat
               value={stats?.corpus.jobs ?? 0}
               label="Roles indexed"
@@ -167,7 +155,8 @@ function Stat({
 }) {
   return (
     <div className="text-center" title={hint}>
-      <dd className="text-4xl font-bold text-on-surface md:text-5xl">
+      <dd className="font-bold text-on-surface"
+        style={{ fontSize: "clamp(1.85rem, 3.2vw, 3rem)" }}>
         <CountUp value={value} decimals={decimals} suffix={suffix} />
       </dd>
       <dt className="label-sm mt-2 text-tertiary">{label}</dt>
@@ -218,7 +207,8 @@ export function ParsingSlide({ stats }: { stats: Stats | null }) {
         </Reveal>
 
         <Reveal delayMs={80}>
-          <h2 className="max-w-3xl text-balance text-4xl font-bold tracking-tight text-on-surface md:text-6xl">
+          <h2 className="max-w-3xl text-balance font-bold tracking-tight text-on-surface"
+            style={{ fontSize: "clamp(2rem, 4.5vw, 3.75rem)" }}>
             Beyond keywords.
           </h2>
         </Reveal>
@@ -243,10 +233,13 @@ export function ParsingSlide({ stats }: { stats: Stats | null }) {
           </p>
         </Reveal>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div
+          className="grid gap-6"
+          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(15rem, 1fr))" }}
+        >
           {PIPELINE.map(({ icon: Icon, title, body }, index) => (
             <Reveal key={title} delayMs={200 + index * 90}>
-              <article className="landing-conic-card group h-full p-6 transition-transform duration-300 hover:-translate-y-1">
+              <article className="landing-conic-card card-interactive group h-full border border-transparent p-6">
                 <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-md border border-white/5 bg-surface-container-highest">
                   <Icon
                     className="h-6 w-6 text-primary transition-transform duration-300 group-hover:scale-110"
@@ -299,7 +292,8 @@ export function ReachSlide({ stats }: { stats: Stats | null }) {
           </Reveal>
 
           <Reveal delayMs={80}>
-            <h2 className="text-balance text-4xl font-bold tracking-tight text-on-surface md:text-5xl">
+            <h2 className="text-balance font-bold tracking-tight text-on-surface"
+              style={{ fontSize: "clamp(1.75rem, 3.4vw, 3rem)" }}>
               Roles across {stats?.corpus.countries ?? 0} countries
             </h2>
           </Reveal>
@@ -320,7 +314,7 @@ export function ReachSlide({ stats }: { stats: Stats | null }) {
               { icon: Building2, value: stats?.corpus.companies ?? 0, label: "Companies" },
             ].map(({ icon: Icon, value, label }, index) => (
               <Reveal key={label} delayMs={200 + index * 80}>
-                <div className="glass-panel rounded-lg p-4 text-center">
+                <div className="glass-panel card-interactive rounded-lg p-4 text-center">
                   <Icon className="mx-auto mb-2 h-5 w-5 text-secondary" aria-hidden />
                   <p className="text-2xl font-bold text-on-surface">
                     <CountUp value={value} />
@@ -370,9 +364,14 @@ export function ReachSlide({ stats }: { stats: Stats | null }) {
                         style={{
                           width: `${Math.round((jobs / busiest) * 100)}%`,
                           transformOrigin: "left",
+                          // `forwards`, not `both`: with `both` the bar holds
+                          // scaleX(0) through its stagger delay and stays
+                          // collapsed forever if the animation never runs. The
+                          // failure mode here is a bar that appears without
+                          // growing, which is the right way round.
                           animation: `landing-grow 900ms cubic-bezier(0.16, 1, 0.3, 1) ${
                             index * 60
-                          }ms both`,
+                          }ms forwards`,
                         }}
                       />
                     </div>
@@ -396,16 +395,6 @@ export function ReachSlide({ stats }: { stats: Stats | null }) {
   );
 }
 
-/**
- * The stack, in place of a fabricated customer wall.
- *
- * The design's "Trusted by Industry Leaders" marquee named Vertex, Omni, Delta
- * and Hexa — four companies that do not exist and have not used this. The row
- * keeps its rhythm and states what the thing is built on instead, which is
- * both true and what a technical reader wants from a portfolio project.
- */
-const STACK = ["FastAPI", "Next.js", "scikit-learn", "OpenRouter", "SQLite"];
-
 export function CtaSlide({ stats }: { stats: Stats | null }) {
   return (
     <Slide id="get-started" className="items-center text-center">
@@ -418,7 +407,8 @@ export function CtaSlide({ stats }: { stats: Stats | null }) {
 
       <Reveal>
         <div className="glass-panel mx-auto max-w-3xl rounded-xl px-8 py-16">
-          <h2 className="text-balance text-4xl font-bold tracking-tight text-on-surface md:text-5xl">
+          <h2 className="text-balance font-bold tracking-tight text-on-surface"
+              style={{ fontSize: "clamp(1.75rem, 3.4vw, 3rem)" }}>
             Ready to see it work?
           </h2>
 
@@ -429,27 +419,18 @@ export function CtaSlide({ stats }: { stats: Stats | null }) {
           </p>
 
           <Link
-            href="/upload"
-            className="btn-primary mx-auto mt-10 w-fit px-10 py-4 text-lg"
+            href="/dashboard"
+            className="btn-primary group mx-auto mt-10 w-fit rounded-full px-12 py-5 text-lg
+                       transition-transform duration-300 hover:scale-[1.04] active:scale-[0.98]"
             style={{ animation: "landing-pulse-glow 2.8s ease-in-out infinite" }}
           >
             Enter the dashboard
-            <ArrowRight className="h-5 w-5" aria-hidden />
+            <ArrowRight
+              className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1"
+              aria-hidden
+            />
           </Link>
 
-          <div className="mt-14 border-t border-white/10 pt-8">
-            <p className="label-sm mb-5 text-tertiary">Built with</p>
-            <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
-              {STACK.map((name) => (
-                <li
-                  key={name}
-                  className="font-mono text-sm text-on-surface-variant transition-colors hover:text-primary"
-                >
-                  {name}
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </Reveal>
     </Slide>

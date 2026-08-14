@@ -48,7 +48,7 @@ export function MatchCard({
   return (
     <article
       className={cn(
-        "glass-panel rounded-lg border-l-4 p-6 transition-colors",
+        "glass-panel card-interactive rounded-lg border-l-4 p-6",
         styles.border
       )}
     >

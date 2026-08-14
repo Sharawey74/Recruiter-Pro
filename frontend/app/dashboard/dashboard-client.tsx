@@ -118,17 +118,24 @@ export function DashboardClient() {
             disabled={phase === "running"}
           />
 
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <label className="flex cursor-pointer items-start gap-3 text-sm">
+          {/*
+            A contained row rather than a bare flex line. The label was allowed
+            to size itself next to a shrink-0 button, so at some widths its
+            second sentence overflowed the row and collided with the heading
+            below. min-w-0 lets it wrap, and flex-wrap moves the button under
+            it when there is genuinely no room.
+          */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-white/5 bg-surface-container/40 p-4">
+            <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-sm">
               <input
                 type="checkbox"
                 checked={session.useLLM}
                 onChange={(event) =>
                   session.update({ useLLM: event.target.checked })
                 }
-                className="mt-0.5 h-4 w-4 rounded border-outline-variant bg-surface-container accent-primary"
+                className="checkbox mt-0.5"
               />
-              <span>
+              <span className="min-w-0">
                 <span className="font-medium text-on-surface">
                   Write explanations
                 </span>
@@ -156,8 +163,8 @@ export function DashboardClient() {
         </div>
       </div>
 
-      <section className="mt-12">
-        <div className="mb-6 flex items-end justify-between gap-4">
+      <section className="mt-16 border-t border-white/5 pt-10">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-headline-lg text-on-surface">Top matches</h2>
             {phase === "done" && (

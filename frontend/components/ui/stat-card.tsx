@@ -32,7 +32,7 @@ export function StatCard({
 
   return (
     <div
-      className={cn("glass-panel rounded-lg p-6", className)}
+      className={cn("glass-panel card-interactive rounded-lg border p-6", className)}
       title={hint}
     >
       <div className="flex items-center gap-4">

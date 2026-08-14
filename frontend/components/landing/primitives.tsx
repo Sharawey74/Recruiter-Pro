@@ -373,7 +373,12 @@ export function Slide({
     <section
       id={id}
       className={cn(
-        "landing-slide relative flex min-h-[calc(100vh-5rem)] w-full flex-col justify-center overflow-hidden px-margin-desktop py-16",
+        // min-h, never h: at a high zoom level the content is taller than the
+        // viewport, and a fixed height would clip it. The slide grows and the
+        // snap container scrolls, so zooming degrades to a taller slide rather
+        // than to hidden content.
+        "landing-slide relative flex min-h-[calc(100dvh-5rem)] w-full flex-col justify-center overflow-hidden py-16",
+        "px-margin-mobile md:px-margin-desktop",
         className
       )}
     >

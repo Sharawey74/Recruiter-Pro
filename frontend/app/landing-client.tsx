@@ -56,7 +56,20 @@ export function LandingClient() {
     };
   }, []);
 
-  // Which slide the dot rail highlights.
+  /*
+   * Two things off one observer: which dot is lit, and how far each slide has
+   * entered.
+   *
+   * The `--enter` variable (0..1) drives the opacity and translate in
+   * globals.css, so slides ease in and out as they pass rather than appearing
+   * fully formed the instant they snap. Many thresholds rather than one,
+   * because a single threshold gives a boolean and this needs a curve.
+   *
+   * It is a CSS variable set on the element rather than React state on
+   * purpose: this fires on almost every frame of a scroll, and re-rendering
+   * four slides that often would drop frames doing work the compositor can do
+   * for free.
+   */
   useEffect(() => {
     const root = containerRef.current;
     if (!root) return;
@@ -64,12 +77,16 @@ export function LandingClient() {
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          const index = SLIDES.findIndex((s) => s.id === entry.target.id);
-          if (index >= 0) setActive(index);
+          const node = entry.target as HTMLElement;
+          node.style.setProperty("--enter", entry.intersectionRatio.toFixed(3));
+
+          if (entry.intersectionRatio >= 0.5) {
+            const index = SLIDES.findIndex((s) => s.id === node.id);
+            if (index >= 0) setActive(index);
+          }
         }
       },
-      { root, threshold: 0.5 }
+      { root, threshold: Array.from({ length: 21 }, (_, i) => i / 20) }
     );
 
     for (const slide of SLIDES) {
@@ -83,7 +100,7 @@ export function LandingClient() {
   return (
     <div
       ref={containerRef}
-      className="-mx-margin-desktop -mb-16 -mt-28 h-[calc(100vh-5rem)] snap-y snap-mandatory overflow-y-auto overflow-x-hidden scroll-smooth"
+      className="-mx-margin-desktop -mb-16 -mt-28 h-[calc(100dvh-5rem)] snap-y snap-mandatory overflow-y-auto overflow-x-hidden scroll-smooth"
     >
       <HeroSlide stats={stats} />
       <ParsingSlide stats={stats} />

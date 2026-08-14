@@ -127,16 +127,16 @@ export function UploadClient() {
           disabled={busy}
         />
 
-        <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex cursor-pointer items-start gap-3 text-sm">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-lg border border-white/5 bg-surface-container/40 p-4">
+          <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-sm">
             <input
               type="checkbox"
               checked={session.useLLM}
               onChange={(event) => session.update({ useLLM: event.target.checked })}
-              className="mt-0.5 h-4 w-4 rounded border-outline-variant bg-surface-container accent-primary"
+              className="checkbox mt-0.5"
               disabled={busy}
             />
-            <span>
+            <span className="min-w-0">
               <span className="font-medium text-on-surface">Write explanations</span>
               <span className="block text-tertiary">
                 One LLM call per match. Adds roughly 30–60s per résumé and needs a

@@ -72,7 +72,7 @@ export function JobCard({ job }: { job: Job }) {
     .join(", ");
 
   return (
-    <article className="gradient-border-card flex flex-col justify-between p-6 transition-transform duration-300 hover:-translate-y-1">
+    <article className="gradient-border-card card-interactive flex flex-col justify-between border border-transparent p-6">
       <div>
         <div className="mb-4 flex items-start justify-between gap-3">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-white/5 bg-surface-container-highest">
