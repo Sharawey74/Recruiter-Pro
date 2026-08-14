@@ -195,27 +195,38 @@ cd ..
 
 ### Running the Application
 
-#### Option 1: Automated Launcher (Windows - Recommended)
+#### Option 1: One command (recommended)
 
 ```powershell
-.\Run.ps1
+.\run.ps1
 ```
 
-This opens 3 PowerShell terminals:
-1. **Ollama Server** (port 11500)
-2. **FastAPI Backend** (port 8000)
-3. **Next.js Frontend** (port 3000)
+Starts the backend and the frontend together, waits until each is genuinely
+answering, streams both logs into the one window with an `[api]` / `[web]`
+prefix, and stops both on Ctrl-C. It reports what the backend actually loaded
+— the corpus size, and whether hybrid ML scoring is running or it fell back to
+rules — because both degrade silently.
 
-#### Option 2: Manual Startup
+| Flag | Effect |
+|---|---|
+| `-Prod` | Build and serve the production bundle instead of the dev server |
+| `-ApiPort` / `-WebPort` | Use different ports. CORS and `NEXT_PUBLIC_API_URL` follow automatically |
+| `-Force` | Stop whatever holds a port first — only that process, never by name |
+| `-NoBrowser` | Do not open a browser |
+
+Logs are written to `logs/api.log` and `logs/web.log`.
+
+No LLM is required. The rule-based explanation provider is first-class
+(see [ADR-2](docs/adr/)), so the app runs with no Ollama, no API key and no
+quota. Configure a provider in `.env` if you want written explanations.
+
+#### Option 2: Manual startup
 
 ```bash
-# Terminal 1: Start Ollama
-ollama serve
+# Terminal 1: Backend
+python -m uvicorn src.api:app --reload --port 8000
 
-# Terminal 2: Start Backend
-uvicorn src.api:app --reload --port 8000
-
-# Terminal 3: Start Frontend
+# Terminal 2: Frontend
 cd frontend
 npm run dev
 ```
@@ -475,7 +486,7 @@ Recruiter-Pro-AI/
 ├── .gitignore               # Git ignore rules
 ├── .gitattributes           # Git attributes
 ├── requirements.txt         # Python dependencies
-├── Run.ps1                  # Automated launcher (Windows)
+├── run.ps1                  # Launcher — starts backend + frontend together
 └── README.md                # This file
 ```
 
