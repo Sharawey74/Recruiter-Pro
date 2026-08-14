@@ -320,13 +320,25 @@
     backdrop-filter: blur(12px);
   }
 
-  /* The dotted technical grid behind the hero. */
-  .landing-grid {
-    background-image:
-      linear-gradient(rgba(208, 188, 255, 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(208, 188, 255, 0.06) 1px, transparent 1px);
-    background-size: 48px 48px;
+  /*
+   * A heading that reads as lit rather than merely white.
+   *
+   * Two shadows: a tight one for legibility against the panel, and a wide
+   * diffuse one in the primary that spills the colour outward. Pure white text
+   * alone is high-contrast but flat on a #051424 surface.
+   */
+  .landing-text-glow {
+    text-shadow:
+      0 0 18px rgba(208, 188, 255, 0.45),
+      0 0 60px rgba(208, 188, 255, 0.25);
   }
+
+  /*
+   * The hero's ruled grid is gone. It was two repeating linear gradients at
+   * 48px, and against the particle field it read as graph paper behind the
+   * headline rather than as depth. The particles and their constellation lines
+   * carry the background on their own now.
+   */
 }
 
 @layer utilities {

@@ -296,7 +296,46 @@ export function ParticleField({ className }: { className?: string }) {
         if (p.x > width + 10) p.x = -10;
         if (p.y < -10) p.y = height + 10;
         if (p.y > height + 10) p.y = -10;
+      }
 
+      /*
+       * Constellation lines between near neighbours, drawn before the points
+       * so the dots sit on top of them.
+       *
+       * This replaced a ruled background grid. The grid was two repeating
+       * gradients, which read as graph paper behind the headline; lines that
+       * appear and fade as points drift past each other give the same sense of
+       * structure without the page looking like a worksheet.
+       *
+       * O(n^2) over ~90 points is ~4,000 distance checks a frame, which is
+       * nothing — but the squared distance is compared against a squared
+       * threshold anyway, because a square root per pair is the one part that
+       * would show up.
+       */
+      const linkDistance = 130;
+      const linkDistanceSq = linkDistance * linkDistance;
+      context.lineWidth = 0.6;
+
+      for (let i = 0; i < particles.length; i++) {
+        const a = particles[i]!;
+        for (let j = i + 1; j < particles.length; j++) {
+          const b = particles[j]!;
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq > linkDistanceSq) continue;
+
+          // Fade with distance, so links dissolve rather than snapping off.
+          const strength = 1 - distSq / linkDistanceSq;
+          context.strokeStyle = `rgba(173, 198, 255, ${strength * 0.16})`;
+          context.beginPath();
+          context.moveTo(a.x, a.y);
+          context.lineTo(b.x, b.y);
+          context.stroke();
+        }
+      }
+
+      for (const p of particles) {
         context.beginPath();
         context.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
         context.fillStyle = `rgba(208, 188, 255, ${p.alpha})`;

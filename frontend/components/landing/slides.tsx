@@ -13,12 +13,14 @@ import {
   Building2,
   MapPin,
   Layers,
+  Rocket,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import type { Stats } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CountUp, ParticleField, Reveal, Slide } from "./primitives";
+import { WorldMap } from "./world-map";
 
 /**
  * The four landing slides.
@@ -45,7 +47,7 @@ const SECONDS_PER_CV = 0.74;
 
 export function HeroSlide({ stats }: { stats: Stats | null }) {
   return (
-    <Slide id="neural-matching" className="landing-grid">
+    <Slide id="neural-matching">
       {/* Ambient wash behind the grid, drifting slowly. */}
       <div
         className="pointer-events-none absolute -left-40 top-10 h-[28rem] w-[28rem] rounded-full bg-primary/10 blur-[120px]"
@@ -276,119 +278,147 @@ export function ParsingSlide({ stats }: { stats: Stats | null }) {
  * genuinely international, so the map plots the countries actually in it, with
  * their real counts. The visual survives; the numbers become checkable.
  */
+/**
+ * Global reach: the map on the left, figures stacked on the right.
+ *
+ * The reference puts "1,204 Active Job Boards", "5.4M+ Candidate Profiles" and
+ * a "Match Rate Velocity" chart in that right-hand column, over a map captioned
+ * "1,000+ job boards · 99.9% uptime". The layout is kept and the contents are
+ * replaced with what the corpus holds: 27 countries, 46 cities, 60 companies,
+ * and the roles-by-market breakdown, which is the same picture the map draws.
+ */
 export function ReachSlide({ stats }: { stats: Stats | null }) {
   const top = stats?.corpus.top_countries ?? [];
   const busiest = top[0]?.jobs ?? 1;
 
   return (
     <Slide id="global-reach">
-      <div className="grid grid-cols-12 gap-gutter">
-        <div className="col-span-12 flex flex-col gap-6 lg:col-span-5">
-          <Reveal>
-            <span className="chip border border-secondary/30 bg-secondary/10 text-secondary">
-              <Globe2 className="h-3.5 w-3.5" aria-hidden />
-              Global reach
-            </span>
-          </Reveal>
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div className="min-w-0">
+            <Reveal>
+              <span className="chip mb-4 border border-secondary/30 bg-secondary/10 text-secondary">
+                <Globe2 className="h-3.5 w-3.5" aria-hidden />
+                Global reach
+              </span>
+            </Reveal>
+            <Reveal delayMs={80}>
+              <h2
+                className="text-balance font-bold tracking-tight text-on-surface"
+                style={{ fontSize: "clamp(1.75rem, 3.4vw, 3rem)" }}
+              >
+                Global market reach
+              </h2>
+            </Reveal>
+            <Reveal delayMs={140}>
+              <p className="mt-3 max-w-2xl text-on-surface-variant">
+                Live analysis across {stats?.corpus.jobs.toLocaleString() ?? 0}{" "}
+                roles in {stats?.corpus.countries ?? 0} countries, from{" "}
+                {stats?.corpus.companies ?? 0} companies in{" "}
+                {stats?.corpus.cities ?? 0} cities. Counts from the loaded
+                corpus, not projections.
+              </p>
+            </Reveal>
+          </div>
 
-          <Reveal delayMs={80}>
-            <h2 className="text-balance font-bold tracking-tight text-on-surface"
-              style={{ fontSize: "clamp(1.75rem, 3.4vw, 3rem)" }}>
-              Roles across {stats?.corpus.countries ?? 0} countries
-            </h2>
+          <Reveal delayMs={200}>
+            <Link href="/jobs" className="btn-secondary shrink-0">
+              <Layers className="h-5 w-5" aria-hidden />
+              Browse every role
+            </Link>
           </Reveal>
+        </div>
 
-          <Reveal delayMs={140}>
-            <p className="text-lg text-on-surface-variant">
-              Every posting the matcher scores against, drawn from{" "}
-              {stats?.corpus.companies ?? 0} companies in{" "}
-              {stats?.corpus.cities ?? 0} cities. These are counts from the
-              loaded corpus, not projections.
-            </p>
-          </Reveal>
+        <div className="grid grid-cols-12 gap-gutter">
+          {/*
+            Nodes sit at each country's real coordinates, sized by its real job
+            count, so the map and the figures beside it cannot disagree.
+          */}
+          <div className="col-span-12 lg:col-span-8">
+            <Reveal delayMs={220}>
+              <div className="glass-panel card-interactive relative overflow-hidden rounded-lg border p-4">
+                {top.length > 0 ? (
+                  <WorldMap countries={top} className="h-auto w-full" />
+                ) : (
+                  <p className="py-24 text-center text-on-surface-variant">
+                    No corpus loaded — start the API to populate this.
+                  </p>
+                )}
 
-          <div className="grid grid-cols-3 gap-4">
+                {/*
+                  The reference overlays "LIVE PIPELINE ACTIVITY / Syncing
+                  global nodes…" here. Nothing syncs — the corpus is a file
+                  read once at startup — so this states what is true: the map
+                  is showing loaded data, and how much of it.
+                */}
+                <div className="glass-panel-raised absolute bottom-6 left-6 rounded-lg px-4 py-3">
+                  <p className="label-sm mb-1 text-tertiary">Corpus loaded</p>
+                  <p className="flex items-center gap-2 text-sm text-on-surface">
+                    <span className="relative flex h-2 w-2" aria-hidden>
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-score-high opacity-60" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-score-high" />
+                    </span>
+                    {top.length} of {stats?.corpus.countries ?? 0} markets plotted
+                  </p>
+                </div>
+              </div>
+            </Reveal>
+          </div>
+
+          <div className="col-span-12 flex flex-col gap-4 lg:col-span-4">
             {[
               { icon: Globe2, value: stats?.corpus.countries ?? 0, label: "Countries" },
               { icon: MapPin, value: stats?.corpus.cities ?? 0, label: "Cities" },
               { icon: Building2, value: stats?.corpus.companies ?? 0, label: "Companies" },
             ].map(({ icon: Icon, value, label }, index) => (
-              <Reveal key={label} delayMs={200 + index * 80}>
-                <div className="glass-panel card-interactive rounded-lg p-4 text-center">
-                  <Icon className="mx-auto mb-2 h-5 w-5 text-secondary" aria-hidden />
-                  <p className="text-2xl font-bold text-on-surface">
+              <Reveal key={label} delayMs={260 + index * 80}>
+                <div className="glass-panel card-interactive rounded-lg border p-5">
+                  <Icon className="mb-3 h-6 w-6 text-primary" aria-hidden />
+                  <p
+                    className="font-bold leading-none text-on-surface"
+                    style={{ fontSize: "clamp(1.75rem, 2.6vw, 2.5rem)" }}
+                  >
                     <CountUp value={value} />
                   </p>
-                  <p className="label-sm mt-1 text-tertiary">{label}</p>
+                  <p className="label-sm mt-2 text-tertiary">{label}</p>
                 </div>
               </Reveal>
             ))}
-          </div>
-        </div>
 
-        {/*
-          A ranked bar chart rather than a decorative world map. A map would
-          need a projection and per-country coordinates to be honest about
-          where anything is; the bars carry the same information — which
-          markets the corpus actually covers — without inventing geography.
-        */}
-        <div className="col-span-12 lg:col-span-7">
-          <Reveal delayMs={220}>
-            <div className="glass-panel rounded-lg p-6">
-              <div className="mb-6 flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-headline-md text-on-surface">
-                  <Layers className="h-5 w-5 text-primary" aria-hidden />
-                  Roles by market
-                </h3>
-                <span className="label-sm text-tertiary">
-                  top {top.length} of {stats?.corpus.countries ?? 0}
-                </span>
+            {/* Where the reference puts "Match Rate Velocity". */}
+            <Reveal delayMs={500}>
+              <div className="glass-panel card-interactive rounded-lg border p-5">
+                <p className="label-sm mb-4 text-tertiary">Roles by market</p>
+                <ul className="space-y-2.5">
+                  {top.slice(0, 5).map(({ country, jobs }, index) => (
+                    <li key={country} className="flex items-center gap-3 text-xs">
+                      <span className="w-24 shrink-0 truncate text-on-surface-variant">
+                        {country}
+                      </span>
+                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-container-highest">
+                        <span
+                          className={cn(
+                            "block h-full rounded-full",
+                            index === 0 ? "bg-primary" : "bg-secondary/70"
+                          )}
+                          style={{
+                            width: `${Math.round((jobs / busiest) * 100)}%`,
+                            transformOrigin: "left",
+                            animation: `landing-grow 900ms cubic-bezier(0.16, 1, 0.3, 1) ${
+                              index * 70
+                            }ms forwards`,
+                          }}
+                        />
+                      </span>
+                      <span className="w-8 shrink-0 text-right font-mono text-tertiary">
+                        {jobs}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-
-              <ul className="space-y-3">
-                {top.map(({ country, jobs }, index) => (
-                  <li key={country} className="flex items-center gap-4">
-                    <span className="w-36 shrink-0 truncate text-sm text-on-surface-variant">
-                      {country}
-                    </span>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-container-highest">
-                      <div
-                        className={cn(
-                          "h-full rounded-full",
-                          index === 0
-                            ? "bg-primary"
-                            : index < 3
-                              ? "bg-secondary"
-                              : "bg-tertiary/70"
-                        )}
-                        style={{
-                          width: `${Math.round((jobs / busiest) * 100)}%`,
-                          transformOrigin: "left",
-                          // `forwards`, not `both`: with `both` the bar holds
-                          // scaleX(0) through its stagger delay and stays
-                          // collapsed forever if the animation never runs. The
-                          // failure mode here is a bar that appears without
-                          // growing, which is the right way round.
-                          animation: `landing-grow 900ms cubic-bezier(0.16, 1, 0.3, 1) ${
-                            index * 60
-                          }ms forwards`,
-                        }}
-                      />
-                    </div>
-                    <span className="w-10 shrink-0 text-right font-mono text-xs text-tertiary">
-                      {jobs}
-                    </span>
-                  </li>
-                ))}
-
-                {top.length === 0 && (
-                  <li className="py-8 text-center text-on-surface-variant">
-                    No corpus loaded — start the API to populate this.
-                  </li>
-                )}
-              </ul>
-            </div>
-          </Reveal>
+            </Reveal>
+          </div>
         </div>
       </div>
     </Slide>
@@ -406,31 +436,50 @@ export function CtaSlide({ stats }: { stats: Stats | null }) {
       />
 
       <Reveal>
-        <div className="glass-panel mx-auto max-w-3xl rounded-xl px-8 py-16">
-          <h2 className="text-balance font-bold tracking-tight text-on-surface"
-              style={{ fontSize: "clamp(1.75rem, 3.4vw, 3rem)" }}>
+        <div className="glass-panel-raised mx-auto max-w-3xl rounded-xl px-8 py-16 shadow-glow-lg">
+          {/*
+            Bright, and lit rather than merely white. `text-glow` is a text
+            shadow in the primary, which is what makes a heading read as
+            luminous on a dark surface instead of just high-contrast.
+          */}
+          <h2
+            className="landing-text-glow text-balance font-bold tracking-tight text-white"
+            style={{ fontSize: "clamp(2rem, 4vw, 3.5rem)" }}
+          >
             Ready to see it work?
           </h2>
 
-          <p className="mx-auto mt-4 max-w-xl text-lg text-on-surface-variant">
+          <p className="mx-auto mt-5 max-w-xl text-lg text-on-surface">
             Drop in a résumé and watch it scored against all{" "}
             {stats?.corpus.jobs.toLocaleString() ?? "800"} roles — with every
             component of every score, and the gaps, shown.
           </p>
 
+          {/*
+            Glass rather than a solid fill: translucent surface, light border,
+            blur behind, and the glow carried by the halo instead of the body.
+            The reference's CTA is a lit pill you can see the grid through.
+          */}
           <Link
             href="/dashboard"
-            className="btn-primary group mx-auto mt-10 w-fit rounded-full px-12 py-5 text-lg
-                       transition-transform duration-300 hover:scale-[1.04] active:scale-[0.98]"
+            className="group relative mx-auto mt-12 inline-flex w-fit items-center justify-center gap-3
+                       rounded-full border border-primary/50 bg-primary/15 px-12 py-5 text-lg
+                       font-semibold text-primary-fixed backdrop-blur-xl
+                       transition-all duration-300
+                       hover:scale-[1.04] hover:border-primary hover:bg-primary/25 hover:text-white
+                       active:scale-[0.98]"
             style={{ animation: "landing-pulse-glow 2.8s ease-in-out infinite" }}
           >
+            <Rocket
+              className="h-5 w-5 transition-transform duration-300 group-hover:-translate-y-0.5"
+              aria-hidden
+            />
             Enter the dashboard
             <ArrowRight
               className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1"
               aria-hidden
             />
           </Link>
-
         </div>
       </Reveal>
     </Slide>

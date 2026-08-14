@@ -583,11 +583,16 @@ async def get_stats():
             "cities": len(cities),
             "companies": len(companies),
             "distinct_skills": len(skills),
+            # Every country, ranked -- not a top-N slice. The landing map
+            # plots one node per market and the headline says how many there
+            # are, so a truncated list would draw 12 nodes under a sentence
+            # claiming 27. Callers that want fewer can slice; a caller cannot
+            # un-truncate.
             "top_countries": sorted(
                 ({"country": c, "jobs": n} for c, n in per_country.items()),
                 key=lambda row: row["jobs"],
                 reverse=True,
-            )[:12],
+            ),
         },
         "engine": {
             "agents": 4,
