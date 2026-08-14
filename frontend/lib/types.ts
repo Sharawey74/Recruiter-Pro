@@ -21,12 +21,18 @@ export type SeniorityLevel =
 /** The API's three score bands: >= 75 accepted, 50–74 review, < 50 rejected. */
 export type MatchStatus = "accepted" | "review" | "rejected";
 
-/** Fields every job carries, whether it arrives from /jobs or inside a match. */
+/**
+ * Fields every job carries, whether it arrives from /jobs or inside a match.
+ *
+ * One name per concept. Four of these used to arrive twice under two names
+ * (company/company_name, location/location_city, job_type/employment_type,
+ * title/job_title), so every consumer wrote `a || b` and guessed which was
+ * authoritative. See TASKS.md 5.6.
+ */
 export interface JobFields {
   company_name: string;
   location_city: string;
   location_country: string;
-  location?: string;
   remote_type: RemoteType;
   employment_type: EmploymentType;
   seniority_level: SeniorityLevel;
@@ -38,15 +44,11 @@ export interface JobFields {
   posted_date?: string | null;
   category?: string | null;
   salary_range?: string | null;
-  /** Legacy aliases the API still emits. Prefer the fields above. */
-  company?: string;
-  job_type?: string;
 }
 
 export interface Job extends JobFields {
   job_id: string;
   title: string;
-  job_title?: string;
 }
 
 /** /jobs/{id} — same as Job, with the requirement lists untruncated. */
@@ -81,6 +83,12 @@ export interface Match extends JobFields {
 
   status: MatchStatus;
   explanation?: string | null;
+  /**
+   * Which provider wrote the explanation — "openrouter", "ollama",
+   * "rule_based". Null on stored history rows, which predate the column.
+   * A rule-based fallback reads exactly like model output without this.
+   */
+  explanation_source?: string | null;
   timestamp: string;
 }
 

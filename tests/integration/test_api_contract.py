@@ -160,6 +160,50 @@ class TestMatchEndpoint:
         for gone in ("parser_score", "matcher_score", "scorer_score"):
             assert gone not in match, f"{gone} is back in the match payload"
 
+    def test_the_legacy_field_aliases_are_gone(self, client):
+        """
+        Four fields went out twice under two names -- title/job_title,
+        company_name/company, location_city+country/location,
+        employment_type/job_type -- so every consumer wrote `a || b` and
+        guessed which was authoritative. See TASKS.md 5.6.
+        """
+        match = client.post(
+            "/match?top_k=1&explain=false",
+            files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
+        ).json()["matches"][0]
+        job = client.get("/jobs?limit=1").json()["jobs"][0]
+
+        for gone in ("company", "location", "job_type"):
+            assert gone not in match, f"{gone} is back on the match payload"
+            assert gone not in job, f"{gone} is back on the job payload"
+
+        # One name per concept per response: a job is `title`, a match is
+        # `job_title`, and neither carries both.
+        assert "title" in job and "job_title" not in job
+        assert "job_title" in match and "title" not in match
+
+    def test_explanations_say_what_wrote_them(self, client):
+        """
+        A rule-based explanation and a model-written one are both fluent
+        paragraphs. Without provenance a dead key, an exhausted quota or an
+        unreachable provider is indistinguishable from a working demo -- the
+        same argument as scoring_mode, applied to the prose. The pipeline
+        already recorded this; nothing served it. See TASKS.md 6.9.
+        """
+        matches = client.post(
+            "/match?top_k=3&explain=true",
+            files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
+        ).json()["matches"]
+
+        explained = [m for m in matches if m.get("explanation")]
+        if not explained:
+            pytest.skip("no match scored high enough to be explained")
+
+        for match in explained:
+            assert match.get("explanation_source"), (
+                "an explanation was returned without saying what produced it"
+            )
+
     def test_processing_time_is_measured(self, client):
         """
         Reported as None on every call while the dashboard sat through 2.5s

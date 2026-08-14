@@ -221,10 +221,30 @@ class TestOpenRouterResponseHandling:
         assert OpenRouterProvider._extract(object()) is None
 
     @pytest.mark.unit
-    def test_no_api_key_means_unavailable(self):
+    def test_no_api_key_means_unavailable(self, monkeypatch):
+        """
+        `api_key=None` means "fall back to the environment", not "no key" --
+        so this has to clear the environment to test the no-key path.
+
+        It passed for months only because no developer had configured a key.
+        The moment one landed in .env, load_dotenv put it in os.environ and
+        this failed on a correctly set up machine: a test that depends on the
+        absence of local configuration passes for the wrong reason.
+        """
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
         from src.core.config import get_config
         provider = OpenRouterProvider(get_config().llm, api_key=None)
         assert provider.is_available() is False
+
+    @pytest.mark.unit
+    def test_an_explicit_key_beats_the_environment(self, monkeypatch):
+        """The injection point the tests rely on; worth pinning."""
+        monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-from-the-environment")
+
+        from src.core.config import get_config
+        provider = OpenRouterProvider(get_config().llm, api_key="sk-or-v1-injected")
+        assert provider._api_key == "sk-or-v1-injected"
 
     @pytest.mark.unit
     def test_key_is_never_exposed_on_the_instance_repr(self):

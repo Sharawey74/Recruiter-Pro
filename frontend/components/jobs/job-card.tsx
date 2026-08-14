@@ -66,7 +66,7 @@ const REMOTE_STYLES: Record<string, string> = {
 };
 
 export function JobCard({ job }: { job: Job }) {
-  const title = job.title || job.job_title || "Untitled role";
+  const title = job.title || "Untitled role";
   const location = [job.location_city, job.location_country]
     .filter(Boolean)
     .join(", ");

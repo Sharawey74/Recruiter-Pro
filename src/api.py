@@ -393,24 +393,27 @@ async def health_check():
 
 def job_payload(job: JobPosting) -> dict:
     """
-    One job, in the shape the frontend consumes.
+    One job, in the shape the frontend consumes. One name per concept.
 
-    /jobs, /match and /match/history all embed the same eighteen job fields.
-    They were written out three times and had already drifted -- /match
-    defaulted a missing country to 'India' while /match/history used 'Unknown'.
+    /jobs, /match and /match/history all embed the same job fields. They were
+    written out three times and had already drifted -- /match defaulted a
+    missing country to 'India' while /match/history used 'Unknown'.
+
+    There are no legacy aliases here any more. Four fields were emitted twice
+    under two names -- title/job_title, company_name/company,
+    location_city+location_country/location, employment_type/job_type -- which
+    is not free: every consumer had to write `a || b` and guess which one was
+    authoritative, and a component that read only the alias silently displayed
+    nothing once the alias stopped being populated. See TASKS.md 5.6.
     """
     return {
         "job_id": job.job_id,
         "title": job.title,
-        "job_title": job.title,  # Legacy compatibility
         "company_name": job.company_name,
-        "company": job.company_name,  # Legacy compatibility
         "location_city": job.location_city,
         "location_country": job.location_country,
-        "location": f"{job.location_city}, {job.location_country}",  # Legacy
         "remote_type": job.remote_type,
         "employment_type": job.employment_type,
-        "job_type": job.employment_type,  # Legacy compatibility
         "seniority_level": job.seniority_level,
         "min_experience_years": job.min_experience_years,
         "max_experience_years": job.max_experience_years,
@@ -429,15 +432,28 @@ def job_payload(job: JobPosting) -> dict:
 # with a neutral value, so a missing job renders as blanks rather than
 # throwing on an attribute of None.
 MISSING_JOB_PAYLOAD = {
-    "company_name": "N/A", "company": "N/A",
+    "title": "Unknown role",
+    "company_name": "N/A",
     "location_city": "Unknown", "location_country": "Unknown",
-    "location": "Unknown", "remote_type": "on-site",
-    "employment_type": "full-time", "job_type": "full-time",
+    "remote_type": "on-site", "employment_type": "full-time",
     "seniority_level": "mid", "min_experience_years": 0,
     "max_experience_years": 0, "description": None,
     "required_skills": [], "preferred_skills": [],
     "posted_date": None, "category": None, "salary_range": None,
 }
+
+
+def match_job_fields(job: Optional[JobPosting]) -> dict:
+    """
+    The job half of a match payload.
+
+    A match carries the role's name as `job_title`, which is what MatchResult
+    and the frontend's Match type both call it, so `title` is renamed rather
+    than sent alongside -- one name per concept in this response too.
+    """
+    fields = dict(job_payload(job)) if job else dict(MISSING_JOB_PAYLOAD)
+    fields["job_title"] = fields.pop("title")
+    return fields
 
 
 def job_matches_filters(
@@ -704,8 +720,7 @@ async def match_cv(
             result = {
                 "match_id": match.match_id,
                 "job_id": match.job_id,
-                "job_title": match.job_title,
-                **(job_payload(job_details) if job_details else MISSING_JOB_PAYLOAD),
+                **match_job_fields(job_details),
                 "candidate_name": match.candidate_name,  # From MatchResult
                 "cv_filename": file.filename,
                 "final_score": final_score,
@@ -732,9 +747,16 @@ async def match_cv(
                 "timestamp": datetime.now().isoformat()
             }
 
-            # Add explanation if requested
+            # Add explanation if requested, with what produced it.
+            #
+            # The provenance is the point. A rule-based fallback -- after a
+            # connection failure, an exhausted quota, or no key at all --
+            # produces prose just as plausible as the model's, so without this
+            # field a degraded demo is indistinguishable from a working one.
+            # The pipeline already recorded it; nothing served it.
             if explain and match.decision.explanation:
                 result["explanation"] = match.decision.explanation
+                result["explanation_source"] = match.explanation_source
 
             results.append(result)
 
@@ -936,8 +958,10 @@ async def get_match_history_v2(
             formatted_match = {
                 "match_id": m.match_id,
                 "job_id": m.job_id,
+                **match_job_fields(job_details),
+                # The stored title wins when the job has since left the corpus,
+                # so a history row still names the role it was scored against.
                 "job_title": m.job_title,
-                **(job_payload(job_details) if job_details else MISSING_JOB_PAYLOAD),
                 "candidate_name": getattr(m, 'candidate_name', None),
                 # cv_id is a UUID. It went out as `cv_filename`, so the history
                 # table printed a raw UUID under every candidate's name as
@@ -961,6 +985,10 @@ async def get_match_history_v2(
                 "missing_skills": _decode_skill_list(getattr(m, 'missing_skills', None)),
                 "status": status,
                 "explanation": getattr(m, 'explanation', None),
+                # Null, not guessed. MatchHistory has no column for the
+                # provider, so a stored explanation cannot say what wrote it;
+                # claiming a source here would be worse than admitting the gap.
+                "explanation_source": None,
                 "timestamp": m.created_at.isoformat() if hasattr(m, 'created_at') else datetime.now().isoformat()
             }
             formatted_matches.append(formatted_match)

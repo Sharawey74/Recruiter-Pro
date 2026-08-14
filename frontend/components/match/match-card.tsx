@@ -13,6 +13,7 @@ import {
   Sparkles,
   ExternalLink,
   TrendingUp,
+  FileText,
 } from "lucide-react";
 import type { Match } from "@/lib/types";
 import { bandStyles } from "@/lib/scores";
@@ -62,7 +63,7 @@ export function MatchCard({
             </h3>
             <p className="flex items-center gap-1.5 truncate text-sm text-primary">
               <Building2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {match.company_name || match.company || "Unknown company"}
+              {match.company_name || "Unknown company"}
             </p>
           </div>
         </div>
@@ -159,6 +160,7 @@ export function MatchCard({
               <h4 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-on-surface">
                 <Sparkles className="h-4 w-4 text-primary" aria-hidden />
                 Explanation
+                <ExplanationSource source={match.explanation_source} />
               </h4>
               <p className="text-sm leading-relaxed text-on-surface-variant">
                 {match.explanation}
@@ -214,5 +216,43 @@ function Fact({
         {value}
       </dd>
     </div>
+  );
+}
+
+/**
+ * Which provider wrote this explanation.
+ *
+ * The last silent-degradation path in the product. A rule-based explanation
+ * and a model-written one are both fluent, professional paragraphs, so with a
+ * provider configured but unreachable — a dead key, an exhausted quota, a
+ * network failure — the demo looks exactly like a working one. The scoring
+ * mode already says whether the ML model ran; this says the same for the
+ * prose.
+ */
+function ExplanationSource({ source }: { source?: string | null }) {
+  if (!source) return null;
+
+  const wasModel = source !== "rule_based";
+  return (
+    <span
+      className={cn(
+        "chip ml-auto",
+        wasModel
+          ? "bg-primary/10 text-primary"
+          : "bg-surface-container text-tertiary"
+      )}
+      title={
+        wasModel
+          ? `Written by the ${source} provider.`
+          : "Written by the rule-based fallback — no model produced this."
+      }
+    >
+      {wasModel ? (
+        <Sparkles className="h-3 w-3" aria-hidden />
+      ) : (
+        <FileText className="h-3 w-3" aria-hidden />
+      )}
+      {source.replace(/_/g, "-")}
+    </span>
   );
 }
