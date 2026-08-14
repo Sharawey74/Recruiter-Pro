@@ -82,6 +82,19 @@ jobs:
         # non-zero in a way that reads as "nothing found".
         run: python scripts/check_control_chars.py
 
+      - name: Check for committed credentials
+        # Two live OpenRouter keys were committed across four files and are
+        # still reachable from this repository's public history. Deleting the
+        # files did not un-publish them, and no review caught them going in:
+        # a key is a plausible-looking string among plausible-looking strings.
+        #
+        # Scans tracked files, and asserts .env is both gitignored and
+        # untracked. `--history` scans every commit and is deliberately not run
+        # here -- it is slow, and it would fail forever on commits that cannot
+        # be changed. Revocation, not CI, is what closes an exposure that has
+        # already happened; this stops the next one.
+        run: python scripts/check_secrets.py
+
   frontend:
     name: Next.js — lint and build
     runs-on: ubuntu-latest
