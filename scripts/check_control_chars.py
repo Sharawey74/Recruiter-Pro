@@ -49,9 +49,13 @@ SKIP_DIRS = {"__pycache__", "node_modules", ".next", ".git", ".venv", "venv",
              "htmlcov", ".pytest_cache", "Images"}
 
 # Directories walked recursively, plus the root files worth checking. README.md
-# is here because that is where the third incident landed.
+# is here because that is where the third incident landed, and TASKS.md because
+# the fourth landed there minutes later, in the very commit that widened this
+# check -- the same `.\\run.ps1` string, the same raw 0x0D, written by the same
+# tooling. TASKS.md is gitignored, so it will not exist in CI; a missing path is
+# skipped rather than failing, and the point of listing it is the local run.
 DEFAULT_PATHS = ("src", "tests", "scripts", "frontend/app", "frontend/components",
-                 "frontend/lib", "README.md", "run.ps1")
+                 "frontend/lib", "README.md", "TASKS.md", "run.ps1")
 
 
 def candidates(root: Path):
