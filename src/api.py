@@ -533,6 +533,74 @@ async def get_jobs(
     }
 
 
+@app.get("/stats")
+async def get_stats():
+    """
+    The figures the landing page quotes, measured from the running system.
+
+    This endpoint exists so that page cannot drift from reality. Marketing
+    numbers written into markup are the same defect as the "3,000+ jobs" copy
+    that sat above a 4,000-row load of a 6,146-row file, and the "45 technical
+    skills" the pipeline panel claimed on every run -- both were true once, or
+    never, and neither could be checked by looking at them.
+
+    Deliberately absent: a model accuracy figure. The classifier reports 99.3%
+    accuracy and a 1.000 ROC-AUC on its test split, and TASKS.md 1.4 records
+    why quoting that would be dishonest -- the label is a threshold on a column
+    the model does not even train on, so two ordinary features reproduce it. A
+    headline "99% accurate" would contradict the most careful piece of analysis
+    in this repository.
+    """
+    countries = {job.location_country for job in jobs_cache if job.location_country}
+    cities = {job.location_city for job in jobs_cache if job.location_city}
+    companies = {job.company_name for job in jobs_cache if job.company_name}
+
+    skills = set()
+    for job in jobs_cache:
+        skills.update(job.required_skills or [])
+        skills.update(job.preferred_skills or [])
+
+    # Roles per country, largest first -- what the map plots.
+    per_country: dict[str, int] = {}
+    for job in jobs_cache:
+        if job.location_country:
+            per_country[job.location_country] = per_country.get(job.location_country, 0) + 1
+
+    ml_enabled = pipeline.agent3.ml_scorer.enabled
+    model_info = (
+        pipeline.agent3.ml_scorer.predictor.get_model_info() if ml_enabled else {}
+    )
+
+    # The vocabulary Agent 2 is actually running, not the file on disk: those
+    # differ whenever a caller injects one, and it is the loaded index that
+    # decides what gets extracted.
+    alias_index = getattr(pipeline.agent2, "skills_index", {}) or {}
+
+    return {
+        "corpus": {
+            "jobs": len(jobs_cache),
+            "countries": len(countries),
+            "cities": len(cities),
+            "companies": len(companies),
+            "distinct_skills": len(skills),
+            "top_countries": sorted(
+                ({"country": c, "jobs": n} for c, n in per_country.items()),
+                key=lambda row: row["jobs"],
+                reverse=True,
+            )[:12],
+        },
+        "engine": {
+            "agents": 4,
+            "ml_model_loaded": ml_enabled,
+            "model_name": model_info.get("model_name") if ml_enabled else None,
+            "scoring_mode": "hybrid" if ml_enabled else "rule_based_only",
+            "canonical_skills": len(set(alias_index.values())),
+            "skill_aliases": len(alias_index),
+            "explanation_provider": get_config().llm.provider,
+        },
+    }
+
+
 @app.get("/jobs/facets")
 async def get_job_facets():
     """

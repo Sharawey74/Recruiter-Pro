@@ -191,3 +191,24 @@ export interface SingleMatchResponse {
     underqualified: boolean;
   };
 }
+
+/** GET /stats — the figures the landing page quotes, measured live. */
+export interface Stats {
+  corpus: {
+    jobs: number;
+    countries: number;
+    cities: number;
+    companies: number;
+    distinct_skills: number;
+    top_countries: { country: string; jobs: number }[];
+  };
+  engine: {
+    agents: number;
+    ml_model_loaded: boolean;
+    model_name: string | null;
+    scoring_mode: "hybrid" | "rule_based_only";
+    canonical_skills: number;
+    skill_aliases: number;
+    explanation_provider: string;
+  };
+}

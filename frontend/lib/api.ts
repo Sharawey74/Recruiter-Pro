@@ -8,6 +8,7 @@ import type {
   JobFilters,
   HistoryResponse,
   HealthResponse,
+  Stats,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -39,6 +40,11 @@ export function apiErrorMessage(error: unknown, fallback: string): string {
   }
   if (error instanceof Error && error.message) return error.message;
   return fallback;
+}
+
+export async function getStats(): Promise<Stats> {
+  const { data } = await api.get("/stats");
+  return data;
 }
 
 export async function checkHealth(): Promise<HealthResponse> {

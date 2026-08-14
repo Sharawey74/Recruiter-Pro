@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Home,
   LayoutDashboard,
   FileUp,
   Briefcase,
@@ -25,7 +26,8 @@ import { cn } from "@/lib/utils";
  * used to sit at the bottom of it now live in the top bar.
  */
 const NAV_ITEMS = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Home", href: "/", icon: Home },
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Upload", href: "/upload", icon: FileUp },
   { name: "Jobs", href: "/jobs", icon: Briefcase },
   { name: "Results", href: "/results", icon: BarChart3 },

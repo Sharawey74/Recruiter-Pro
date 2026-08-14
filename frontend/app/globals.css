@@ -111,6 +111,146 @@
   }
 }
 
+/* ---------------------------------------------------------------- landing --
+ * Motion for the four landing slides.
+ *
+ * Every transform below is a translate3d/scale so the compositor handles it on
+ * the GPU; animating `top` or `margin` instead would relayout the page on each
+ * frame, which is what makes this kind of page stutter.
+ *
+ * The reduce-motion block at the end of this file switches all of it off.
+ */
+@layer components {
+  /* Slow drift for background ornaments. */
+  @keyframes landing-float {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50%      { transform: translate3d(0, -18px, 0); }
+  }
+
+  /*
+   * Text and cards arriving as a slide scrolls into view.
+   *
+   * Transform only -- opacity is deliberately not animated here. Visibility is
+   * governed by the data attributes below, so a frozen or never-started
+   * animation leaves content on screen un-slid rather than invisible. An
+   * entrance effect must not be able to hide the page it is decorating.
+   */
+  @keyframes landing-rise {
+    from { transform: translate3d(0, 24px, 0); }
+    to   { transform: translate3d(0, 0, 0); }
+  }
+
+  /* The CTA's neon breathing. */
+  @keyframes landing-pulse-glow {
+    0%, 100% { box-shadow: 0 0 24px rgba(208, 188, 255, 0.35); }
+    50%      { box-shadow: 0 0 48px rgba(208, 188, 255, 0.65); }
+  }
+
+  /* A ring leaving a map node. */
+  @keyframes landing-pulse-ring {
+    0%   { opacity: 0.8; transform: scale(0.6); }
+    100% { opacity: 0;   transform: scale(2.6); }
+  }
+
+  /* The line that sweeps down the final slide. */
+  @keyframes landing-scan {
+    0%   { transform: translate3d(0, -100%, 0); }
+    100% { transform: translate3d(0, 100vh, 0); }
+  }
+
+  /* Rotating conic border on the feature cards. */
+  @keyframes landing-border-rotate {
+    to { transform: rotate(1turn); }
+  }
+
+  /* Bar chart growing from the axis. */
+  @keyframes landing-grow {
+    from { transform: scale3d(1, 0, 1); }
+    to   { transform: scale3d(1, 1, 1); }
+  }
+
+  .landing-slide {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  /*
+   * Reveal-on-scroll, arranged so that failure means "visible", not "blank".
+   *
+   * The obvious version puts `opacity: 0` on .landing-reveal and clears it
+   * when an IntersectionObserver fires. That makes an entire page depend on an
+   * observer firing: no JS, an unsupported browser, an observer that never
+   * triggers because the element is inside a scroll container the observer
+   * does not watch -- any of those and the visitor gets a blank screen with
+   * the text present in the DOM but invisible.
+   *
+   * So the hidden state is opt-in and applied by script: the markup renders
+   * visible, JS marks it pending on mount, and the observer -- or a timeout --
+   * reveals it.
+   */
+  .landing-reveal[data-pending="true"] {
+    opacity: 0;
+  }
+  .landing-reveal {
+    transition: opacity 500ms ease-out;
+  }
+  .landing-reveal[data-revealed="true"] {
+    opacity: 1;
+    /*
+     * `forwards`, never `both`, and no animation-delay.
+     *
+     * `both` applies the keyframe's `from` state before the animation starts,
+     * so an element with a delay sits at opacity 0 for the length of that
+     * delay -- and stays there indefinitely if the animation never starts at
+     * all. The stagger is done in JS instead, by revealing each block on its
+     * own timer, which keeps "not animating" and "not visible" separate.
+     */
+    animation: landing-rise 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /*
+   * A gradient ring that rotates behind the card. The conic gradient lives on
+   * an oversized pseudo-element so its rotation never exposes a corner, and the
+   * card body sits above it on its own background.
+   */
+  .landing-conic-card {
+    @apply relative overflow-hidden rounded-lg;
+    isolation: isolate;
+  }
+  .landing-conic-card::before {
+    content: "";
+    position: absolute;
+    inset: -60%;
+    z-index: -2;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(208, 188, 255, 0.55) 40deg,
+      rgba(173, 198, 255, 0.35) 90deg,
+      transparent 140deg,
+      transparent 360deg
+    );
+    animation: landing-border-rotate 6s linear infinite;
+  }
+  .landing-conic-card::after {
+    content: "";
+    position: absolute;
+    inset: 1px;
+    z-index: -1;
+    border-radius: calc(1rem - 1px);
+    background: rgb(13 28 45 / 0.92);
+    backdrop-filter: blur(12px);
+  }
+
+  /* The dotted technical grid behind the hero. */
+  .landing-grid {
+    background-image:
+      linear-gradient(rgba(208, 188, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(208, 188, 255, 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
@@ -121,8 +261,15 @@
   @media (prefers-reduced-motion: reduce) {
     .animate-pulse,
     .animate-spin,
-    .animate-fade-up {
+    .animate-fade-up,
+    .landing-reveal,
+    .landing-conic-card::before,
+    [class*="landing-"] {
       animation: none !important;
+    }
+    /* Revealed content must still be visible with motion off. */
+    .landing-reveal {
+      opacity: 1 !important;
     }
   }
 }

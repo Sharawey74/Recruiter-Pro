@@ -20,6 +20,8 @@ already failing, so an already-broken module absorbed a new bug in silence.
 starting the application is itself the first assertion. That check is now
 enforced by the suite rather than performed by hand.
 """
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -374,3 +376,59 @@ class TestJobFiltering:
 
     def test_an_unknown_job_id_is_404(self, client):
         assert client.get("/jobs/NOPE-9999").status_code == 404
+
+
+@pytest.mark.integration
+class TestStatsEndpoint:
+    """
+    The landing page quotes these. The endpoint exists so that page cannot
+    drift from the system, which is the same defect as the "3,000+ jobs" copy
+    that sat above a truncated load. See TASKS.md 5.15.
+    """
+
+    def test_reports_the_corpus_it_actually_loaded(self, client):
+        corpus = client.get("/stats").json()["corpus"]
+
+        assert corpus["jobs"] == client.get("/health").json()["components"]["jobs_loaded"]
+        for field in ("countries", "cities", "companies", "distinct_skills"):
+            assert corpus[field] > 0, f"{field} is zero"
+
+    def test_geography_is_bounded_by_the_corpus(self, client):
+        """More cities than countries, and neither more than the job count."""
+        corpus = client.get("/stats").json()["corpus"]
+
+        assert corpus["countries"] <= corpus["cities"] <= corpus["jobs"]
+        assert corpus["companies"] <= corpus["jobs"]
+
+    def test_top_countries_are_ranked_and_consistent(self, client):
+        corpus = client.get("/stats").json()["corpus"]
+        top = corpus["top_countries"]
+
+        assert top, "no countries returned"
+        counts = [row["jobs"] for row in top]
+        assert counts == sorted(counts, reverse=True), "not ranked"
+        assert sum(counts) <= corpus["jobs"]
+        assert len(top) <= corpus["countries"]
+
+    def test_engine_reports_the_running_configuration(self, client):
+        engine = client.get("/stats").json()["engine"]
+
+        assert engine["agents"] == 4
+        assert engine["scoring_mode"] in {"hybrid", "rule_based_only"}
+        # The vocabulary Agent 2 is running: aliases always outnumber the
+        # canonical names they resolve to, because each name is its own alias.
+        assert engine["skill_aliases"] >= engine["canonical_skills"] > 0
+
+    def test_no_accuracy_figure_is_published(self, client):
+        """
+        Deliberate. The classifier reports 99.3% accuracy and a 1.000 ROC-AUC
+        on its test split, and TASKS.md 1.4 records why quoting that would be
+        dishonest: the label is a threshold on a column the model does not
+        train on, so two ordinary features reproduce it. A landing page
+        advertising "99% accurate" would contradict the most careful analysis
+        in this repository, so the figure is not served at all.
+        """
+        body = client.get("/stats").json()
+        flat = json.dumps(body)
+        for banned in ("accuracy", "roc_auc", "precision", "recall"):
+            assert banned not in flat, f"{banned} is being published"

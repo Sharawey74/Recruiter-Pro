@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import { DashboardClient } from "./dashboard-client";
+import { LandingClient } from "./landing-client";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
+  // The root's default title, without the "· Recruiter Pro" suffix the
+  // template adds — the landing page is the product, not a section of it.
+  title: {
+    absolute: "Recruiter Pro — CV intelligence",
+  },
   description:
-    "Upload a CV and score it against the live job corpus in a single pass.",
+    "Parse a résumé, extract its skills against a curated taxonomy, and score it against every open role in one pass.",
 };
 
-export default function DashboardPage() {
-  return <DashboardClient />;
+export default function HomePage() {
+  return <LandingClient />;
 }
