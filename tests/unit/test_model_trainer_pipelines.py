@@ -12,6 +12,7 @@ slow enough to notice and fast enough to keep.
 """
 import numpy as np
 import pytest
+from sklearn.model_selection import ParameterGrid
 
 from src.ml_engine.model_trainer import ATSModelTrainer
 
@@ -69,10 +70,56 @@ class TestPipelineConstruction:
     def test_every_pipeline_returns_a_searchable_grid(self, trainer, factory):
         _, grid = getattr(trainer, factory)()
         assert grid, "an empty grid makes the hyperparameter search a no-op"
-        assert all(key.startswith("classifier__") for key in grid), (
-            "grid keys must be namespaced to the pipeline step or the search "
-            "silently matches nothing"
+
+        # A search space is one grid or a list of them; sklearn accepts either.
+        grids = grid if isinstance(grid, list) else [grid]
+        for one in grids:
+            assert all(key.startswith("classifier__") for key in one), (
+                "grid keys must be namespaced to the pipeline step or the "
+                "search silently matches nothing"
+            )
+
+    @pytest.mark.unit
+    @pytest.mark.ml
+    def test_l1_ratio_is_only_searched_where_it_does_something(self, trainer):
+        """
+        `l1_ratio` applies to elasticnet alone. sklearn ignores it for l1 and l2
+        and warns, so a flat grid crossing the two searched 54 combinations for
+        30 distinct models -- refitting every l1 and l2 model three times over
+        for a parameter that changed nothing about it.
+
+        Refitting was the cheap part. `best_params_` reported an l1_ratio
+        alongside a penalty it had no bearing on, and the model card generator
+        copies that value out as a hyperparameter of the trained model. This
+        asserts on the expansion rather than on the shape of the grid, so it
+        holds however the space is expressed.
+        """
+        _, grid = trainer.create_logistic_regression_pipeline()
+        candidates = list(ParameterGrid(grid))
+
+        misapplied = [
+            c for c in candidates
+            if "classifier__l1_ratio" in c
+            and c["classifier__penalty"] != "elasticnet"
+        ]
+        assert not misapplied, (
+            f"{len(misapplied)} candidates vary l1_ratio under a penalty that "
+            f"ignores it"
         )
+
+        elasticnet = [
+            c for c in candidates if c["classifier__penalty"] == "elasticnet"
+        ]
+        assert elasticnet, "elasticnet dropped out of the search entirely"
+        assert all("classifier__l1_ratio" in c for c in elasticnet), (
+            "elasticnet without an l1_ratio falls back to sklearn's default "
+            "and the mixing parameter goes untuned"
+        )
+
+        # Both penalties still reachable: the fix must not have narrowed the
+        # search to whichever grid happens to come first.
+        penalties = {c["classifier__penalty"] for c in candidates}
+        assert penalties == {"l1", "l2", "elasticnet"}
 
     @pytest.mark.unit
     @pytest.mark.ml

@@ -93,7 +93,7 @@ class TestAgent3Scorer:
         """Test overqualification detection"""
         # Make candidate significantly overqualified
         overqualified_cv = CVProfile(
-            **{**sample_cv.dict(), 'experience_years': 15.0}
+            **{**sample_cv.model_dump(), 'experience_years': 15.0}
         )
         
         score = agent3.score_match(overqualified_cv, sample_job)
@@ -105,7 +105,7 @@ class TestAgent3Scorer:
         """Test underqualification detection"""
         # Remove most skills
         underqualified_cv = CVProfile(
-            **{**sample_cv.dict(), 'skills': ["Python"]}
+            **{**sample_cv.model_dump(), 'skills': ["Python"]}
         )
         
         score = agent3.score_match(underqualified_cv, sample_job)

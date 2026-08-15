@@ -4,7 +4,7 @@ Pydantic schemas for CV, Job, Match, and Decision entities
 """
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from enum import Enum
 
 
@@ -40,8 +40,12 @@ class CVProfile(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
-    class Config:
-        json_schema_extra = {
+    # ConfigDict, not a nested `class Config`. The class-based form has been
+    # deprecated since Pydantic 2.0 and is removed in 3.0; it still worked, but
+    # it emitted a PydanticDeprecatedSince20 warning on every import of this
+    # module, which is four of the twenty warnings the suite reports.
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "cv_id": "cv_12345",
                 "file_name": "john_doe_cv.pdf",
@@ -52,6 +56,7 @@ class CVProfile(BaseModel):
                 "education": "Bachelor's Degree"
             }
         }
+    )
 
 
 class JobPosting(BaseModel):
@@ -137,8 +142,8 @@ class JobPosting(BaseModel):
             raise ValueError(f"category must be one of {allowed}")
         return v
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "job_id": "job_67890",
                 "title": "Senior Python Developer",
@@ -156,6 +161,7 @@ class JobPosting(BaseModel):
                 "posted_date": "2026-01-15"
             }
         }
+    )
 
 
 class ScoreBreakdown(BaseModel):
@@ -236,8 +242,8 @@ class MatchResult(BaseModel):
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "match_id": "match_abc123",
                 "cv_id": "cv_12345",
@@ -252,6 +258,7 @@ class MatchResult(BaseModel):
                 }
             }
         }
+    )
 
 
 class MatchHistory(BaseModel):
@@ -293,8 +300,8 @@ class MatchHistory(BaseModel):
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
-    class Config:
-        from_attributes = True  # Enable ORM mode for SQLAlchemy
+    # Enable ORM mode, so a database row can be validated straight into this.
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BatchMatchRequest(BaseModel):

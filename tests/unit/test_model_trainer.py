@@ -57,10 +57,12 @@ class TestModelTrainer:
         trainer = ATSModelTrainer()
         
         pipeline, param_grid = trainer.create_logistic_regression_pipeline()
-        
+
         assert pipeline is not None
         assert param_grid is not None
-        assert 'classifier__C' in param_grid
+        # A list of grids, because l1_ratio is only valid under elasticnet.
+        # Every one of them tunes the regularization strength.
+        assert all('classifier__C' in grid for grid in param_grid)
     
     @pytest.mark.unit
     @pytest.mark.ml

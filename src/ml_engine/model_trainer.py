@@ -13,10 +13,10 @@ import joblib
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+from sklearn.model_selection import GridSearchCV, ParameterGrid, RandomizedSearchCV
 from imblearn.pipeline import Pipeline as ImbPipeline
 from imblearn.over_sampling import SMOTE
-from typing import Dict, Tuple, Any
+from typing import Dict, List, Tuple, Any, Union
 import logging
 import os
 import json
@@ -26,6 +26,10 @@ from .evaluation_criteria import EvaluationCriteria
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# One grid, or several. A list is how sklearn expresses a search space whose
+# parameters are not all valid together -- see the logistic regression pipeline.
+SearchSpace = Union[Dict[str, list], List[Dict[str, list]]]
 
 
 class ATSModelTrainer:
@@ -54,10 +58,10 @@ class ATSModelTrainer:
         
         os.makedirs(output_dir, exist_ok=True)
     
-    def create_logistic_regression_pipeline(self) -> Tuple[ImbPipeline, Dict]:
+    def create_logistic_regression_pipeline(self) -> Tuple[ImbPipeline, SearchSpace]:
         """
         Create Logistic Regression pipeline with SMOTE and hyperparameter grid.
-        
+
         Returns:
             (pipeline, param_grid)
         """
@@ -70,16 +74,41 @@ class ATSModelTrainer:
                 class_weight='balanced'
             ))
         ])
-        
-        param_grid = {
-            'classifier__C': [0.001, 0.01, 0.1, 1.0, 10.0, 100.0],  # Regularization strength
-            'classifier__penalty': ['l1', 'l2', 'elasticnet'],
-            'classifier__l1_ratio': [0.3, 0.5, 0.7]  # For elasticnet
-        }
-        
+
+        c_values = [0.001, 0.01, 0.1, 1.0, 10.0, 100.0]  # Regularization strength
+
+        # Two grids, not one.
+        #
+        # `l1_ratio` is only meaningful when `penalty='elasticnet'`; sklearn
+        # ignores it for l1 and l2 and says so. A single flat dict is expanded
+        # as a Cartesian product, so this used to search 6 x 3 x 3 = 54
+        # combinations of which only 30 were distinct: every l1 and l2 fit was
+        # run three times over, once per irrelevant l1_ratio, producing
+        # identical models and three of the twenty warnings in the suite.
+        #
+        # The waste was the smaller problem. A search whose reported best
+        # parameters include an `l1_ratio` that had no effect on the model is
+        # actively misleading -- and `create_complete_metadata.py` writes that
+        # value into the model card as a hyperparameter of the trained model.
+        #
+        # sklearn takes a list of grids for exactly this: each is expanded
+        # separately and the results pooled, so l1_ratio is only ever varied
+        # where it changes something. Same 30 candidates, no invalid ones.
+        param_grid: SearchSpace = [
+            {
+                'classifier__C': c_values,
+                'classifier__penalty': ['l1', 'l2'],
+            },
+            {
+                'classifier__C': c_values,
+                'classifier__penalty': ['elasticnet'],
+                'classifier__l1_ratio': [0.3, 0.5, 0.7],
+            },
+        ]
+
         return pipeline, param_grid
     
-    def create_random_forest_pipeline(self) -> Tuple[ImbPipeline, Dict]:
+    def create_random_forest_pipeline(self) -> Tuple[ImbPipeline, SearchSpace]:
         """
         Create Random Forest pipeline with SMOTE and hyperparameter grid.
         
@@ -106,7 +135,7 @@ class ATSModelTrainer:
         
         return pipeline, param_grid
     
-    def create_xgboost_pipeline(self) -> Tuple[ImbPipeline, Dict]:
+    def create_xgboost_pipeline(self) -> Tuple[ImbPipeline, SearchSpace]:
         """
         Create XGBoost pipeline with SMOTE and hyperparameter grid.
         
@@ -144,7 +173,7 @@ class ATSModelTrainer:
         self,
         model_name: str,
         pipeline: ImbPipeline,
-        param_grid: Dict,
+        param_grid: SearchSpace,
         X_train: np.ndarray,
         y_train: np.ndarray,
         X_val: np.ndarray,
@@ -173,8 +202,22 @@ class ATSModelTrainer:
         logger.info(f"TRAINING: {model_name}")
         logger.info(f"{'='*60}")
         
-        # Choose search strategy
-        if use_randomized and len(param_grid) > 3:
+        # Choose search strategy.
+        #
+        # On the number of candidate fits, not the number of parameters. The
+        # rule was `len(param_grid) > 3` -- the count of keys in the dict --
+        # which measured the wrong thing in both directions: a three-key grid
+        # of 54 combinations was searched exhaustively while a six-key grid of
+        # 40 was sampled. It also stopped meaning anything at all once a search
+        # space could be a list of grids, where len() is the number of grids.
+        #
+        # Sampling is only worth doing when there is more to search than the
+        # budget allows; below that, RandomizedSearchCV draws n_iter points
+        # from a smaller set and sklearn clamps it back down anyway.
+        candidates = len(ParameterGrid(param_grid))
+        logger.info(f"Search space: {candidates} candidate fits")
+
+        if use_randomized and candidates > n_iter:
             logger.info(f"Using RandomizedSearchCV with {n_iter} iterations...")
             search = RandomizedSearchCV(
                 pipeline,
