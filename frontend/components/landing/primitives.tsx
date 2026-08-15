@@ -5,10 +5,10 @@ import {
   useEffect,
   useRef,
   useState,
-  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/lib/media";
 
 /**
  * Shared behaviour for the landing slides: scroll-triggered reveals, counters
@@ -22,27 +22,16 @@ import { cn } from "@/lib/utils";
 
 const MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
-function subscribeToMotionPreference(onChange: () => void): () => void {
-  const query = window.matchMedia(MOTION_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
 /**
- * The OS "reduce motion" setting, as an external store.
+ * The OS "reduce motion" setting.
  *
- * A media query is exactly what useSyncExternalStore is for: reading it into
- * component state inside an effect means a second render before paint, and the
- * server has no matchMedia at all. getServerSnapshot returns false so the
- * markup renders identically on both sides and the real value takes over at
- * hydration.
+ * `false` on the server, so the markup renders identically on both sides and
+ * the real value takes over at hydration. Erring towards "motion allowed" is
+ * safe here because every animation this gates is started by an effect, which
+ * only ever runs on the client with the true value already known.
  */
 export function usePrefersReducedMotion(): boolean {
-  return useSyncExternalStore(
-    subscribeToMotionPreference,
-    () => window.matchMedia(MOTION_QUERY).matches,
-    () => false
-  );
+  return useMediaQuery(MOTION_QUERY);
 }
 
 /**

@@ -111,7 +111,9 @@ export function LandingClient() {
      */
     <div
       ref={containerRef}
-      className="-mx-margin-desktop -mb-16 -mt-28 h-[calc(100dvh-5rem)] snap-y snap-proximity overflow-y-auto overflow-x-hidden scroll-smooth"
+      // The negative margins cancel the shell's padding, so they have to track
+      // it at every breakpoint: margin-mobile below md, margin-desktop above.
+      className="-mx-margin-mobile -mb-16 -mt-28 h-[calc(100dvh-5rem)] snap-y snap-proximity overflow-y-auto overflow-x-hidden scroll-smooth md:-mx-margin-desktop"
     >
       <HeroSlide stats={stats} />
       <ParsingSlide stats={stats} />

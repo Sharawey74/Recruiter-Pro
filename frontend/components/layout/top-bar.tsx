@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Cpu } from "lucide-react";
+import { Search, Cpu, Menu } from "lucide-react";
 import { checkHealth, API_BASE } from "@/lib/api";
 import type { HealthResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,13 @@ import { cn } from "@/lib/utils";
  * landing page states them in context instead. What genuinely changes, and
  * what a user is affected by, is whether the backend is answering right now.
  */
-export function TopBar() {
+export function TopBar({
+  onOpenNav,
+  navOpen = false,
+}: {
+  onOpenNav?: () => void;
+  navOpen?: boolean;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -78,7 +84,25 @@ export function TopBar() {
         : "Contacting the backend…";
 
   return (
-    <header className="fixed right-0 top-0 z-30 flex h-20 w-[calc(100%-16rem)] items-center justify-end gap-6 border-b border-white/10 bg-surface/40 px-margin-desktop backdrop-blur-xl">
+    // Left and right insets rather than a width calculation: `w-[calc(100%-16rem)]`
+    // subtracted a sidebar that is not there below lg, leaving a 16rem strip of
+    // page uncovered at the right of every phone screen.
+    <header className="fixed inset-x-0 top-0 z-30 flex h-20 items-center justify-between gap-4 border-b border-white/10 bg-surface/40 px-margin-mobile backdrop-blur-xl md:px-margin-desktop lg:left-64 lg:justify-end lg:gap-6">
+      {/*
+        The drawer's only trigger, so it exists exactly where the drawer does.
+        aria-expanded is what tells a screen reader this button owns something
+        that is currently open.
+      */}
+      <button
+        type="button"
+        onClick={onOpenNav}
+        aria-label="Open navigation"
+        aria-expanded={navOpen}
+        className="-ml-2 rounded p-2 text-on-surface-variant transition-colors hover:bg-primary/10 hover:text-primary lg:hidden"
+      >
+        <Menu className="h-6 w-6" aria-hidden />
+      </button>
+
       <form onSubmit={onSearch} className="relative hidden lg:block" role="search">
         <Search
           className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-tertiary"

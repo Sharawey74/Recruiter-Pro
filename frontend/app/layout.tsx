@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/sidebar";
-import { TopBar } from "@/components/layout/top-bar";
+import { AppShell } from "@/components/layout/app-shell";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
@@ -41,14 +40,10 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <div className="min-h-screen bg-background">
-          <Sidebar />
-          <TopBar />
-          {/* ml-64 clears the fixed sidebar, pt-20 the fixed top bar. */}
-          <main className="ml-64 px-margin-desktop pb-16 pt-28">
-            <div className="mx-auto w-full max-w-container">{children}</div>
-          </main>
-        </div>
+        {/* The frame is a client component because the navigation drawer needs
+            open/closed state below lg. `children` is passed through as a prop,
+            so the pages themselves stay server components. */}
+        <AppShell>{children}</AppShell>
         <Toaster position="top-right" theme="dark" richColors closeButton />
       </body>
     </html>

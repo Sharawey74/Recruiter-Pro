@@ -11,8 +11,10 @@ import {
   History,
   Star,
   ScanLine,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsDesktop } from "@/lib/media";
 
 /**
  * Primary navigation.
@@ -35,18 +37,66 @@ const NAV_ITEMS = [
   { name: "Shortlist", href: "/shortlist", icon: Star },
 ] as const;
 
-export function Sidebar() {
+export function Sidebar({
+  open = false,
+  onNavigate,
+  onClose,
+}: {
+  /** Only consulted below lg, where this is a drawer. */
+  open?: boolean;
+  /** Closes the drawer after a link is followed. */
+  onNavigate?: () => void;
+  onClose?: () => void;
+}) {
   const pathname = usePathname();
+  const isDesktop = useIsDesktop();
+
+  /*
+   * A transform moves the drawer out of sight but leaves its nine links in the
+   * tab order, so on a phone the first Tab press lands in a menu nobody can
+   * see. `inert` takes the whole subtree out of the tab order, out of hit
+   * testing and out of the accessibility tree in one attribute.
+   *
+   * Deliberately driven by a media query rather than by `visibility: hidden`
+   * under a `transition-[transform,visibility]`, which is the usual trick. That
+   * version works, but it makes focusability a side effect of an animation
+   * completing -- and an animation that does not run leaves the drawer
+   * permanently unreachable. Interaction should not depend on the compositor.
+   */
+  const hidden = !isDesktop && !open;
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-white/10 bg-surface-container-low/40 shadow-glow-lg backdrop-blur-xl">
-      <div className="border-b border-white/10 p-gutter">
-        <Link href="/" className="block">
+    <aside
+      inert={hidden}
+      className={cn(
+        "fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-white/10",
+        "shadow-glow-lg backdrop-blur-xl transition-transform duration-300 ease-out",
+        // Nearly opaque as a drawer, since it sits over the page; the
+        // translucent treatment only makes sense beside content, not on top.
+        "bg-surface-container-low/95 lg:bg-surface-container-low/40",
+        "lg:translate-x-0",
+        open ? "translate-x-0" : "-translate-x-full"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-white/10 p-gutter">
+        <Link href="/" className="block min-w-0" onClick={onNavigate}>
           <h1 className="text-headline-lg font-bold tracking-tight text-primary">
             Recruiter Pro
           </h1>
           <p className="label-sm mt-1 text-tertiary">CV Intelligence</p>
         </Link>
+
+        {/* Only where the drawer exists. On desktop there is nothing to close,
+            and a button that does nothing is the thing this project keeps
+            deleting. */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close navigation"
+          className="-mr-1 shrink-0 rounded p-2 text-tertiary transition-colors hover:bg-primary/10 hover:text-primary lg:hidden"
+        >
+          <X className="h-5 w-5" aria-hidden />
+        </button>
       </div>
 
       <nav className="flex-1 overflow-y-auto px-4 py-6">
@@ -61,6 +111,7 @@ export function Sidebar() {
               <li key={href}>
                 <Link
                   href={href}
+                  onClick={onNavigate}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-4 rounded px-4 py-3 transition-all duration-300 active:scale-95",
@@ -79,7 +130,7 @@ export function Sidebar() {
       </nav>
 
       <div className="p-gutter">
-        <Link href="/upload" className="btn-primary w-full">
+        <Link href="/upload" onClick={onNavigate} className="btn-primary w-full">
           <ScanLine className="h-5 w-5" aria-hidden />
           Analyze Resume
         </Link>
