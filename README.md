@@ -13,7 +13,7 @@
 [![Ollama](https://img.shields.io/badge/Ollama-LLM-000000?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.ai)
 [![LangChain](https://img.shields.io/badge/LangChain-0.3.13-1C3C3C?style=for-the-badge&logo=chainlink&logoColor=white)](https://langchain.com)
 
-[Quick start](#quick-start) · [Scoring](#scoring) · [Limits](#what-this-does-not-do) · [Architecture](#architecture) · [API](#api)
+[Metrics](#by-the-numbers) · [Features](#features) · [Scoring](#scoring) · [Limits](#what-this-does-not-do) · [Quick start](#quick-start) · [Architecture](#architecture) · [API](#api) · [Testing](#testing-and-quality-gates)
 
 </div>
 
@@ -28,19 +28,102 @@ The interesting part of this project is not the pipeline. It is that the
 pipeline is measured, and that the measurements are reported even where they are
 unflattering — see [what this does not do](#what-this-does-not-do).
 
-## What it does
+## By the numbers
+
+Every figure below is measured against the running system, not estimated. The
+corpus and engine rows are served live by `GET /stats`, so the numbers in this
+file cannot drift away from the ones in the product.
+
+<table>
+<tr><td valign="top" width="33%">
+
+**Corpus**
 
 | | |
-|---|---|
-| **Parse** | PDF, DOCX and plain text. The file's real bytes are checked against its extension before any parser touches it |
-| **Extract** | Skills resolved to one canonical vocabulary — 679 skills behind 1,554 aliases — so React, ReactJS and React.js land on the same skill |
-| **Score** | Five weighted rule-based components, optionally blended with a trained classifier, each reported separately |
-| **Explain** | A written rationale per match, tagged with the provider that produced it, falling back to a rule-based writer when no model is reachable |
+|---|--:|
+| Roles indexed | **800** |
+| Countries | **27** |
+| Cities | **46** |
+| Companies | **60** |
+| Distinct skills | **654** |
+| Categories | **8** |
+| Seniority levels | **6** |
+| Work models | **3** |
 
-The corpus is **800 roles across 27 countries, 46 cities and 60 companies**, with
-654 distinct skills between them. Every figure on the landing page comes from
-`GET /stats` against the running corpus, so the marketing cannot drift from the
-system.
+</td><td valign="top" width="33%">
+
+**Engine**
+
+| | |
+|---|--:|
+| Agents in the pipeline | **4** |
+| Canonical skills | **679** |
+| Skill aliases | **1,554** |
+| Scoring components | **5** |
+| Explanation providers | **4** |
+| API routes | **11** |
+| Frontend pages | **8** |
+| React components | **17** |
+
+</td><td valign="top" width="33%">
+
+**Quality**
+
+| | |
+|---|--:|
+| Tests passing | **514** |
+| Branch coverage | **83%** |
+| CI checks | **9** |
+| Warnings | **2** |
+| Architecture records | **3** |
+| Time per résumé | **0.74 s** |
+| Speed-up achieved | **22×** |
+| Repository size | **3.3 MB** |
+
+</td></tr>
+</table>
+
+<details>
+<summary><b>Codebase breakdown</b></summary>
+
+| Area | Files | Lines |
+|---|--:|--:|
+| `src/` — application and ML engine | 35 | 7,424 |
+| `tests/` — unit, integration, system | 36 | 6,432 |
+| `frontend/` — TypeScript and TSX | 41 | 6,308 |
+| `scripts/` — tooling, validators, scanners | 20 | 3,403 |
+| **Total tracked** | **188** | **23,567** |
+
+</details>
+
+## Features
+
+### The pipeline
+
+Four agents, each with one job and a defined contract between them.
+
+| | Agent | What it does | Notable |
+|:--:|---|---|---|
+| **1** | **Parser** | PDF, DOCX and plain text reduced to a clean text layer | The file's real bytes are checked against its extension before any parser touches it — a `.exe` renamed `.pdf` is refused |
+| **2** | **Extractor** | Skills, experience, education and contact details pulled into a structured profile | Skills resolve to one canonical vocabulary, so React, ReactJS and React.js land on the same skill |
+| **3** | **Scorer** | Five weighted rule components, optionally blended with a trained classifier | Every component is returned separately, so a total can always be reconstructed from its parts |
+| **4** | **Explainer** | A written rationale per match | Tagged with the provider that produced it, and degrades to a rule-based writer rather than failing |
+
+### The application
+
+| Feature | Detail |
+|---|---|
+| **Full-corpus scoring** | One upload is ranked against all 800 roles in a single pass, not a job at a time |
+| **Explainable by construction** | Skill, experience, title, education, keyword and ML sub-scores are all in the payload — nothing is a black box |
+| **Skill gap analysis** | Matched and missing skills per role, resolved through the vocabulary rather than by string equality |
+| **Searchable corpus** | Server-side search across title, company, city and skill, with category, work-model and seniority filters drawn from the corpus itself |
+| **Provider independence** | Ollama, OpenRouter, LangChain or rule-based — selected by config, behind one protocol |
+| **Honest degradation** | If the ML model or the LLM is unavailable the app keeps working and says so; it never presents a rule-based result as a model-backed one |
+| **Persistent history** | Every match written to SQLite, browsable and clearable from the UI |
+| **Shortlisting** | Accept and reject decisions per match, persisted across sessions |
+| **Budget guards** | A daily LLM quota counted in SQLite, a concurrency cap, and a per-request explanation limit |
+| **Responsive interface** | Eight pages on a Material 3 token set, with a drawer navigation below `lg` and no horizontal scroll at 375px |
+| **Accessible motion** | Every animation is disabled under `prefers-reduced-motion`, and no content depends on an animation running to become visible |
 
 ## Scoring
 
@@ -57,8 +140,10 @@ final      = rule_based×0.60 + ml×0.40        (rule_based alone when no model 
 | Education | 8% | Highest degree against the stated requirement |
 | Keyword overlap | 5% | Terms from the description present in the CV |
 
-These weights live in `config/agents.yaml` and nowhere else. There is no
-semantic-similarity component; earlier versions of this file described one.
+These weights live in `config/agents.yaml` and nowhere else. They are validated
+on load — a set that does not sum to 1.0 fails at import with the offending
+values named. There is no semantic-similarity component; earlier versions of
+this file described one.
 
 ## What this does not do
 
@@ -132,33 +217,109 @@ Frontend on `:3000`, API on `:8000`, interactive API docs at `/docs`.
 ## Architecture
 
 A monolith with a modular agent pipeline. The agents are separate modules in one
-process, communicating by function call — there is no network hop between them,
-and at this scale there is no reason for one.
+process communicating by function call — there is no network hop between them,
+and at this scale there is no reason for one. The seam that matters is not
+between services; it is between the scorer and the thing that explains the score,
+and that one is a protocol.
+
+### System design
 
 ```mermaid
-flowchart LR
-    UI["Next.js<br/>:3000"] -->|REST| API["FastAPI<br/>:8000"]
-    API --> A1["1 · Parser<br/>PDF · DOCX · TXT"]
-    A1 --> A2["2 · Extractor<br/>vocabulary lookup"]
-    A2 --> A3["3 · Scorer<br/>rules + ML"]
-    A3 --> A4["4 · Explainer<br/>provider or rules"]
-    A3 -.-> ML[("Model<br/>joblib")]
-    A4 -.-> P{{"Ollama · OpenRouter<br/>· rule-based"}}
-    API --> DB[("SQLite<br/>match history")]
-    API --> C[("Corpus<br/>800 roles")]
+flowchart TB
+    subgraph client["Client · Next.js 16 · :3000"]
+        UI["8 pages<br/>17 components"]
+        ST["localStorage session<br/>useSyncExternalStore"]
+        UI <--> ST
+    end
+
+    subgraph api["Application · FastAPI · :8000"]
+        R["11 routes"]
+        RL["Rate limiter<br/>per IP"]
+        PIPE["Pipeline orchestrator"]
+        R --> RL --> PIPE
+    end
+
+    subgraph agents["Agent pipeline · one process"]
+        A1["1 · Parser"] --> A2["2 · Extractor"] --> A3["3 · Scorer"] --> A4["4 · Explainer"]
+    end
+
+    subgraph data["State"]
+        CORP[("Corpus<br/>800 roles")]
+        VOCAB[("Vocabulary<br/>679 skills · 1,554 aliases")]
+        MODEL[("Classifier<br/>joblib")]
+        DB[("SQLite<br/>history · quota")]
+    end
+
+    PROV{{"Provider protocol<br/>ollama · openrouter<br/>langchain · rule_based"}}
+
+    UI -->|REST| R
+    PIPE --> agents
+    A2 -.-> VOCAB
+    A3 -.-> VOCAB
+    A3 -.-> CORP
+    A3 -.-> MODEL
+    A4 --> PROV
+    PIPE --> DB
 ```
 
-Agent 4 sits behind a provider protocol ([ADR-2](docs/adr/)), which is what lets
-the whole suite run in CI with no network, no key and no model. Every match
-reports `explanation_source`, so a silent fall back to rule-based prose is
-visible rather than merely plausible.
+### Request lifecycle
+
+What actually happens in those 0.74 seconds.
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant A as FastAPI
+    participant P as Pipeline
+    participant S as Scorer
+    participant E as Explainer
+
+    B->>A: POST /match (multipart)
+    A->>A: magic-byte check, size cap, rate limit
+    A->>P: dispatch
+    P->>P: Agent 1 — text layer
+    P->>P: Agent 2 — profile + canonical skills
+    P->>S: Agent 3 — score against 800 roles
+    S->>S: rule components, vectorised
+    S->>S: one predict_proba for the whole frame
+    S-->>P: ranked matches
+    P->>E: Agent 4 — top K only
+    alt provider reachable
+        E-->>P: prose + explanation_source
+    else unavailable
+        E-->>P: rule-based prose + explanation_source
+    end
+    P->>A: persist top K
+    A-->>B: matches, processing_time, jobs_evaluated, scoring_mode
+```
+
+The explanation step is capped at the top K rather than run per job — that cap,
+plus the daily quota and the concurrency limit, is what keeps a public instance
+from spending its budget on one upload.
 
 <details>
-<summary>Project layout</summary>
+<summary><b>Design decisions worth reading</b></summary>
+
+Three architecture decision records live in [`docs/adr/`](docs/adr/):
+
+| ADR | Decision |
+|---|---|
+| **1** | Where the LLM is allowed to act, and where it is not |
+| **2** | Agent 4 behind a provider protocol, with rule-based as a first-class implementation rather than a fallback afterthought |
+| **3** | One controlled skill vocabulary, replacing four competing ones |
+
+ADR-2 is why the entire test suite runs in CI with no network, no API key and no
+model — and why every match reports `explanation_source`, so a silent fall back
+to rule-based prose is visible rather than merely plausible.
+
+</details>
+
+<details>
+<summary><b>Project layout</b></summary>
 
 ```
 src/
-├── api.py                    FastAPI application, 11 endpoints
+├── api.py                    FastAPI application, 11 routes
 ├── agents/
 │   ├── agent1_parser.py      document → text
 │   ├── agent2_extractor.py   text → structured profile
@@ -171,6 +332,7 @@ src/
 └── storage/                  SQLite, Pydantic models
 
 frontend/app/                 landing, dashboard, upload, jobs, results, history, shortlist
+frontend/components/          layout, landing, jobs, match, pipeline, ui
 data/json/jobs.json           the 800-role corpus
 config/agents.yaml            scoring weights — the only place they live
 tests/                        unit (25) · integration (4) · system (1)
@@ -180,19 +342,21 @@ tests/                        unit (25) · integration (4) · system (1)
 
 ## API
 
-Eleven endpoints. Interactive documentation at `/docs`.
+Eleven routes across ten paths. Interactive documentation at `/docs`.
 
-| Endpoint | Purpose |
-|---|---|
-| `POST /match` | Score a CV against the whole corpus. Returns ranked matches with a full breakdown |
-| `POST /match/single` | Score a CV against one role |
-| `POST /upload` | Parse and extract without scoring |
-| `GET /jobs` | Browse the corpus — `search`, `category`, `remote_type`, `seniority`, paged |
-| `GET /jobs/facets` | The filter values that actually occur in the corpus |
-| `GET /jobs/{job_id}` | One role, untruncated |
-| `GET /stats` | Live corpus and engine figures |
-| `GET /health` | Corpus size, ML model state, database readiness |
-| `GET`/`DELETE /match/history` | Stored matches |
+| Method | Path | Purpose | Parameters |
+|---|---|---|---|
+| `POST` | `/match` | Score a CV against the whole corpus | `top_k`, `explain` · rate limited 5/min |
+| `POST` | `/match/single` | Score a CV against one role | `job_id` |
+| `POST` | `/upload` | Parse and extract without scoring | rate limited 10/min, 10 MB cap |
+| `GET` | `/jobs` | Browse the corpus | `search`, `category`, `remote_type`, `seniority`, `limit`, `skip` |
+| `GET` | `/jobs/facets` | Filter values that actually occur in the corpus | — |
+| `GET` | `/jobs/{job_id}` | One role, untruncated | — |
+| `GET` | `/stats` | Live corpus and engine figures | — |
+| `GET` | `/health` | Corpus size, ML state, database readiness | — |
+| `GET` | `/match/history` | Stored matches, newest first | `limit` |
+| `DELETE` | `/match/history` | Clear stored matches | — |
+| `GET` | `/` | Service banner | — |
 
 <details>
 <summary>Example — <code>POST /match</code></summary>
@@ -234,18 +398,43 @@ which described none of them correctly.
 
 </details>
 
-## Testing
+## Performance
+
+| | Before | After | Gain |
+|---|--:|--:|--:|
+| One CV against all 800 roles | 16.64 s | **0.74 s** | **22×** |
+| Database writes per upload | 800 rows | one per returned match | **156×** per row |
+| Model calls per upload | 800 | one, vectorised | **245×** |
+
+Three changes, all measured against the same corpus rather than estimated:
+writing only the top-K matches instead of a row per job, one `predict_proba`
+over the whole frame instead of 800 separate calls, and normalising the CV once
+rather than once per comparison.
+
+## Testing and quality gates
 
 ```bash
 pytest                                              # the whole suite
 pytest --cov=src --cov-report=term --cov-branch     # with coverage
 ```
 
-**514 tests, 1 skipped, 83% branch coverage of `src/`.** The suite runs in CI on
-every push with no network, no API key and no model. CI also runs `ruff`, the
-corpus validator, a byte-level scan for stray control characters, a
-prefix-anchored credential scan, and `tsc` / `eslint` / `next build` for the
-frontend.
+**515 tests collected — 514 passing, 1 skipped, 83% branch coverage of `src/`,
+2 warnings**, both from a dependency. The suite runs with no network, no API key
+and no model.
+
+Nine checks run in CI on every push and pull request:
+
+| | Check | Scope |
+|:--:|---|---|
+| 1 | `ruff` | `src/ scripts/ tests/`, blocking |
+| 2 | `black --check` | non-blocking until a format commit lands |
+| 3 | `pytest` with branch coverage | the whole suite |
+| 4 | Corpus validator | structural integrity of all 800 roles |
+| 5 | Control-character scan | 138 files, byte level |
+| 6 | Credential scan | 181 tracked files, prefix-anchored |
+| 7 | `tsc --noEmit` | frontend types |
+| 8 | `eslint` | frontend lint |
+| 9 | `next build` | production build, 9 routes |
 
 The one skip is honest: it guards against the detail view truncating a
 requirement list the grid caps at ten, and no role in the corpus has ten — the
@@ -257,6 +446,18 @@ maximum is nine. It skips rather than passing vacuously.
 > reported green while asserting nothing. Writing the replacements found two
 > endpoints that had returned 500 on every call ever made to them.
 
+## Security
+
+| Control | Implementation |
+|---|---|
+| Upload validation | Magic bytes checked against the extension; a `.exe` renamed `.pdf` is refused before a parser sees it |
+| Upload ceiling | 10 MB, enforced by streaming rather than an unbounded `read()` |
+| Rate limiting | Per IP — 5/min on `/match`, 10/min on `/upload` |
+| CORS | An explicit allowlist. Never `*`, which the spec forbids alongside credentials |
+| Secrets | Environment only. Never committed, never logged, never returned in a response |
+| Credential scanning | Prefix-anchored patterns for nine vendors, blocking in CI, with a history-audit mode |
+| Budget control | Daily LLM quota in SQLite, concurrency cap, per-request explanation limit |
+
 ## Configuration
 
 Copy `.env.example` to `.env`. Every variable is optional and falls back to
@@ -265,34 +466,35 @@ Copy `.env.example` to `.env`. Every variable is optional and falls back to
 | Variable | Default | Notes |
 |---|---|---|
 | `API_PORT` | `8000` | |
-| `CORS_ORIGINS` | `http://localhost:3000` | A real control. Never `*` — the spec forbids it with credentials |
-| `RATE_LIMIT_ENABLED` | `true` | Per-IP limits on `/match` and `/upload` |
+| `CORS_ORIGINS` | `http://localhost:3000` | A real control, not a formality |
+| `RATE_LIMIT_ENABLED` | `true` | |
 | `LLM_PROVIDER` | `ollama` | `ollama` · `openrouter` · `langchain` · `rule_based` |
-| `OPENROUTER_API_KEY` | — | Environment only. Never committed, never logged, never returned in a response |
-| `LLM_DAILY_QUOTA` | `200` | Counted in SQLite so it survives a restart; degrades to rule-based rather than breaking |
+| `OPENROUTER_API_KEY` | — | Environment only |
+| `LLM_DAILY_QUOTA` | `200` | Degrades to rule-based rather than breaking |
+| `LLM_MAX_CONCURRENT_CALLS` | `2` | Free tiers answer excess concurrency with 429s |
 | `DATABASE_PATH` | `data/database/match_history.db` | |
-
-Scoring weights are in `config/agents.yaml` and are validated on load — a set
-that does not sum to 1.0 fails at import with the offending values named.
-
-## Performance
-
-| | Before | After |
-|---|---|---|
-| One CV against all 800 roles | 16.64 s | **0.74 s** |
-| Database writes per upload | one per job | one per returned match |
-| ML model calls per upload | one per job | one, vectorised |
-
-The 22× came from three changes: writing only the top-K matches instead of a row
-per job, one `predict_proba` over the whole frame instead of 800 calls, and
-normalising the CV once rather than once per comparison. All measured against
-the same corpus, not estimated.
 
 ## Contributing
 
 Issues and pull requests are welcome. Run `pytest` and `ruff check src/ scripts/
 tests/` before opening one; CI runs both and will not merge red. Commits follow
 Conventional Commits — see `.gitmessage`.
+
+## Star this repo
+
+If the honest-metrics approach was useful to you — the leakage analysis, the
+provider protocol, or the measured 22× — a star helps other people find it.
+
+<div align="center">
+
+[![Stars](https://img.shields.io/github/stars/Sharawey74/Recruiter-Pro?style=for-the-badge&logo=github&color=DAA520&logoColor=white)](https://github.com/Sharawey74/Recruiter-Pro/stargazers)
+[![Forks](https://img.shields.io/github/forks/Sharawey74/Recruiter-Pro?style=for-the-badge&logo=github&color=4C7BF3&logoColor=white)](https://github.com/Sharawey74/Recruiter-Pro/network/members)
+[![Issues](https://img.shields.io/github/issues/Sharawey74/Recruiter-Pro?style=for-the-badge&logo=github&color=6E5494&logoColor=white)](https://github.com/Sharawey74/Recruiter-Pro/issues)
+[![License](https://img.shields.io/github/license/Sharawey74/Recruiter-Pro?style=for-the-badge&color=2EA043)](LICENSE)
+
+**[Star this repository](https://github.com/Sharawey74/Recruiter-Pro/stargazers)**
+
+</div>
 
 ## License
 
