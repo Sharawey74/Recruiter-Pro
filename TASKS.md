@@ -2198,6 +2198,48 @@ rather than taken from its table, and closed with what was found. Three remain
 genuinely open: **3.4** and **3.5**, both measured as not worth doing alone, and
 **6.2 Deploy**, parked by decision.
 
+**Repository trimmed, 16 Aug 2026.** 16.0 MB across 198 tracked files, down
+to **3.31 MB across 187**. Done with `git rm --cached`, so every file below is
+still on disk in the working copy — only the repository stops carrying it,
+and `.gitignore` now names each one with the reason.
+
+- **`data/archive/jobs-legacy-2026-08-09/`** — 12.25 MB in four files, three
+  quarters of everything tracked. The superseded job corpus. The only mention
+  of it anywhere in the codebase is the comment in `load_jobs()` explaining
+  that nothing produces it any more. This is backlog item **3.3**, which was
+  marked obsolete "as written" because its premises had expired; the 13 MB it
+  was about had not gone anywhere.
+- **`models/experiments/experiment_20260129_193509/`** and
+  **`…_195005/`** — three PNGs each, byte-identical by sha256 to the three
+  in `…_195147`. That directory stays, because it carries the metadata and
+  training summary the plots belong to. `…_193757` also stays:
+  `scripts/ml_utils/add_evaluation_metrics.py:41` names it directly.
+- **`run_api.py`** — a third way to start the API, referenced by nothing:
+  not the README, not `run.ps1`, not CI. It hardcoded `0.0.0.0:8000` and
+  ignored `API_HOST` / `API_PORT`, so it disagreed with both other entrypoints,
+  and it was the only file in the repository failing ruff — two E402s, invisible
+  because CI lints `src/ scripts/ tests/` and this sat outside all three.
+
+**History is untouched.** `git rm --cached` stops a file being shipped from
+here on; it does not remove it from earlier commits, so a clone still pays for
+those 12 MB once. Removing them properly means rewriting history and force
+pushing, which is not worth it for size alone on a repository this size.
+
+### Still open after this pass
+
+- **There is no `LICENSE` file.** `README.md:767` states MIT and links to one.
+  A licence named in prose is not a grant, and the link is broken. This is the
+  most consequential item on the list — it is a public repository.
+- **`.gitmessage` points readers at `CONTRIBUTING.md`, which is gitignored.**
+  A dangling reference, and it became a public one when TASKS.md was tracked.
+- **`.gitattributes` sets `export-ignore` on `tests/`, `docs/` and `.github/`.**
+  Any `git archive` tarball therefore drops the 514-test suite — the strongest
+  evidence in the repository — while keeping everything else. It also carries a
+  commented-out Git LFS block that has never applied.
+- **`data/AI_Resume_Screening.csv`** is redistributed without attribution. It is
+  synthetic, so this is not a privacy question, but it is someone else's dataset
+  in a repository whose own licence file is missing.
+
 ### Left for later
 
 **Phase 5 has no remaining items.** What follows is adjacent work that was

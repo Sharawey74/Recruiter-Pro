@@ -39,6 +39,33 @@ CONTRIBUTING.md
 Plans/
 
 # ====================
+# Superseded artifacts (kept locally, no longer published)
+# ====================
+# Untracked 16 Aug 2026 with `git rm --cached`, so every one of these is still
+# on disk here — only the repository stops carrying them.
+#
+# The previous job corpus, replaced by data/json/jobs.json. It was 12.25 MB of
+# a 16 MB repository — three quarters of everything tracked — and the only
+# thing in the codebase that mentioned it was the comment in load_jobs()
+# explaining that nothing produces it any more.
+data/archive/
+
+# Two experiment directories whose three PNGs each are byte-identical to the
+# three in experiment_20260129_195147 (verified by sha256). That directory is
+# kept, because it carries the metadata and training summary the plots belong
+# to; these two were re-runs that wrote the same pictures again.
+models/experiments/experiment_20260129_193509/
+models/experiments/experiment_20260129_195005/
+
+# A third way to start the API, referenced by nothing — not the README, not
+# run.ps1, not CI. It also hardcoded 0.0.0.0:8000, ignoring API_HOST/API_PORT,
+# so it disagreed with both of the other two entrypoints, and it was the only
+# file in the repository failing ruff (E402) while sitting outside the scope CI
+# lints. `.\run.ps1`, or `python -m uvicorn src.api:app`, both documented in the
+# README, are the supported ways in.
+run_api.py
+
+# ====================
 # Python
 # ====================
 __pycache__/
