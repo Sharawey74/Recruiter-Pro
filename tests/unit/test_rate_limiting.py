@@ -215,22 +215,36 @@ class TestEndpointRateLimit:
         not the library.
         """
         from fastapi.testclient import TestClient
-        from src.api import RATE_LIMITING, _api_config, app
+        from src.api import RATE_LIMITING, app, limiter
 
         if not RATE_LIMITING:
             pytest.skip("slowapi not installed")
-        if not _api_config.rate_limit_enabled:
-            # CI runs with RATE_LIMIT_ENABLED=false so the other suites are not
-            # throttled. There is nothing to assert when the limiter is off by
-            # configuration -- that is the configuration working.
-            pytest.skip("rate limiting disabled by config")
 
+        # The suite runs with the limiter off, or every other test that posts
+        # more than five times a minute is throttled. This test switches it on
+        # for its own duration instead of skipping itself.
+        #
+        # It used to skip whenever configuration disabled the limiter, which
+        # meant it skipped in CI -- where RATE_LIMIT_ENABLED=false -- and only
+        # ran on a laptop whose .env happened to leave it on. The one assertion
+        # covering the limiter was therefore not running anywhere it mattered.
         cv = b"Jane Doe\njane@example.com\nPython, Docker\nBSc Computer Science\n"
-        with TestClient(app) as client:
-            codes = [
-                client.post("/upload", files={"file": ("cv.txt", cv, "text/plain")}).status_code
-                for _ in range(12)
-            ]
+        was_enabled = limiter.enabled
+        limiter.enabled = True
+        # Counters are per key and survive between tests; an earlier upload
+        # would otherwise be counted against this test's twelve.
+        limiter.reset()
+        try:
+            with TestClient(app) as client:
+                codes = [
+                    client.post(
+                        "/upload", files={"file": ("cv.txt", cv, "text/plain")}
+                    ).status_code
+                    for _ in range(12)
+                ]
+        finally:
+            limiter.enabled = was_enabled
+            limiter.reset()
 
         assert 429 in codes, "rate limit never triggered"
         assert codes.count(200) == 10, f"expected 10 accepted, got {codes.count(200)}"

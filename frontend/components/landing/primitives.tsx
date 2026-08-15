@@ -259,13 +259,19 @@ export function ParticleField({ className }: { className?: string }) {
       context.setTransform(ratio, 0, 0, ratio, 0, 0);
 
       // Density by area, so a wide monitor is not sparse and a phone is not
-      // a soup. Capped, because the count is the cost.
-      const count = Math.min(90, Math.round((width * height) / 16000));
+      // a soup. Capped, because the count is the cost -- and the cost here is
+      // quadratic, since every pair is tested for a constellation line. 180 is
+      // ~16k pair tests a frame, which measures at well under a millisecond;
+      // the cap is what stops a 4K display from finding out where the cliff is.
+      const count = Math.min(180, Math.round((width * height) / 8000));
       particles = Array.from({ length: count }, () => ({
         x: Math.random() * width,
         y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 0.22,
-        vy: (Math.random() - 0.5) * 0.22,
+        // Roughly 2.5x the old drift. Slow enough to read as ambient, fast
+        // enough that the links between points visibly form and break rather
+        // than sitting there as a static lattice.
+        vx: (Math.random() - 0.5) * 0.55,
+        vy: (Math.random() - 0.5) * 0.55,
         radius: Math.random() * 1.6 + 0.5,
         alpha: Math.random() * 0.4 + 0.15,
       }));
@@ -307,12 +313,16 @@ export function ParticleField({ className }: { className?: string }) {
        * appear and fade as points drift past each other give the same sense of
        * structure without the page looking like a worksheet.
        *
-       * O(n^2) over ~90 points is ~4,000 distance checks a frame, which is
-       * nothing — but the squared distance is compared against a squared
-       * threshold anyway, because a square root per pair is the one part that
-       * would show up.
+       * O(n^2) over up to 180 points is ~16,000 distance checks a frame, which
+       * is still nothing — but the squared distance is compared against a
+       * squared threshold anyway, because a square root per pair is the one
+       * part that would show up.
+       *
+       * The radius came down from 130 with the density increase: at the higher
+       * count the old radius joined every point to a dozen neighbours and the
+       * field turned into a mesh.
        */
-      const linkDistance = 130;
+      const linkDistance = 112;
       const linkDistanceSq = linkDistance * linkDistance;
       context.lineWidth = 0.6;
 
@@ -327,7 +337,7 @@ export function ParticleField({ className }: { className?: string }) {
 
           // Fade with distance, so links dissolve rather than snapping off.
           const strength = 1 - distSq / linkDistanceSq;
-          context.strokeStyle = `rgba(173, 198, 255, ${strength * 0.16})`;
+          context.strokeStyle = `rgba(173, 198, 255, ${strength * 0.13})`;
           context.beginPath();
           context.moveTo(a.x, a.y);
           context.lineTo(b.x, b.y);
@@ -389,6 +399,18 @@ export function ParticleField({ className }: { className?: string }) {
     };
   }, [reduced]);
 
+  /*
+   * h-full/w-full, and it must be rendered into a slide's `backdrop` rather
+   * than among its children.
+   *
+   * A canvas is a replaced element, so `inset-0` on its own does not stretch it
+   * the way it would a div -- it keeps its intrinsic size and the insets only
+   * place it. The percentages are what size it, and they resolve against the
+   * parent. Rendered among a slide's children the parent is the centred content
+   * column, so the field covered 1430x489 of a 1920x920 slide: short of every
+   * edge, and -- since the point count is computed from the canvas area -- at a
+   * third of the intended density.
+   */
   return (
     <canvas
       ref={canvasRef}
@@ -398,14 +420,24 @@ export function ParticleField({ className }: { className?: string }) {
   );
 }
 
-/** A full-height snap target. Every slide is one of these. */
+/**
+ * A full-height snap target. Every slide is one of these.
+ *
+ * `backdrop` is rendered as a sibling of the content column rather than inside
+ * it, which is the difference between a decoration that spans the slide and one
+ * that spans the text. Absolutely-positioned ornaments happen to work either
+ * way, because they resolve against this section; anything sized in percentages
+ * -- the particle canvas -- does not.
+ */
 export function Slide({
   id,
   children,
+  backdrop,
   className,
 }: {
   id: string;
   children: ReactNode;
+  backdrop?: ReactNode;
   className?: string;
 }) {
   return (
@@ -416,11 +448,17 @@ export function Slide({
         // viewport, and a fixed height would clip it. The slide grows and the
         // snap container scrolls, so zooming degrades to a taller slide rather
         // than to hidden content.
-        "landing-slide relative flex min-h-[calc(100dvh-5rem)] w-full flex-col justify-center overflow-hidden py-16",
+        //
+        // The vertical padding is deliberately modest. It is subtracted from
+        // the one viewport a slide gets, so every 16px here is 32px less room
+        // for the content -- which is what made the tallest slides run past
+        // the fold at ordinary window heights.
+        "landing-slide relative flex min-h-[calc(100dvh-5rem)] w-full flex-col justify-center overflow-hidden py-8 md:py-10",
         "px-margin-mobile md:px-margin-desktop",
         className
       )}
     >
+      {backdrop}
       <div className="mx-auto w-full max-w-container">{children}</div>
     </section>
   );

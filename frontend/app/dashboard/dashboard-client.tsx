@@ -91,7 +91,12 @@ export function DashboardClient() {
 
   return (
     <>
-      <section className="flex flex-col items-center gap-6 py-12 text-center">
+      {/*
+        pt is 2, not 12. The app shell already clears the fixed top bar with
+        pt-28, so a further py-12 here put 160px of nothing above the heading —
+        a third of a laptop screen spent before the page says anything.
+      */}
+      <section className="flex flex-col items-center gap-5 pb-10 pt-2 text-center">
         <h1 className="text-display-lg text-balance text-on-surface">
           Optimize your hiring pipeline
         </h1>
@@ -102,7 +107,12 @@ export function DashboardClient() {
       </section>
 
       <div className="grid grid-cols-12 gap-gutter">
-        <div className="col-span-12 lg:col-span-7">
+        {/*
+          A flex column, so the dropzone can take the space the analyse row
+          leaves rather than claiming the full cell height and pushing that row
+          out of the bottom of it.
+        */}
+        <div className="col-span-12 flex flex-col lg:col-span-7">
           <CvDropzone
             files={file ? [file] : []}
             onFilesAdded={(accepted) => {

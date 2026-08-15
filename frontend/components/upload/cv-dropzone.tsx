@@ -95,7 +95,20 @@ export function CvDropzone({
   };
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    /*
+     * `flex-1`, not `h-full`.
+     *
+     * `h-full` is height: 100% of the parent, and in a stretched grid or flex
+     * cell the parent's height is decided by the *other* column. So this filled
+     * the whole cell regardless of what sat beside it, and any sibling below --
+     * on the dashboard, the explain-and-analyse row -- was pushed out of the
+     * bottom of the cell entirely. The next section's top margin is measured
+     * from the cell, not from the overflowing content, so its heading landed on
+     * top of that row. flex-1 asks for the space that is left instead of all of
+     * it, and in a parent that is not a flex column it is simply inert, which
+     * is what the Upload page wants.
+     */
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div
         onDragEnter={onDrag}
         onDragOver={onDrag}

@@ -98,9 +98,20 @@ export function LandingClient() {
   }, []);
 
   return (
+    /*
+     * `snap-proximity`, not `snap-mandatory`.
+     *
+     * Mandatory snapping always lands on a snap point, so when a slide is
+     * taller than the container -- a short window, a zoomed-in browser, the map
+     * slide at a laptop height -- the part of it hanging below the fold cannot
+     * be reached: the scroll is pulled on to the next slide's start before it
+     * gets there, and the content reads as cut off top and bottom. Proximity
+     * keeps the settling behaviour when a slide roughly fills the view, and
+     * gets out of the way when one does not fit.
+     */
     <div
       ref={containerRef}
-      className="-mx-margin-desktop -mb-16 -mt-28 h-[calc(100dvh-5rem)] snap-y snap-mandatory overflow-y-auto overflow-x-hidden scroll-smooth"
+      className="-mx-margin-desktop -mb-16 -mt-28 h-[calc(100dvh-5rem)] snap-y snap-proximity overflow-y-auto overflow-x-hidden scroll-smooth"
     >
       <HeroSlide stats={stats} />
       <ParsingSlide stats={stats} />

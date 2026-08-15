@@ -47,20 +47,25 @@ const SECONDS_PER_CV = 0.74;
 
 export function HeroSlide({ stats }: { stats: Stats | null }) {
   return (
-    <Slide id="neural-matching">
-      {/* Ambient wash behind the grid, drifting slowly. */}
-      <div
-        className="pointer-events-none absolute -left-40 top-10 h-[28rem] w-[28rem] rounded-full bg-primary/10 blur-[120px]"
-        style={{ animation: "landing-float 18s ease-in-out infinite" }}
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -right-32 bottom-0 h-[24rem] w-[24rem] rounded-full bg-secondary-container/10 blur-[120px]"
-        style={{ animation: "landing-float 22s ease-in-out infinite reverse" }}
-        aria-hidden
-      />
-      <ParticleField />
-
+    <Slide
+      id="neural-matching"
+      backdrop={
+        <>
+          {/* Ambient wash behind the field, drifting slowly. */}
+          <div
+            className="pointer-events-none absolute -left-40 top-10 h-[28rem] w-[28rem] rounded-full bg-primary/10 blur-[120px]"
+            style={{ animation: "landing-float 18s ease-in-out infinite" }}
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute -right-32 bottom-0 h-[24rem] w-[24rem] rounded-full bg-secondary-container/10 blur-[120px]"
+            style={{ animation: "landing-float 22s ease-in-out infinite reverse" }}
+            aria-hidden
+          />
+          <ParticleField />
+        </>
+      }
+    >
       <div className="relative flex flex-col items-center gap-8 text-center">
         <Reveal delayMs={80}>
           <h1 className="text-balance font-bold leading-[1.05] tracking-tight text-on-surface"
@@ -425,6 +430,15 @@ export function ReachSlide({ stats }: { stats: Stats | null }) {
   );
 }
 
+/**
+ * The closing slide.
+ *
+ * It was a heading, a sentence and a button in a large box, which left most of
+ * a screen empty under it and gave the eye nothing to land on after the button.
+ * The panel now closes with the three figures the page opened on, so the last
+ * slide answers "against what?" at the moment it asks for the click — and the
+ * space below the CTA is doing something.
+ */
 export function CtaSlide({ stats }: { stats: Stats | null }) {
   return (
     <Slide id="get-started" className="items-center text-center">
@@ -435,8 +449,28 @@ export function CtaSlide({ stats }: { stats: Stats | null }) {
         aria-hidden
       />
 
+      {/* A slow wash behind the panel, so it sits in light rather than on a
+          flat field. Blurred and huge, which is cheap: one composited layer. */}
+      <div
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[130px]"
+        style={{ animation: "landing-float 20s ease-in-out infinite" }}
+        aria-hidden
+      />
+
       <Reveal>
-        <div className="glass-panel-raised mx-auto max-w-3xl rounded-xl px-8 py-16 shadow-glow-lg">
+        <div className="glass-panel-raised relative mx-auto max-w-3xl overflow-hidden rounded-xl px-6 py-12 shadow-glow-lg sm:px-12">
+          {/* A lit top edge. One pixel of gradient reads as a light source
+              above the panel and gives the glass somewhere to come from. */}
+          <span
+            className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent"
+            aria-hidden
+          />
+
+          <span className="chip mx-auto mb-6 w-fit border border-primary/30 bg-primary/10 text-primary">
+            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+            Get started
+          </span>
+
           {/*
             Bright, and lit rather than merely white. `text-glow` is a text
             shadow in the primary, which is what makes a heading read as
@@ -458,14 +492,15 @@ export function CtaSlide({ stats }: { stats: Stats | null }) {
           {/*
             Glass rather than a solid fill: translucent surface, light border,
             blur behind, and the glow carried by the halo instead of the body.
-            The reference's CTA is a lit pill you can see the grid through.
+            The reference's CTA is a lit pill you can see the background
+            through.
           */}
           <Link
             href="/dashboard"
-            className="group relative mx-auto mt-12 inline-flex w-fit items-center justify-center gap-3
-                       rounded-full border border-primary/50 bg-primary/15 px-12 py-5 text-lg
+            className="group relative mx-auto mt-10 inline-flex w-fit items-center justify-center gap-3
+                       rounded-full border border-primary/50 bg-primary/15 px-10 py-4 text-lg
                        font-semibold text-primary-fixed backdrop-blur-xl
-                       transition-all duration-300
+                       transition-all duration-300 sm:px-12 sm:py-5
                        hover:scale-[1.04] hover:border-primary hover:bg-primary/25 hover:text-white
                        active:scale-[0.98]"
             style={{ animation: "landing-pulse-glow 2.8s ease-in-out infinite" }}
@@ -480,8 +515,62 @@ export function CtaSlide({ stats }: { stats: Stats | null }) {
               aria-hidden
             />
           </Link>
+
+          {/* The one thing a visitor about to hand over a CV wants to know,
+              and it is true: the file is not sent until Analyse is pressed. */}
+          <p className="mt-5 text-sm text-tertiary">
+            Nothing is uploaded until you press Analyse.{" "}
+            <Link
+              href="/jobs"
+              className="text-primary underline-offset-4 transition-colors hover:text-primary-fixed hover:underline"
+            >
+              Browse the corpus first
+            </Link>
+            .
+          </p>
+
+          <dl
+            className="mt-10 grid gap-6 border-t border-white/10 pt-8"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(7rem, 1fr))" }}
+          >
+            <ClosingFact
+              value={stats?.corpus.jobs ?? 0}
+              label="Roles scored"
+            />
+            <ClosingFact
+              value={stats?.corpus.countries ?? 0}
+              label="Markets"
+            />
+            <ClosingFact
+              value={SECONDS_PER_CV}
+              decimals={2}
+              suffix="s"
+              label="Per résumé"
+            />
+          </dl>
         </div>
       </Reveal>
     </Slide>
+  );
+}
+
+function ClosingFact({
+  value,
+  label,
+  suffix,
+  decimals = 0,
+}: {
+  value: number;
+  label: string;
+  suffix?: string;
+  decimals?: number;
+}) {
+  return (
+    <div>
+      <dd className="text-2xl font-bold text-on-surface sm:text-3xl">
+        <CountUp value={value} decimals={decimals} suffix={suffix} />
+      </dd>
+      <dt className="label-sm mt-1.5 text-tertiary">{label}</dt>
+    </div>
   );
 }

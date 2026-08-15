@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, ChevronDown, Loader2, SearchX, WifiOff } from "lucide-react";
 import { getJobs, getJobFacets, apiErrorMessage } from "@/lib/api";
@@ -40,9 +40,22 @@ export function JobsClient() {
   // effect body and an unmount mid-flight cannot write to a dead component.
   const [reloadToken, setReloadToken] = useState(0);
 
+  // The search term the last fetch actually used. Held in a ref because it is
+  // not rendered — it exists to stop the debounce below from committing a value
+  // that is already committed.
+  const committedSearch = useRef(filters.search ?? "");
+
   // Debounced: one request per pause in typing, not one per keystroke.
+  //
+  // The equality check is what keeps it to one. Without it the timer fired
+  // once on mount and re-committed the initial term as a new object, so every
+  // visit to this page fetched the first results twice and put a loading
+  // skeleton over the results it had just rendered.
   useEffect(() => {
+    if (searchInput === committedSearch.current) return;
+
     const timer = setTimeout(() => {
+      committedSearch.current = searchInput;
       setLoading(true);
       setFilters((prev) => ({ ...prev, search: searchInput }));
       setPage(0);
@@ -108,6 +121,9 @@ export function JobsClient() {
   const clearAll = () => {
     setLoading(true);
     setSearchInput("");
+    // Committed here as well as in state, or the debounce would see a changed
+    // input a moment later and fetch the same empty search a second time.
+    committedSearch.current = "";
     setFilters({ search: "", category: "", remote_type: "", seniority: "" });
     setPage(0);
   };
@@ -131,8 +147,26 @@ export function JobsClient() {
         }
       />
 
-      <div className="glass-panel mb-8 flex flex-col gap-4 rounded-lg p-4 lg:flex-row lg:items-center">
-        <div className="relative w-full flex-1">
+      {/*
+        One wrapping row of flex items with explicit bases, rather than a row
+        containing a nested row.
+
+        The nested version overflowed the page. `.field` carries `w-full`, and
+        the selects were `lg:flex-none` — flex-none means flex-basis: auto,
+        which defers to that width: 100%. Each of the three selects therefore
+        asked for the full width of the row it was in, the row asked for three
+        times its own width, and the toolbar ran off the right of the screen
+        with the last filter past the edge. Zooming out made it worse, not
+        better, because the wider the container the wider each 100%.
+
+        Every item here declares its own flex-basis, which takes precedence over
+        that width, so nothing is sized by a percentage of its container and
+        nothing can be sized by its own contents. `flex-wrap` handles the rest:
+        the filters drop under the search field when the row runs out of room,
+        at any zoom level, with no breakpoint involved.
+      */}
+      <div className="glass-panel mb-8 flex flex-wrap items-center gap-3 rounded-lg p-4">
+        <div className="relative min-w-0 flex-[3_1_18rem]">
           <Search
             className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-primary"
             aria-hidden
@@ -147,35 +181,33 @@ export function JobsClient() {
           />
         </div>
 
-        <div className="flex w-full flex-wrap gap-3 lg:w-auto lg:flex-nowrap">
-          <FacetSelect
-            label="Category"
-            value={filters.category ?? ""}
-            options={facets?.categories ?? []}
-            onChange={(value) => setFilter("category", value)}
-          />
-          <FacetSelect
-            label="Work model"
-            value={filters.remote_type ?? ""}
-            options={facets?.remote_types ?? []}
-            onChange={(value) => setFilter("remote_type", value)}
-          />
-          <FacetSelect
-            label="Seniority"
-            value={filters.seniority ?? ""}
-            options={facets?.seniority_levels ?? []}
-            onChange={(value) => setFilter("seniority", value)}
-          />
+        <FacetSelect
+          label="Category"
+          value={filters.category ?? ""}
+          options={facets?.categories ?? []}
+          onChange={(value) => setFilter("category", value)}
+        />
+        <FacetSelect
+          label="Work model"
+          value={filters.remote_type ?? ""}
+          options={facets?.remote_types ?? []}
+          onChange={(value) => setFilter("remote_type", value)}
+        />
+        <FacetSelect
+          label="Seniority"
+          value={filters.seniority ?? ""}
+          options={facets?.seniority_levels ?? []}
+          onChange={(value) => setFilter("seniority", value)}
+        />
 
-          {/* Only rendered when it has something to clear — a permanently
-              disabled control is just noise on the toolbar. */}
-          {activeFilters > 0 && (
-            <button type="button" onClick={clearAll} className="btn-ghost shrink-0">
-              <SlidersHorizontal className="h-4 w-4" aria-hidden />
-              Clear {activeFilters}
-            </button>
-          )}
-        </div>
+        {/* Only rendered when it has something to clear — a permanently
+            disabled control is just noise on the toolbar. */}
+        {activeFilters > 0 && (
+          <button type="button" onClick={clearAll} className="btn-ghost shrink-0">
+            <SlidersHorizontal className="h-4 w-4" aria-hidden />
+            Clear {activeFilters}
+          </button>
+        )}
       </div>
 
       {error && jobs.length === 0 ? (
@@ -252,7 +284,14 @@ function FacetSelect({
       // Disabled until the facets arrive, rather than offering a hardcoded
       // list that can drift out of step with the corpus.
       disabled={options.length === 0}
-      className="field min-w-[150px] flex-1 cursor-pointer py-3 capitalize disabled:cursor-not-allowed disabled:opacity-50 lg:flex-none"
+      // min-w-0 matters as much as the basis: a flex item's default minimum is
+      // its min-content width, and for a <select> that is the widest option it
+      // holds. Without it, one long category name sets the floor for the whole
+      // toolbar.
+      // The max-width is for the wrapped case: a filter that ends up alone on
+      // its row would otherwise grow to the full width of the toolbar, which
+      // reads as a mistake next to two normal-sized ones above it.
+      className="field min-w-0 max-w-[20rem] flex-[1_1_10rem] cursor-pointer py-3 capitalize disabled:cursor-not-allowed disabled:opacity-50"
     >
       <option value="">{label} (all)</option>
       {options.map((option) => (
