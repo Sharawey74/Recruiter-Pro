@@ -9,17 +9,33 @@ DEVELOPER_GUIDE.md
 JOBS_DATASET_SPEC.md
 PASS3_PROMPT.md
 CONTRIBUTING.md
-TASKS.md
 
 # Architecture Decision Records are public — they are the record of why the
 # system is shaped the way it is, and must survive the blanket docs/ ignore.
 !docs/adr/
 
+# TASKS.md is tracked, by decision on 16 Aug 2026. It was ignored on the same
+# reasoning as the files above — an internal working document — but it is not
+# really one of them. It is the record of what was found in this system and why
+# each decision went the way it did: the target-leakage finding, the substring
+# skill collisions, the scoring components that could not reconstruct their own
+# total, the suite that wrote to the application's own database. The ADRs above
+# are already public for exactly that reason, and this is the same argument one
+# level of detail down.
+#
+# It is a public repository, so what goes in the file matters now. Before it was
+# tracked it was scanned: no credential pattern matched, the four OpenRouter
+# keys named in the history audit are recorded masked, and there are no email
+# addresses, absolute paths or real candidate data in it. From here it is
+# covered by `scripts/check_secrets.py`, which reads tracked files and blocks
+# CI — so anything added to it is checked the way any other file is.
+
 # ====================
 # Planning & Analysis (Internal)
 # ====================
-# Working notes and audit reports behind the backlog. Neither these reports
-# nor TASKS.md itself are tracked; both are kept local to the working copy.
+# Working notes and audit reports behind the backlog. These stay local: they are
+# raw findings, superseded drafts and half-formed conclusions, and TASKS.md —
+# now tracked — is where anything from them that held up was written down.
 Plans/
 
 # ====================
