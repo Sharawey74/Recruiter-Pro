@@ -448,7 +448,11 @@ export function Slide({
       )}
     >
       {backdrop}
-      <div className="mx-auto w-full max-w-container">{children}</div>
+      {/* The scroll-linked entrance is applied here, so the backdrop above
+          stays where it is while the content eases past it. */}
+      <div className="landing-slide-content mx-auto w-full max-w-container">
+        {children}
+      </div>
     </section>
   );
 }

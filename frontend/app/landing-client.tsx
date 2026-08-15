@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getStats } from "@/lib/api";
 import type { Stats } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { usePrefersReducedMotion } from "@/components/landing/primitives";
 import {
   HeroSlide,
   ParsingSlide,
@@ -17,6 +18,18 @@ const SLIDES = [
   { id: "global-reach", label: "Global reach" },
   { id: "get-started", label: "Get started" },
 ] as const;
+
+/**
+ * Both in viewport heights, measured from the centre of the view to the centre
+ * of a slide.
+ *
+ * The plateau is the important one. A slide that has come to rest anywhere
+ * within a quarter of a viewport of centre is fully present -- so settling a
+ * few pixels off, which proximity snapping allows and a trackpad guarantees,
+ * cannot leave the page dimmed.
+ */
+const FULLY_IN_UNTIL = 0.25;
+const FADE_OUT_AT = 0.85;
 
 /**
  * The landing page: four scroll-snapped slides inside the app shell.
@@ -35,6 +48,7 @@ export function LandingClient() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [active, setActive] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const reduced = usePrefersReducedMotion();
 
   useEffect(() => {
     let cancelled = false;
@@ -57,45 +71,96 @@ export function LandingClient() {
   }, []);
 
   /*
-   * Two things off one observer: which dot is lit, and how far each slide has
-   * entered.
+   * How far each slide has entered, and which dot is lit, from the scroll
+   * position itself.
    *
-   * The `--enter` variable (0..1) drives the opacity and translate in
-   * globals.css, so slides ease in and out as they pass rather than appearing
-   * fully formed the instant they snap. Many thresholds rather than one,
-   * because a single threshold gives a boolean and this needs a curve.
+   * This was an IntersectionObserver reporting `intersectionRatio` into
+   * `--enter`, with a 600ms CSS transition smoothing the steps between its 21
+   * thresholds. Both halves of that were wrong.
    *
-   * It is a CSS variable set on the element rather than React state on
-   * purpose: this fires on almost every frame of a scroll, and re-rendering
-   * four slides that often would drop frames doing work the compositor can do
-   * for free.
+   * **The transition fought the scroll.** A transition interpolates towards a
+   * target over its own duration. The target here changed on almost every
+   * frame of a scroll, so each new value restarted the interpolation from
+   * wherever the last one had reached, and the slides trailed the scroll by up
+   * to 600ms instead of tracking it. Transitions are for values that change at
+   * discrete moments; a scroll position is not one.
+   *
+   * **And the ratio was the wrong measure.** `intersectionRatio` is how much
+   * of the slide is inside the container, which reaches 1.0 only when the two
+   * are aligned to the pixel. That held while snapping was mandatory. Once it
+   * became `proximity` -- so that a slide taller than the viewport could be
+   * scrolled through -- a slide could come to rest slightly off, at a ratio of
+   * 0.94, and sit there permanently at 96% opacity. Content that is quietly
+   * dimmed for no reason is worse than content that does not animate.
+   *
+   * So: distance from the centre of the view, measured every frame, with a
+   * plateau. Anything within a quarter of a viewport of centre is fully
+   * present regardless of where the scroll settled; past that it ramps away.
    */
   useEffect(() => {
     const root = containerRef.current;
     if (!root) return;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const node = entry.target as HTMLElement;
-          node.style.setProperty("--enter", entry.intersectionRatio.toFixed(3));
-
-          if (entry.intersectionRatio >= 0.5) {
-            const index = SLIDES.findIndex((s) => s.id === node.id);
-            if (index >= 0) setActive(index);
-          }
-        }
-      },
-      { root, threshold: Array.from({ length: 21 }, (_, i) => i / 20) }
+    const slides = SLIDES.map(({ id }) => document.getElementById(id)).filter(
+      (node): node is HTMLElement => node !== null
     );
+    if (slides.length === 0) return;
 
-    for (const slide of SLIDES) {
-      const node = document.getElementById(slide.id);
-      if (node) observer.observe(node);
+    if (reduced) {
+      for (const node of slides) node.style.setProperty("--enter", "1");
+      return;
     }
 
-    return () => observer.disconnect();
-  }, []);
+    let frame = 0;
+    let lit = -1;
+
+    const measure = () => {
+      frame = 0;
+
+      // Every read first, then every write. Interleaving them makes the
+      // browser flush layout between each pair, which is the classic way to
+      // turn a cheap scroll handler into a slow one.
+      const view = root.getBoundingClientRect();
+      const centre = view.top + view.height / 2;
+      const distances = slides.map((node) => {
+        const rect = node.getBoundingClientRect();
+        return Math.abs(rect.top + rect.height / 2 - centre) / view.height;
+      });
+
+      let closest = 0;
+      for (let i = 0; i < distances.length; i++) {
+        const enter = Math.max(
+          0,
+          Math.min(1, (FADE_OUT_AT - distances[i]!) / (FADE_OUT_AT - FULLY_IN_UNTIL))
+        );
+        slides[i]!.style.setProperty("--enter", enter.toFixed(3));
+        if (distances[i]! < distances[closest]!) closest = i;
+      }
+
+      // React state only when the answer changes, which is three times over a
+      // whole page rather than once a frame.
+      if (closest !== lit) {
+        lit = closest;
+        setActive(closest);
+      }
+    };
+
+    const onScroll = () => {
+      // Coalesce to one measurement per frame. A scroll can fire several times
+      // between paints and there is no point measuring twice for one picture.
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+
+    measure();
+    root.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+
+    return () => {
+      root.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, [reduced]);
 
   return (
     /*
