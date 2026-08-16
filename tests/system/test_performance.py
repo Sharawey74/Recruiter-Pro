@@ -106,24 +106,20 @@ class TestScoringPerformance:
 @pytest.mark.system
 @pytest.mark.performance
 class TestPersistencePerformance:
-    def test_batch_write_is_one_transaction(self, tmp_path):
-        """
-        save_match opened a fresh connection, committed and closed per row --
-        8.57 ms each, 6.86 s for 800 rows. save_matches_batch does the same
-        work in one transaction, measured at 0.055 ms/row.
-        """
-        from src.storage.database import Database
-        from src.storage.models import DecisionType, MatchDecision, MatchResult, ScoreBreakdown
+    @staticmethod
+    def _rows(count: int, prefix: str):
+        from src.storage.models import (
+            DecisionType, MatchDecision, MatchResult, ScoreBreakdown,
+        )
 
-        db = Database(db_path=str(tmp_path / "perf.db"))
         breakdown = ScoreBreakdown(
             skill_score=0.5, title_score=0.5, experience_score=0.5,
             education_score=0.5, keyword_score=0.5, rule_based_score=0.5,
             hybrid_score=0.5,
         )
-        rows = [
+        return [
             MatchResult(
-                match_id=f"perf-{i}", cv_id="perf", job_id=f"JOB-{i}",
+                match_id=f"{prefix}-{i}", cv_id="perf", job_id=f"JOB-{i}",
                 candidate_name="Perf", job_title="Engineer",
                 score_breakdown=breakdown,
                 decision=MatchDecision(
@@ -131,16 +127,94 @@ class TestPersistencePerformance:
                 ),
                 final_score=0.5, processing_time_ms=1.0,
             )
-            for i in range(200)
+            for i in range(count)
         ]
 
-        start = time.perf_counter()
-        written = db.save_matches_batch(rows)
-        elapsed = time.perf_counter() - start
+    def test_batch_write_opens_one_connection(self, tmp_path, monkeypatch):
+        """
+        The actual invariant: one connection for the whole batch, not one per
+        row.
+
+        This is asserted by counting `sqlite3.connect` calls rather than by
+        timing, because the count is the property that matters and a count
+        cannot be slow. `save_match` opens a fresh connection, commits and
+        closes for every row -- 200 rows meant 200 connections and 200 commits.
+        """
+        import sqlite3
+
+        from src.storage.database import Database
+
+        db = Database(db_path=str(tmp_path / "perf.db"))
+        db.initialize_schema()
+
+        opened = 0
+        real_connect = sqlite3.connect
+
+        def counting_connect(*args, **kwargs):
+            nonlocal opened
+            opened += 1
+            return real_connect(*args, **kwargs)
+
+        monkeypatch.setattr(sqlite3, "connect", counting_connect)
+        written = db.save_matches_batch(self._rows(200, "batch"))
 
         assert written == 200
-        per_row_ms = elapsed / 200 * 1000
-        assert per_row_ms < 2.0, (
-            f"{per_row_ms:.2f}ms per row -- batch persistence may have "
+        assert opened == 1, (
+            f"{opened} connections opened for 200 rows -- batch persistence has "
+            f"regressed towards one connection per row"
+        )
+
+    def test_batch_write_is_cheaper_per_row_than_saving_one_at_a_time(self, tmp_path):
+        """
+        The speed-up, measured as a ratio rather than against a fixed
+        millisecond budget.
+
+        The previous version of this test asserted `per_row_ms < 2.0` on a cold
+        database, and failed in CI at 3.63 ms/row. Nothing had regressed. Two
+        things were wrong with the measurement:
+
+        1. **Schema creation was inside the timer.** `save_matches_batch`
+           initialises the schema on first use, so the first call pays for
+           CREATE TABLE and its indexes. Locally that is 15 ms of a 24 ms
+           sample -- 63% of the number -- and on a slow CI disk it dominates
+           entirely. It is a one-off cost being divided by the row count, so
+           the reported "per row" figure fell as rows rose.
+        2. **A fixed millisecond threshold measures the machine.** A shared CI
+           runner is slower than a laptop by a factor nobody controls, so an
+           absolute budget either fails on slow hardware or is set so loose it
+           would not catch the regression it exists to catch.
+
+        Comparing the two paths in the same process on the same disk removes
+        both problems: slow hardware slows the baseline equally, and the ratio
+        is what the optimisation actually claims.
+        """
+        from src.storage.database import Database
+
+        db = Database(db_path=str(tmp_path / "perf.db"))
+        db.initialize_schema()   # one-off; not what this measures
+
+        # The shape this replaced: a connection, a commit and a close per row.
+        # Twenty-five is enough to establish the per-row cost without paying
+        # for two hundred round trips on a slow runner.
+        individual = self._rows(25, "one-at-a-time")
+        start = time.perf_counter()
+        for row in individual:
+            db.save_match(row)
+        per_row_individual = (time.perf_counter() - start) / len(individual)
+
+        batched = self._rows(200, "batched")
+        start = time.perf_counter()
+        written = db.save_matches_batch(batched)
+        per_row_batched = (time.perf_counter() - start) / len(batched)
+
+        assert written == 200
+
+        # Measured at ~78x locally. Five is a floor that a genuine regression
+        # to per-row connections cannot pass, with room for a noisy runner.
+        ratio = per_row_individual / per_row_batched
+        assert ratio > 5, (
+            f"batched writes are only {ratio:.1f}x cheaper per row than "
+            f"individual ones ({per_row_batched * 1000:.3f} ms vs "
+            f"{per_row_individual * 1000:.3f} ms) -- the batch path may have "
             f"regressed to one connection per row"
         )

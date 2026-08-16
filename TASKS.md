@@ -2240,6 +2240,54 @@ pushing, which is not worth it for size alone on a repository this size.
   synthetic, so this is not a privacy question, but it is someone else's dataset
   in a repository whose own licence file is missing.
 
+**A performance test that measured the machine, 16 Aug 2026.**
+`test_batch_write_is_one_transaction` failed in CI at 3.63 ms/row against a
+2.0 ms budget. Nothing had regressed. Two things were wrong with the
+measurement, and both are the same mistake in different clothes -- timing
+something other than the thing under test.
+
+1. **Schema creation was inside the timer.** `save_matches_batch` initialises
+   the schema on first use, so the first call pays for CREATE TABLE and its
+   indexes. Measured locally: 24.0 ms cold against 8.8 ms warm, so **63% of the
+   number was one-off setup**, and on a slow CI disk it dominates. Being a fixed
+   cost divided by the row count, the reported "per row" figure fell as rows
+   rose -- which is the opposite of what a per-row metric should do.
+2. **A fixed millisecond budget measures the hardware.** A shared runner is
+   slower than a laptop by a factor nobody controls, so an absolute threshold
+   either fails on slow hardware or is set loose enough to miss the regression
+   it exists to catch.
+
+Replaced by two tests that assert the property rather than the clock:
+
+- `test_batch_write_opens_one_connection` counts `sqlite3.connect` calls during
+  the batch write. One connection for 200 rows. A count cannot be slow, and it
+  is exactly the invariant the old test named in its failure message.
+- `test_batch_write_is_cheaper_per_row_than_saving_one_at_a_time` measures the
+  per-row cost of both paths in the same process on the same disk and asserts a
+  ratio. Slow hardware slows the baseline equally, so the comparison holds
+  anywhere.
+
+Both were checked against a deliberately reintroduced regression -- rewriting
+`save_matches_batch` as a loop over `save_match`. The connection count goes to
+200 and the ratio to 0.98x, so both fail as intended. Healthy, the ratio is
+**114x** against a floor of 5.
+
+**README, second pass.** The limitations section was removed at the owner's
+request; the fairness caveat is retained in the licence section, and the
+leakage analysis remains here in full. The two Mermaid diagrams were replaced
+with ASCII -- a system view and a request-lifecycle view, both inside 91
+columns. "By the numbers" was regrouped: the three columns had been mixing
+categories, with page and component counts filed under *Engine* and timing
+figures under *Quality*, and no indication of where any number came from. It is
+now four tables by kind -- corpus, engine, measured performance, verification --
+each headed by the command that produces its figures.
+
+One inconsistency surfaced while doing it: the database-write gain was quoted as
+156x in one section and 114x in another. 156x was the original benchmark from
+`ef7394b`; 114x is what the new ratio test measures today. Both are real
+readings on different machines, so the file now quotes the one the test asserts
+on every run.
+
 ### Left for later
 
 **Phase 5 has no remaining items.** What follows is adjacent work that was

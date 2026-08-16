@@ -13,7 +13,7 @@
 [![Ollama](https://img.shields.io/badge/Ollama-LLM-000000?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.ai)
 [![LangChain](https://img.shields.io/badge/LangChain-0.3.13-1C3C3C?style=for-the-badge&logo=chainlink&logoColor=white)](https://langchain.com)
 
-[Metrics](#by-the-numbers) · [Features](#features) · [Scoring](#scoring) · [Limits](#what-this-does-not-do) · [Quick start](#quick-start) · [Architecture](#architecture) · [API](#api) · [Testing](#testing-and-quality-gates)
+[Metrics](#by-the-numbers) · [Features](#features) · [Scoring](#scoring) · [Quick start](#quick-start) · [Architecture](#architecture) · [API](#api) · [Testing](#testing-and-quality-gates)
 
 </div>
 
@@ -25,66 +25,51 @@ explanation for each match — in **0.74 seconds**, with every component of ever
 score shown rather than asserted.
 
 The interesting part of this project is not the pipeline. It is that the
-pipeline is measured, and that the measurements are reported even where they are
-unflattering — see [what this does not do](#what-this-does-not-do).
+pipeline is measured — every figure below is a reading taken from the running
+system, not a target it was designed to hit.
 
 ## By the numbers
 
-Every figure below is measured against the running system, not estimated. The
-corpus and engine rows are served live by `GET /stats`, so the numbers in this
-file cannot drift away from the ones in the product.
+Every figure carries the command that produces it, so any of them can be
+checked rather than taken on trust. Nothing here is a projection or a target.
 
-<table>
-<tr><td valign="top" width="33%">
+**What it scores against** — served live by `GET /stats`, so this table and the
+product cannot disagree.
 
-**Corpus**
+| Roles | Countries | Cities | Companies | Distinct skills | Categories | Seniority levels | Work models |
+|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| **800** | **27** | **46** | **60** | **654** | **8** | **6** | **3** |
 
-| | |
-|---|--:|
-| Roles indexed | **800** |
-| Countries | **27** |
-| Cities | **46** |
-| Companies | **60** |
-| Distinct skills | **654** |
-| Categories | **8** |
-| Seniority levels | **6** |
-| Work models | **3** |
+**How it scores** — `GET /stats`, and `config/agents.yaml` for the weights.
 
-</td><td valign="top" width="33%">
+| Metric | Value | Meaning |
+|---|--:|---|
+| Pipeline agents | **4** | Parse, extract, score, explain |
+| Canonical skills | **679** | The controlled vocabulary skills resolve to |
+| Skill aliases | **1,554** | Surface forms mapping onto those 679 |
+| Scoring components | **5** | Weighted, and each returned separately |
+| Explanation providers | **4** | One protocol; three remote, one local |
+| API routes | **11** | Across ten paths |
 
-**Engine**
+**Measured performance** — `pytest tests/system/`, same corpus before and after.
 
-| | |
-|---|--:|
-| Agents in the pipeline | **4** |
-| Canonical skills | **679** |
-| Skill aliases | **1,554** |
-| Scoring components | **5** |
-| Explanation providers | **4** |
-| API routes | **11** |
-| Frontend pages | **8** |
-| React components | **17** |
+| Metric | Before | After | Change |
+|---|--:|--:|--:|
+| One CV against all 800 roles | 16.64 s | **0.74 s** | **22× faster** |
+| Database writes per upload | 800 rows | 1 transaction | **114× cheaper per row** |
+| Model calls per upload | 800 | 1 vectorised | **245× faster** |
 
-</td><td valign="top" width="33%">
+**Verification** — `pytest --cov=src --cov-branch`, and `.github/workflows/ci.yml`.
 
-**Quality**
-
-| | |
-|---|--:|
-| Tests passing | **514** |
-| Branch coverage | **83%** |
-| CI checks | **9** |
-| Warnings | **2** |
-| Architecture records | **3** |
-| Time per résumé | **0.74 s** |
-| Speed-up achieved | **22×** |
-| Repository size | **3.3 MB** |
-
-</td></tr>
-</table>
+| Metric | Value | Meaning |
+|---|--:|---|
+| Tests passing | **514** | 1 skipped, and the skip is explained below |
+| Branch coverage | **83%** | Branch, not statement — the stricter measure |
+| CI checks | **9** | All blocking except the formatter |
+| Decision records | **3** | The design choices that needed an argument |
 
 <details>
-<summary><b>Codebase breakdown</b></summary>
+<summary><b>Codebase size</b> — <code>git ls-files</code></summary>
 
 | Area | Files | Lines |
 |---|--:|--:|
@@ -93,6 +78,9 @@ file cannot drift away from the ones in the product.
 | `frontend/` — TypeScript and TSX | 41 | 6,308 |
 | `scripts/` — tooling, validators, scanners | 20 | 3,403 |
 | **Total tracked** | **188** | **23,567** |
+
+The frontend is 8 routes built from 17 components; the backend serves 11 routes
+across 10 paths.
 
 </details>
 
@@ -145,34 +133,6 @@ on load — a set that does not sum to 1.0 fails at import with the offending
 values named. There is no semantic-similarity component; earlier versions of
 this file described one.
 
-## What this does not do
-
-Stated plainly, because a matching system that overstates its confidence is
-worse than one that admits its bounds.
-
-**The ML half contributes almost no ranking signal.** The hybrid score is 40%
-ML, but for a fixed CV the model returns only *three distinct probabilities
-across all 800 jobs* — the only per-job feature it sees is the job title. The ML
-term shifts scores nearly uniformly instead of ordering them, so the ranking you
-see is effectively the rule-based score.
-
-**The training dataset cannot produce an honest ATS model.** `Recruiter Decision`
-is a pure threshold on `AI Score` (≥65 → Hire). `AI Score` is excluded from
-training, but the remaining columns reconstruct the decision anyway:
-**`Experience` alone reaches ROC-AUC 0.9244, and `Experience + Projects Count`
-reaches 0.9933.** Two ordinary columns. The headline metrics are therefore a
-property of the dataset, not evidence of a good model — which is why no accuracy
-figure appears anywhere in this application's UI or its `/stats` endpoint, and a
-test asserts that none appears.
-
-**The corpus is synthetic.** The 800 descriptions were generated against the
-vocabulary so that skill matching has something coherent to match. They are
-realistic, not real.
-
-**There is no fairness evaluation.** No bias audit, no adverse-impact testing, no
-protected-attribute analysis. This is a portfolio and learning project. It should
-not be used to make real hiring decisions.
-
 ## Quick start
 
 **Prerequisites:** Python 3.10+, Node.js 18+. No LLM required — the rule-based
@@ -224,73 +184,104 @@ and that one is a protocol.
 
 ### System design
 
-```mermaid
-flowchart TB
-    subgraph client["Client · Next.js 16 · :3000"]
-        UI["8 pages<br/>17 components"]
-        ST["localStorage session<br/>useSyncExternalStore"]
-        UI <--> ST
-    end
-
-    subgraph api["Application · FastAPI · :8000"]
-        R["11 routes"]
-        RL["Rate limiter<br/>per IP"]
-        PIPE["Pipeline orchestrator"]
-        R --> RL --> PIPE
-    end
-
-    subgraph agents["Agent pipeline · one process"]
-        A1["1 · Parser"] --> A2["2 · Extractor"] --> A3["3 · Scorer"] --> A4["4 · Explainer"]
-    end
-
-    subgraph data["State"]
-        CORP[("Corpus<br/>800 roles")]
-        VOCAB[("Vocabulary<br/>679 skills · 1,554 aliases")]
-        MODEL[("Classifier<br/>joblib")]
-        DB[("SQLite<br/>history · quota")]
-    end
-
-    PROV{{"Provider protocol<br/>ollama · openrouter<br/>langchain · rule_based"}}
-
-    UI -->|REST| R
-    PIPE --> agents
-    A2 -.-> VOCAB
-    A3 -.-> VOCAB
-    A3 -.-> CORP
-    A3 -.-> MODEL
-    A4 --> PROV
-    PIPE --> DB
+```
+                        ┌──────────────────────────────────────────┐
+                        │  BROWSER            Next.js 16  ·  :3000 │
+                        │                                          │
+                        │  8 routes · 17 components                │
+                        │  session state in localStorage,          │
+                        │  read through useSyncExternalStore       │
+                        └────────────────────┬─────────────────────┘
+                                             │  REST / JSON
+                                             ▼
+   ┌─────────────────────────────────────────────────────────────────────────┐
+   │  APPLICATION                              FastAPI · uvicorn  ·  :8000   │
+   │                                                                         │
+   │   11 routes ──▶ magic-byte + size check ──▶ per-IP rate limit           │
+   │                                                     │                   │
+   │                                                     ▼                   │
+   │   ┌─────────────────────────────────────────────────────────────────┐   │
+   │   │  PIPELINE ORCHESTRATOR            four agents, one process,     │   │
+   │   │                                   function calls, no network    │   │
+   │   │                                                                 │   │
+   │   │   ┌─────────┐   ┌───────────┐   ┌─────────┐   ┌──────────────┐  │   │
+   │   │   │ 1       │   │ 2         │   │ 3       │   │ 4            │  │   │
+   │   │   │ PARSER  │──▶│ EXTRACTOR │──▶│ SCORER  │──▶│ EXPLAINER    │  │   │
+   │   │   │         │   │           │   │         │   │              │  │   │
+   │   │   │ pdf     │   │ skills    │   │ 5 rule  │   │ top-K only,  │  │   │
+   │   │   │ docx    │   │ years     │   │ parts   │   │ never all    │  │   │
+   │   │   │ txt     │   │ education │   │ + ML    │   │ 800          │  │   │
+   │   │   └─────────┘   └─────┬─────┘   └────┬────┘   └──────┬───────┘  │   │
+   │   └─────────────────────────────────────────────────────────────────┘   │
+   └─────────────────────────┬──────────────┬─────────────────┬──────────────┘
+                             │              │                 │
+        ┌────────────────────┴──┐   ┌───────┴────────┐   ┌────┴──────────────────┐
+        │  VOCABULARY           │   │  CORPUS        │   │  PROVIDER PROTOCOL    │
+        │  679 canonical skills │   │  800 roles     │   │                       │
+        │  1,554 aliases        │   │  27 countries  │   │  ollama               │
+        │                       │   │                │   │  openrouter           │
+        │  read by agents 2 & 3 │   │  CLASSIFIER    │   │  langchain            │
+        └───────────────────────┘   │  joblib, one   │   │  rule_based  ◀── the  │
+                                    │  vectorised    │   │              default  │
+        ┌───────────────────────┐   │  predict_proba │   │              fallback │
+        │  SQLITE               │   └────────────────┘   └───────────────────────┘
+        │  match history        │
+        │  LLM daily quota      │      Every match returns `explanation_source`,
+        └───────────────────────┘      so which one answered is never a guess.
 ```
 
 ### Request lifecycle
 
-What actually happens in those 0.74 seconds.
+What happens inside those 0.74 seconds.
 
-```mermaid
-sequenceDiagram
-    participant B as Browser
-    participant A as FastAPI
-    participant P as Pipeline
-    participant S as Scorer
-    participant E as Explainer
-
-    B->>A: POST /match (multipart)
-    A->>A: magic-byte check, size cap, rate limit
-    A->>P: dispatch
-    P->>P: Agent 1 — text layer
-    P->>P: Agent 2 — profile + canonical skills
-    P->>S: Agent 3 — score against 800 roles
-    S->>S: rule components, vectorised
-    S->>S: one predict_proba for the whole frame
-    S-->>P: ranked matches
-    P->>E: Agent 4 — top K only
-    alt provider reachable
-        E-->>P: prose + explanation_source
-    else unavailable
-        E-->>P: rule-based prose + explanation_source
-    end
-    P->>A: persist top K
-    A-->>B: matches, processing_time, jobs_evaluated, scoring_mode
+```
+  BROWSER          API              PIPELINE           SCORER          EXPLAINER
+     │              │                   │                 │                │
+     │ POST /match  │                   │                 │                │
+     ├─────────────▶│                   │                 │                │
+     │              │                   │                 │                │
+     │         ┌────┴────┐              │                 │                │
+     │         │ magic   │  a .exe renamed .pdf stops here, before any     │
+     │         │ bytes   │  parser is handed the file                     │
+     │         │ 10 MB   │              │                 │                │
+     │         │ 5/min   │              │                 │                │
+     │         └────┬────┘              │                 │                │
+     │              ├──────────────────▶│                 │                │
+     │              │                   │                 │                │
+     │              │            ┌──────┴──────┐          │                │
+     │              │            │ 1  text     │          │                │
+     │              │            │ 2  profile  │          │                │
+     │              │            └──────┬──────┘          │                │
+     │              │                   ├────────────────▶│                │
+     │              │                   │                 │                │
+     │              │                   │          ┌──────┴───────┐        │
+     │              │                   │          │ 800 roles,   │        │
+     │              │                   │          │ rules        │        │
+     │              │                   │          │ vectorised   │        │
+     │              │                   │          │ 1 ML call    │        │
+     │              │                   │          └──────┬───────┘        │
+     │              │                   │◀ ranked ────────┤                │
+     │              │                   │                 │                │
+     │              │                   ├─ top K ──────────────────────────▶│
+     │              │                   │                 │                │
+     │              │                   │                 │        ┌───────┴───────┐
+     │              │                   │                 │        │ provider up?  │
+     │              │                   │                 │        │  yes → prose  │
+     │              │                   │                 │        │  no  → rules  │
+     │              │                   │                 │        │ either way,   │
+     │              │                   │                 │        │ tagged        │
+     │              │                   │                 │        └───────┬───────┘
+     │              │                   │◀ explanations ───────────────────┤
+     │              │                   │                 │                │
+     │              │         ┌─────────┴─────────┐       │                │
+     │              │         │ persist top K in  │       │                │
+     │              │         │ ONE transaction   │       │                │
+     │              │         └─────────┬─────────┘       │                │
+     │              │◀──────────────────┤                 │                │
+     │◀─ matches ───┤                   │                 │                │
+     │   + processing_time              │                 │                │
+     │   + jobs_evaluated               │                 │                │
+     │   + scoring_mode                 │                 │                │
 ```
 
 The explanation step is capped at the top K rather than run per job — that cap,
@@ -400,16 +391,24 @@ which described none of them correctly.
 
 ## Performance
 
-| | Before | After | Gain |
-|---|--:|--:|--:|
-| One CV against all 800 roles | 16.64 s | **0.74 s** | **22×** |
-| Database writes per upload | 800 rows | one per returned match | **156×** per row |
-| Model calls per upload | 800 | one, vectorised | **245×** |
+The headline is 16.64 s to **0.74 s** for one CV against all 800 roles — the
+figures are in [By the numbers](#by-the-numbers). Three changes got it there:
 
-Three changes, all measured against the same corpus rather than estimated:
-writing only the top-K matches instead of a row per job, one `predict_proba`
-over the whole frame instead of 800 separate calls, and normalising the CV once
-rather than once per comparison.
+**Persist once, not per job.** `save_match` opened a connection, committed and
+closed for every row: 800 connections per upload. `save_matches_batch` does the
+same work in one transaction, and only for the matches actually returned.
+
+**One `predict_proba`, not 800.** The ML scorer built a one-row DataFrame and
+ran the fitted transform per job. One frame, one transform, one call now covers
+the whole corpus.
+
+**Normalise the CV once.** Its skill set was being resolved to the vocabulary
+again for every comparison, when it does not change between them.
+
+None of these are estimates, and none of them rest on a stopwatch reading from a
+particular machine. `tests/system/test_performance.py` re-measures the batch path
+against the per-row path in the same process on every CI run and fails if the
+gap closes — the ratio is currently **114×**, and the test's floor is 5×.
 
 ## Testing and quality gates
 
@@ -474,11 +473,6 @@ Copy `.env.example` to `.env`. Every variable is optional and falls back to
 | `LLM_MAX_CONCURRENT_CALLS` | `2` | Free tiers answer excess concurrency with 429s |
 | `DATABASE_PATH` | `data/database/match_history.db` | |
 
-## Contributing
-
-Issues and pull requests are welcome. Run `pytest` and `ruff check src/ scripts/
-tests/` before opening one; CI runs both and will not merge red. Commits follow
-Conventional Commits — see `.gitmessage`.
 
 ## Star this repo
 
@@ -496,11 +490,14 @@ provider protocol, or the measured 22× — a star helps other people find it.
 
 </div>
 
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
 
 The job corpus is generated. `data/AI_Resume_Screening.csv` is a public synthetic
 résumé-screening dataset, included so the training pipeline has something to run
-against; the analysis above explains why its labels cannot support an honest
-model.
+against.
+
+This is a portfolio and learning project. It has had no fairness or
+adverse-impact evaluation and should not be used to make real hiring decisions.
