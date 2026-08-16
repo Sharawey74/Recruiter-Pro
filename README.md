@@ -184,104 +184,78 @@ and that one is a protocol.
 
 ### System design
 
+Three layers and their resources. Everything inside the pipeline box is one
+process — the arrows between agents are function calls, not requests.
+
 ```
-                        ┌──────────────────────────────────────────┐
-                        │  BROWSER            Next.js 16  ·  :3000 │
-                        │                                          │
-                        │  8 routes · 17 components                │
-                        │  session state in localStorage,          │
-                        │  read through useSyncExternalStore       │
-                        └────────────────────┬─────────────────────┘
-                                             │  REST / JSON
-                                             ▼
-   ┌─────────────────────────────────────────────────────────────────────────┐
-   │  APPLICATION                              FastAPI · uvicorn  ·  :8000   │
-   │                                                                         │
-   │   11 routes ──▶ magic-byte + size check ──▶ per-IP rate limit           │
-   │                                                     │                   │
-   │                                                     ▼                   │
-   │   ┌─────────────────────────────────────────────────────────────────┐   │
-   │   │  PIPELINE ORCHESTRATOR            four agents, one process,     │   │
-   │   │                                   function calls, no network    │   │
-   │   │                                                                 │   │
-   │   │   ┌─────────┐   ┌───────────┐   ┌─────────┐   ┌──────────────┐  │   │
-   │   │   │ 1       │   │ 2         │   │ 3       │   │ 4            │  │   │
-   │   │   │ PARSER  │──▶│ EXTRACTOR │──▶│ SCORER  │──▶│ EXPLAINER    │  │   │
-   │   │   │         │   │           │   │         │   │              │  │   │
-   │   │   │ pdf     │   │ skills    │   │ 5 rule  │   │ top-K only,  │  │   │
-   │   │   │ docx    │   │ years     │   │ parts   │   │ never all    │  │   │
-   │   │   │ txt     │   │ education │   │ + ML    │   │ 800          │  │   │
-   │   │   └─────────┘   └─────┬─────┘   └────┬────┘   └──────┬───────┘  │   │
-   │   └─────────────────────────────────────────────────────────────────┘   │
-   └─────────────────────────┬──────────────┬─────────────────┬──────────────┘
-                             │              │                 │
-        ┌────────────────────┴──┐   ┌───────┴────────┐   ┌────┴──────────────────┐
-        │  VOCABULARY           │   │  CORPUS        │   │  PROVIDER PROTOCOL    │
-        │  679 canonical skills │   │  800 roles     │   │                       │
-        │  1,554 aliases        │   │  27 countries  │   │  ollama               │
-        │                       │   │                │   │  openrouter           │
-        │  read by agents 2 & 3 │   │  CLASSIFIER    │   │  langchain            │
-        └───────────────────────┘   │  joblib, one   │   │  rule_based  ◀── the  │
-                                    │  vectorised    │   │              default  │
-        ┌───────────────────────┐   │  predict_proba │   │              fallback │
-        │  SQLITE               │   └────────────────┘   └───────────────────────┘
-        │  match history        │
-        │  LLM daily quota      │      Every match returns `explanation_source`,
-        └───────────────────────┘      so which one answered is never a guess.
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ CLIENT                                                  Next.js 16  ·  :3000 │
+│                                                                              │
+│ 8 routes  ·  17 components                                                   │
+│ session state in localStorage, read via useSyncExternalStore                 │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │  REST / JSON
+                                        ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ API                                              FastAPI · uvicorn  ·  :8000 │
+│                                                                              │
+│ 11 routes  ─▶  magic bytes  ─▶  10 MB cap  ─▶  5/min per IP                  │
+└───────────────────────────────────────┬──────────────────────────────────────┘
+                                        │  dispatch
+                                        ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ PIPELINE                              four agents · one process · no network │
+│                                                                              │
+│ ┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐            │
+│ │ 1  PARSER  │──▶│ 2 EXTRACT  │──▶│ 3  SCORER  │──▶│ 4 EXPLAIN  │            │
+│ │            │   │            │   │            │   │            │            │
+│ │ pdf · docx │   │   skills   │   │ 5 weighted │   │ top-K only │            │
+│ │    txt     │   │   years    │   │ rules + ML │   │ never 800  │            │
+│ └────────────┘   └─────┬──────┘   └─────┬──────┘   └─────┬──────┘            │
+│                        │                │                │                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+                         │                │                │
+      ┌──────────────────┴────┐  ┌────────┴───────────┐  ┌─┴────────────────────────┐
+      │ VOCABULARY            │  │ CORPUS + MODEL     │  │ PROVIDER PROTOCOL        │
+      │ 679 canonical skills  │  │ 800 roles          │  │ ollama · openrouter      │
+      │ 1,554 aliases         │  │ 1 predict_proba    │  │ langchain · rule_based   │
+      └───────────────────────┘  └────────────────────┘  └──────────────────────────┘
 ```
+
+SQLite holds the match history and the daily LLM quota. Every match carries an
+`explanation_source`, so which of the four providers answered is recorded rather
+than inferred.
 
 ### Request lifecycle
 
-What happens inside those 0.74 seconds.
+The same system in time rather than in space — one `POST /match`, from upload to
+response, including the branch where the explanation provider is unreachable.
 
-```
-  BROWSER          API              PIPELINE           SCORER          EXPLAINER
-     │              │                   │                 │                │
-     │ POST /match  │                   │                 │                │
-     ├─────────────▶│                   │                 │                │
-     │              │                   │                 │                │
-     │         ┌────┴────┐              │                 │                │
-     │         │ magic   │  a .exe renamed .pdf stops here, before any     │
-     │         │ bytes   │  parser is handed the file                     │
-     │         │ 10 MB   │              │                 │                │
-     │         │ 5/min   │              │                 │                │
-     │         └────┬────┘              │                 │                │
-     │              ├──────────────────▶│                 │                │
-     │              │                   │                 │                │
-     │              │            ┌──────┴──────┐          │                │
-     │              │            │ 1  text     │          │                │
-     │              │            │ 2  profile  │          │                │
-     │              │            └──────┬──────┘          │                │
-     │              │                   ├────────────────▶│                │
-     │              │                   │                 │                │
-     │              │                   │          ┌──────┴───────┐        │
-     │              │                   │          │ 800 roles,   │        │
-     │              │                   │          │ rules        │        │
-     │              │                   │          │ vectorised   │        │
-     │              │                   │          │ 1 ML call    │        │
-     │              │                   │          └──────┬───────┘        │
-     │              │                   │◀ ranked ────────┤                │
-     │              │                   │                 │                │
-     │              │                   ├─ top K ──────────────────────────▶│
-     │              │                   │                 │                │
-     │              │                   │                 │        ┌───────┴───────┐
-     │              │                   │                 │        │ provider up?  │
-     │              │                   │                 │        │  yes → prose  │
-     │              │                   │                 │        │  no  → rules  │
-     │              │                   │                 │        │ either way,   │
-     │              │                   │                 │        │ tagged        │
-     │              │                   │                 │        └───────┬───────┘
-     │              │                   │◀ explanations ───────────────────┤
-     │              │                   │                 │                │
-     │              │         ┌─────────┴─────────┐       │                │
-     │              │         │ persist top K in  │       │                │
-     │              │         │ ONE transaction   │       │                │
-     │              │         └─────────┬─────────┘       │                │
-     │              │◀──────────────────┤                 │                │
-     │◀─ matches ───┤                   │                 │                │
-     │   + processing_time              │                 │                │
-     │   + jobs_evaluated               │                 │                │
-     │   + scoring_mode                 │                 │                │
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant A as FastAPI
+    participant P as Pipeline
+    participant S as Scorer
+    participant E as Explainer
+
+    B->>A: POST /match (multipart)
+    A->>A: magic-byte check, size cap, rate limit
+    A->>P: dispatch
+    P->>P: Agent 1 — text layer
+    P->>P: Agent 2 — profile + canonical skills
+    P->>S: Agent 3 — score against 800 roles
+    S->>S: rule components, vectorised
+    S->>S: one predict_proba for the whole frame
+    S-->>P: ranked matches
+    P->>E: Agent 4 — top K only
+    alt provider reachable
+        E-->>P: prose + explanation_source
+    else unavailable
+        E-->>P: rule-based prose + explanation_source
+    end
+    P->>A: persist top K
+    A-->>B: matches, processing_time, jobs_evaluated, scoring_mode
 ```
 
 The explanation step is capped at the top K rather than run per job — that cap,
