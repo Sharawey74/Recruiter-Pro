@@ -1,17 +1,32 @@
-# Recruiter-Pro - runtime dependencies
+# Recruiter-Pro - all dependencies
 #
-# Everything needed to serve the API. Install this and `python -m uvicorn
-# src.api:app` works.
+#     pip install -r requirements.txt
 #
-# Split into three files because the previous single file was both incomplete
-# and bloated: it omitted six packages the code imports (so a fresh clone
-# raised ImportError on startup) while pinning six with zero imports anywhere.
+# One file, in three labelled sections: what the API needs to serve requests,
+# what training the model additionally needs, and what running the test suite
+# additionally needs. The sections are the boundary that used to be three files
+# (requirements.txt / -ml.txt / -dev.txt); it is kept here as structure because
+# it is genuinely useful to know which group a package belongs to, and which
+# ones a deployment could drop.
 #
-#   requirements.txt       <- this file, runtime API
-#   requirements-ml.txt    <- model training only
-#   requirements-dev.txt   <- tests, linting, formatting
+# The cost of one file, stated plainly: installing the API also installs the
+# training and test stacks -- xgboost, matplotlib, seaborn, pytest, ruff and the
+# rest -- which is a few hundred megabytes a production image does not need. For
+# a project run locally and from a clone that is a fair trade for one obvious
+# command. If this is ever containerised, the runtime section alone is what the
+# image needs.
 #
-# Verified by import count across src/ and scripts/ on 2026-08-09.
+# Every pin below is verified by import count across src/ and scripts/. The file
+# this replaced was both incomplete and bloated: it omitted six packages the
+# code imports, so a fresh clone raised ImportError on startup, while pinning
+# six that nothing imported at all.
+
+
+# ============================================================================
+# RUNTIME - serving the API
+#
+# Install these and `python -m uvicorn src.api:app` works.
+# ============================================================================
 
 # --- API framework ---
 fastapi==0.111.0
@@ -28,10 +43,13 @@ PyMuPDF==1.24.3              # imported as `fitz`
 nltk==3.9.1
 
 # --- Data + inference (Agent 3) ---
+# scikit-learn and joblib are runtime, not training: the API loads a prebuilt
+# .joblib and calls predict_proba on it. Neither was in this file before, and
+# between them they account for 18 imports.
 pandas==2.3.1
 numpy==1.26.4
-scikit-learn>=1.3,<2.0       # MISSING BEFORE - 10 imports
-joblib>=1.3,<2.0             # MISSING BEFORE - 8 imports, loads the model
+scikit-learn>=1.3,<2.0
+joblib>=1.3,<2.0
 
 # --- LLM explanations (Agent 4, optional at runtime) ---
 # Pinned to the versions actually installed and tested, not a set that was
@@ -47,6 +65,11 @@ langchain-community==0.3.30
 langchain-ollama==0.3.10
 requests==2.32.5             # the Ollama provider calls the HTTP API directly
 
+# Used by src/agents/explaining/openrouter.py against OpenRouter's
+# OpenAI-compatible endpoint. Optional: without it, is_available() returns
+# False and explanations fall back to rule-based.
+openai==1.109.1
+
 # --- Config ---
 pyyaml==6.0.2
 python-dotenv==1.0.1
@@ -56,13 +79,41 @@ python-dotenv==1.0.1
 # boot -- but it should be installed anywhere the API is publicly reachable.
 slowapi==0.1.10
 
-# Used by src/agents/explaining/openrouter.py against OpenRouter's
-# OpenAI-compatible endpoint. Re-added by the commit that first imports it
-# (ADR-2 action item 7) rather than pinned on the strength of an intention --
-# it spent the previous period pinned with a comment and zero imports.
-# The OpenRouter provider is optional: without this package, is_available()
-# returns False and explanations fall back to rule-based.
-openai==1.109.1
+
+# ============================================================================
+# TRAINING - retraining the classifier
+#
+# Not reachable from the API. `src/ml_engine/__init__.py` exports only
+# ATSPredictor, and the serving path stops there; the four packages below are
+# imported at module scope by model_trainer.py and cross_validation.py, which
+# nothing in the request path touches. A deployment that ships the prebuilt
+# model can leave this whole section out.
+# ============================================================================
+
+xgboost>=3.0,<4.0            # the range was <3.0, which excluded the installed
+                             # 3.0.2 -- so CI would have installed 2.x and
+                             # tested a different major version than anyone ran
+imbalanced-learn>=0.11,<1.0  # imported as `imblearn`: SMOTE, ImbPipeline
+matplotlib>=3.7,<4.0         # learning curves
+seaborn>=0.13,<1.0           # confusion matrices
+
+
+# ============================================================================
+# DEVELOPMENT - tests, linting, formatting
+#
+# Needed to run `pytest` and the CI gates. Configuration for ruff and black
+# lives in pyproject.toml.
+# ============================================================================
+
+pytest==8.4.1
+pytest-cov==7.0.0
+pytest-mock==3.15.1
+pytest-timeout>=2.2,<3.0
+httpx>=0.25,<1.0             # required by fastapi.testclient
+black>=24.0.0
+ruff>=0.4,<1.0               # replaces flake8 + isort; one config, much faster
+mypy>=1.8.0
+
 
 # Removed - pinned but never imported anywhere in src/ or scripts/:
 #   crewai==0.86.0      0 imports

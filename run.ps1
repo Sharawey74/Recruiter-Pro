@@ -324,7 +324,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Fail 'The backend could not be imported.'
     $import | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
     Write-Host ""
-    Write-Step 'If this names a missing package: pip install -r requirements-dev.txt'
+    Write-Step 'If this names a missing package: pip install -r requirements.txt'
     exit 1
 }
 Write-Ok 'Backend imports cleanly'
