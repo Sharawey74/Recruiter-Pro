@@ -51,9 +51,8 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 Starting Recruiter Pro API server...")
     logger.info("=" * 60)
 
-    # Load jobs
-    logger.info("Loading jobs from database...")
-    jobs_cache = load_jobs()
+    logger.info("Loading the job corpus...")
+    jobs_cache = load_corpus()
     logger.info(f"✅ Loaded {len(jobs_cache)} jobs")
 
     # Initialize database
@@ -326,6 +325,50 @@ def load_jobs() -> List[JobPosting]:
     except Exception as e:
         logger.error(f"Failed to load jobs: {e}", exc_info=True)
         return []
+
+
+def load_corpus() -> List[JobPosting]:
+    """
+    The corpus the application serves, read from the database.
+
+    `load_jobs()` above reads the seed *file*. This reads the *table*, seeding it
+    from that file the first time it is empty. The two are deliberately separate:
+    the file is the starting state and is still validated on its own terms, while
+    the table is what the API answers from and what `POST /jobs` writes to.
+
+    Falling back to the file when the database is unavailable is intentional. A
+    read-only corpus is a degraded service; no corpus at all is a 503 on every
+    /match, and the file is right there.
+    """
+    try:
+        db = get_database()
+        seeded = db.seed_jobs(load_jobs())
+        if seeded:
+            logger.info(f"Seeded the jobs table with {seeded} roles from the corpus file")
+        return db.list_jobs()
+    except Exception as e:  # noqa: BLE001 - a read-only corpus beats none
+        logger.error(f"Could not read jobs from the database ({e}); using the file", exc_info=True)
+        return load_jobs()
+
+
+def refresh_corpus() -> int:
+    """
+    Re-read the corpus into memory after a write.
+
+    `jobs_cache` is the in-memory working set every read path and the scorer use;
+    it is what makes scoring 800 roles take 0.74 s rather than 800 queries. A
+    write therefore has to invalidate it, and reassignment is the whole
+    invalidation: readers either see the old list or the new one, never a
+    half-updated one.
+
+    This is correct for one worker, which is what the deployment runs and why
+    (each worker holds its own 215 MB copy of corpus and model). With several
+    workers, a write served by one would leave the others stale until restart,
+    and the cache would need to move out of process.
+    """
+    global jobs_cache
+    jobs_cache = get_database().list_jobs()
+    return len(jobs_cache)
 
 
 def parse_experience(exp_str: str) -> tuple:
@@ -652,6 +695,79 @@ async def get_job(job_id: str):
     payload["preferred_skills"] = job.preferred_skills or []
     payload["education_level"] = getattr(job, "education_level", None)
     return payload
+
+
+# ------------------------------------------------------------- job writes --
+#
+# Until now every write endpoint concerned a CV. The corpus was a JSON file read
+# at startup, so an applicant tracking system presented Jobs, Shortlist, History
+# and Results over a dataset nobody could change. These three close that.
+#
+# `JobPosting` is the request body as well as the storage model, so validation is
+# the same rules the scorer already relies on -- a job that cannot be scored
+# cannot be created either.
+#
+# All three are rate limited. There is no authentication in this system -- that
+# was considered and deliberately deferred -- so on a public URL these are open
+# write endpoints, and the per-IP limit is the only thing standing between the
+# corpus and whoever finds them. It is not a substitute for auth; it is what
+# keeps the gap from being unbounded until auth exists.
+
+
+@app.post("/jobs", status_code=201)
+@limiter.limit(_api_config.upload_rate_limit)
+async def create_job(request: Request, job: JobPosting):
+    """
+    Add a role to the corpus.
+
+    409 rather than an overwrite when the id is taken: silently replacing a job
+    someone else created is worse than refusing.
+    """
+    if not get_database().create_job(job):
+        raise HTTPException(409, f"Job {job.job_id} already exists")
+
+    total = refresh_corpus()
+    logger.info(f"Created job {job.job_id}; corpus now {total}")
+    return job_payload(job)
+
+
+@app.put("/jobs/{job_id}")
+@limiter.limit(_api_config.upload_rate_limit)
+async def update_job(request: Request, job_id: str, job: JobPosting):
+    """
+    Replace a role.
+
+    The id in the path wins. Allowing the body to rename a job would make this
+    endpoint a create-and-delete wearing an update's clothes, and the caller
+    would have no way to tell which record it had actually touched.
+    """
+    if job.job_id != job_id:
+        job = job.model_copy(update={"job_id": job_id})
+
+    if not get_database().update_job(job_id, job):
+        raise HTTPException(404, f"Job {job_id} not found")
+
+    refresh_corpus()
+    logger.info(f"Updated job {job_id}")
+    return job_payload(job)
+
+
+@app.delete("/jobs/{job_id}")
+@limiter.limit(_api_config.upload_rate_limit)
+async def delete_job(request: Request, job_id: str):
+    """
+    Remove a role from the corpus.
+
+    Match history is deliberately left alone. Those rows record what was scored
+    at the time, and deleting a job does not make yesterday's match untrue --
+    rewriting history to match the present is how an audit trail stops being one.
+    """
+    if not get_database().delete_job(job_id):
+        raise HTTPException(404, f"Job {job_id} not found")
+
+    total = refresh_corpus()
+    logger.info(f"Deleted job {job_id}; corpus now {total}")
+    return {"deleted": job_id, "corpus_total": total}
 
 
 @app.post("/upload")

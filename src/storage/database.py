@@ -11,7 +11,7 @@ from typing import List, Optional, Dict, Any
 from pathlib import Path
 from contextlib import contextmanager
 
-from .models import MatchHistory, MatchResult, match_result_to_history
+from .models import JobPosting, MatchHistory, MatchResult, match_result_to_history
 from ..core.config import get_config
 
 
@@ -190,6 +190,53 @@ class Database:
                 )
             """
             )
+
+            # The job corpus.
+            #
+            # It lived in data/json/jobs.json and was read-only: the API had no
+            # write path for a job at all, so an applicant tracking system was
+            # showing Jobs, Shortlist and History over a dataset nobody could
+            # change. Writing back to the JSON file was the obvious alternative
+            # and the wrong one -- a 1.5 MB rewrite per edit, no protection
+            # against two writers, and on a host with an ephemeral filesystem
+            # the edits vanish on the next deploy.
+            #
+            # So the database is the source of truth and the JSON file is the
+            # seed. `seed_jobs_from` loads it once into an empty table; after
+            # that the file is only history.
+            #
+            # Lists are stored as JSON text, matching how match_history already
+            # stores skills. It costs a parse on read and keeps one row per job.
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS jobs (
+                    job_id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    company_name TEXT NOT NULL,
+                    category TEXT,
+                    location_city TEXT,
+                    location_country TEXT,
+                    remote_type TEXT,
+                    employment_type TEXT,
+                    seniority_level TEXT,
+                    min_experience_years REAL,
+                    max_experience_years REAL,
+                    description TEXT,
+                    required_skills TEXT DEFAULT '[]',
+                    preferred_skills TEXT DEFAULT '[]',
+                    education_level TEXT,
+                    salary_range TEXT,
+                    posted_date TEXT,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """
+            )
+
+            # The three columns /jobs filters on.
+            for column in ("category", "remote_type", "seniority_level"):
+                cursor.execute(f"CREATE INDEX IF NOT EXISTS idx_jobs_{column} ON jobs({column})")
 
             conn.commit()
             self._initialized = True
@@ -478,9 +525,150 @@ class Database:
         with open(output_file, "w") as f:
             json.dump(data, f, indent=2)
 
+    # ----------------------------------------------------------- jobs --
+
+    def seed_jobs(self, jobs: List["JobPosting"]) -> int:
+        """
+        Load the starting corpus into an empty table, once.
+
+        Returns the number written, or 0 if the table already has rows. That
+        check is what makes this safe to call on every startup: the seed is the
+        initial state, not a reset, and re-running it must never overwrite a
+        job someone has since edited.
+        """
+        if not self._initialized:
+            self.initialize_schema()
+
+        with self.get_connection() as conn:
+            if conn.execute("SELECT 1 FROM jobs LIMIT 1").fetchone():
+                return 0
+            placeholders = ", ".join("?" for _ in _JOB_COLUMNS)
+            conn.executemany(
+                f"INSERT INTO jobs ({', '.join(_JOB_COLUMNS)}) VALUES ({placeholders})",
+                [_job_to_row(job) for job in jobs],
+            )
+        return len(jobs)
+
+    def list_jobs(self, include_inactive: bool = False) -> List["JobPosting"]:
+        """Every job, oldest first, as the API's in-memory corpus."""
+        if not self._initialized:
+            self.initialize_schema()
+
+        sql = f"SELECT {', '.join(_JOB_COLUMNS)} FROM jobs"
+        if not include_inactive:
+            sql += " WHERE is_active = 1"
+        sql += " ORDER BY rowid"
+
+        with self.get_connection() as conn:
+            return [_row_to_job(row) for row in conn.execute(sql).fetchall()]
+
+    def get_job(self, job_id: str) -> Optional["JobPosting"]:
+        if not self._initialized:
+            self.initialize_schema()
+
+        with self.get_connection() as conn:
+            row = conn.execute(
+                f"SELECT {', '.join(_JOB_COLUMNS)} FROM jobs WHERE job_id = ?",
+                (job_id,),
+            ).fetchone()
+        return _row_to_job(row) if row else None
+
+    def create_job(self, job: "JobPosting") -> bool:
+        """False if the id is taken, rather than raising: the caller turns that
+        into a 409, and a duplicate id is a client mistake, not an error."""
+        if not self._initialized:
+            self.initialize_schema()
+
+        placeholders = ", ".join("?" for _ in _JOB_COLUMNS)
+        try:
+            with self.get_connection() as conn:
+                conn.execute(
+                    f"INSERT INTO jobs ({', '.join(_JOB_COLUMNS)}) VALUES ({placeholders})",
+                    _job_to_row(job),
+                )
+            return True
+        except sqlite3.IntegrityError:
+            return False
+
+    def update_job(self, job_id: str, job: "JobPosting") -> bool:
+        """Full replace. False if no such job."""
+        if not self._initialized:
+            self.initialize_schema()
+
+        assignments = ", ".join(f"{c} = ?" for c in _JOB_COLUMNS if c != "job_id")
+        values = [v for c, v in zip(_JOB_COLUMNS, _job_to_row(job), strict=True) if c != "job_id"]
+
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                f"UPDATE jobs SET {assignments}, updated_at = CURRENT_TIMESTAMP "
+                f"WHERE job_id = ?",
+                (*values, job_id),
+            )
+            return cursor.rowcount > 0
+
+    def delete_job(self, job_id: str) -> bool:
+        if not self._initialized:
+            self.initialize_schema()
+
+        with self.get_connection() as conn:
+            return conn.execute("DELETE FROM jobs WHERE job_id = ?", (job_id,)).rowcount > 0
+
 
 # Singleton instance
 _db: Optional[Database] = None
+
+
+# --------------------------------------------------------------------- jobs --
+# The corpus, once it became writable. Kept together at the end of the class's
+# module rather than scattered through it, because these are one concern.
+
+_JOB_LIST_FIELDS = ("required_skills", "preferred_skills")
+
+_JOB_COLUMNS = (
+    "job_id",
+    "title",
+    "company_name",
+    "category",
+    "location_city",
+    "location_country",
+    "remote_type",
+    "employment_type",
+    "seniority_level",
+    "min_experience_years",
+    "max_experience_years",
+    "description",
+    "required_skills",
+    "preferred_skills",
+    "education_level",
+    "salary_range",
+    "posted_date",
+    "is_active",
+)
+
+
+def _job_to_row(job: "JobPosting") -> tuple:
+    """A JobPosting flattened for storage. Lists become JSON text."""
+    values = []
+    for column in _JOB_COLUMNS:
+        value = getattr(job, column, None)
+        if column in _JOB_LIST_FIELDS:
+            value = json.dumps(list(value or []))
+        elif column == "is_active":
+            value = 1 if value in (None, True) else 0
+        values.append(value)
+    return tuple(values)
+
+
+def _row_to_job(row) -> "JobPosting":
+    """The inverse. Unknown-but-stored columns are ignored by the model."""
+    data = {column: row[column] for column in _JOB_COLUMNS}
+    for field in _JOB_LIST_FIELDS:
+        try:
+            data[field] = json.loads(data[field] or "[]")
+        except (TypeError, json.JSONDecodeError):
+            data[field] = []
+    data["is_active"] = bool(data["is_active"])
+    return JobPosting(**data)
 
 
 def get_database(reload: bool = False) -> Database:

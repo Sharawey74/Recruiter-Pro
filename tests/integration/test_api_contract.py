@@ -79,6 +79,126 @@ class TestJobsEndpoint:
             assert job["job_id"] and job["title"]
 
 
+NEW_JOB = {
+    "job_id": "CONTRACT-JOB-1",
+    "title": "Staff Platform Engineer",
+    "company_name": "Acme Industrial",
+    "category": "engineering",
+    "location_city": "Cairo",
+    "location_country": "Egypt",
+    "remote_type": "remote",
+    "employment_type": "full-time",
+    "seniority_level": "senior",
+    "min_experience_years": 6,
+    "max_experience_years": 10,
+    "description": "Own the platform and the paved road on top of it.",
+    "required_skills": ["Python", "Kubernetes"],
+    "preferred_skills": ["Terraform"],
+    "posted_date": "2026-08-17",
+}
+
+
+@pytest.fixture
+def temporary_job(client):
+    """
+    Creates the job, yields its id, and removes it however the test ends.
+
+    The cleanup is the point. `test_the_corpus_is_loaded` asserts the corpus is
+    exactly 800, so a test that leaves a job behind does not fail itself -- it
+    fails a different test, in a different file, on a later run.
+    """
+    client.delete(f"/jobs/{NEW_JOB['job_id']}")  # in case a previous run died
+    assert client.post("/jobs", json=NEW_JOB).status_code == 201
+    try:
+        yield NEW_JOB["job_id"]
+    finally:
+        client.delete(f"/jobs/{NEW_JOB['job_id']}")
+
+
+@pytest.mark.integration
+class TestJobWrites:
+    """
+    Creating a job. Until this existed every write endpoint concerned a CV, and
+    the corpus was a file read at startup -- so the interface offered Jobs,
+    Shortlist and History over a dataset nobody could change.
+    """
+
+    def test_a_created_job_is_immediately_searchable(self, client, temporary_job):
+        """
+        The cache invalidation, not the insert.
+
+        `jobs_cache` is the in-memory working set every read path uses; a write
+        that reaches the database but not the cache produces a job that exists
+        and cannot be found, which is worse than a write that fails.
+        """
+        found = client.get("/jobs?search=Staff Platform Engineer").json()
+        assert found["total"] == 1
+        assert found["jobs"][0]["job_id"] == temporary_job
+
+    def test_the_detail_view_returns_what_was_posted(self, client, temporary_job):
+        body = client.get(f"/jobs/{temporary_job}").json()
+        assert body["title"] == NEW_JOB["title"]
+        assert body["required_skills"] == NEW_JOB["required_skills"]
+        assert body["preferred_skills"] == NEW_JOB["preferred_skills"]
+
+    def test_a_duplicate_id_is_refused_rather_than_overwriting(self, client, temporary_job):
+        """Silently replacing someone else's job is worse than refusing."""
+        assert client.post("/jobs", json=NEW_JOB).status_code == 409
+
+    def test_an_unscoreable_job_is_refused(self, client):
+        """
+        The request body is the same model the scorer consumes, so validation is
+        one set of rules. A job missing a title cannot be scored and must not be
+        creatable either.
+        """
+        assert client.post("/jobs", json={"job_id": "X", "company_name": "Y"}).status_code == 422
+
+    def test_update_replaces_the_record(self, client, temporary_job):
+        edited = {**NEW_JOB, "title": "Principal Platform Engineer"}
+        assert client.put(f"/jobs/{temporary_job}", json=edited).status_code == 200
+        assert client.get(f"/jobs/{temporary_job}").json()["title"] == edited["title"]
+
+    def test_the_path_id_wins_over_the_body(self, client, temporary_job):
+        """
+        Otherwise the body could rename a job, making this a create-and-delete
+        wearing an update's clothes -- and the caller could not tell which
+        record it had touched.
+        """
+        client.put(f"/jobs/{temporary_job}", json={**NEW_JOB, "job_id": "SOMETHING-ELSE"})
+        assert client.get(f"/jobs/{temporary_job}").status_code == 200
+        assert client.get("/jobs/SOMETHING-ELSE").status_code == 404
+
+    def test_updating_a_missing_job_is_404(self, client):
+        assert client.put("/jobs/NOPE-9999", json=NEW_JOB).status_code == 404
+
+    def test_delete_removes_it_from_the_corpus(self, client):
+        client.post("/jobs", json=NEW_JOB)
+        before = client.get("/health").json()["components"]["jobs_loaded"]
+
+        assert client.delete(f"/jobs/{NEW_JOB['job_id']}").status_code == 200
+        assert client.get(f"/jobs/{NEW_JOB['job_id']}").status_code == 404
+        assert client.get("/health").json()["components"]["jobs_loaded"] == before - 1
+
+    def test_deleting_twice_is_404(self, client):
+        client.post("/jobs", json=NEW_JOB)
+        client.delete(f"/jobs/{NEW_JOB['job_id']}")
+        assert client.delete(f"/jobs/{NEW_JOB['job_id']}").status_code == 404
+
+    def test_a_created_job_can_be_scored_against(self, client, temporary_job):
+        """
+        The whole point of adding one. A job the matcher cannot score is a row
+        in a table, not a role.
+        """
+        response = client.post(
+            f"/match/single?job_id={temporary_job}&explain=false",
+            files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
+        )
+        assert response.status_code == 200
+        # /match/single nests the role under "job"; /match flattens it to
+        # job_title. That difference is pre-existing and deliberate.
+        assert response.json()["job"]["title"] == NEW_JOB["title"]
+
+
 @pytest.mark.integration
 class TestUploadValidation:
     """The guards from 4.2. Each maps to a way the endpoint could be abused."""
