@@ -1,6 +1,7 @@
 """
 Add evaluation metrics to model metadata
 """
+
 import joblib
 import json
 from pathlib import Path
@@ -14,9 +15,9 @@ from src.ml_engine.data_loader import ATSDataLoader
 from src.ml_engine.feature_engineering import FeatureEngineer
 from src.ml_engine.evaluation_criteria import EvaluationCriteria
 
-print("="*100)
-print(" "*30 + "EVALUATING MODELS - ADDING METRICS TO METADATA")
-print("="*100)
+print("=" * 100)
+print(" " * 30 + "EVALUATING MODELS - ADDING METRICS TO METADATA")
+print("=" * 100)
 print()
 
 # Load data
@@ -41,13 +42,13 @@ print()
 exp_dir = Path("models/experiments/experiment_20260129_193757")
 metadata_path = exp_dir / "models_metadata_detailed.json"
 
-with open(metadata_path, 'r') as f:
+with open(metadata_path, "r") as f:
     models_metadata = json.load(f)
 
 # Evaluate Logistic Regression
-print("┌" + "─"*98 + "┐")
-print("│" + " "*30 + "EVALUATING: LOGISTIC REGRESSION" + " "*37 + "│")
-print("└" + "─"*98 + "┘")
+print("┌" + "─" * 98 + "┐")
+print("│" + " " * 30 + "EVALUATING: LOGISTIC REGRESSION" + " " * 37 + "│")
+print("└" + "─" * 98 + "┘")
 
 lr_path = exp_dir / "logistic_regression.joblib"
 lr_model = joblib.load(lr_path)
@@ -67,20 +68,20 @@ EvaluationCriteria.print_evaluation_report("Logistic Regression", lr_metrics, y_
 
 # Add to metadata
 models_metadata["Logistic Regression"]["validation_metrics"] = {
-    "accuracy": float(lr_metrics['accuracy']),
-    "precision": float(lr_metrics['precision']),
-    "recall": float(lr_metrics['recall']),
-    "f1": float(lr_metrics['f1']),
-    "roc_auc": float(lr_metrics['roc_auc']),
-    "specificity": float(lr_metrics['specificity']),
-    "false_negative_rate": float(lr_metrics['false_negative_rate']),
-    "false_positive_rate": float(lr_metrics['false_positive_rate']),
+    "accuracy": float(lr_metrics["accuracy"]),
+    "precision": float(lr_metrics["precision"]),
+    "recall": float(lr_metrics["recall"]),
+    "f1": float(lr_metrics["f1"]),
+    "roc_auc": float(lr_metrics["roc_auc"]),
+    "specificity": float(lr_metrics["specificity"]),
+    "false_negative_rate": float(lr_metrics["false_negative_rate"]),
+    "false_positive_rate": float(lr_metrics["false_positive_rate"]),
     "confusion_matrix": {
-        "true_positives": int(lr_metrics['true_positives']),
-        "true_negatives": int(lr_metrics['true_negatives']),
-        "false_positives": int(lr_metrics['false_positives']),
-        "false_negatives": int(lr_metrics['false_negatives'])
-    }
+        "true_positives": int(lr_metrics["true_positives"]),
+        "true_negatives": int(lr_metrics["true_negatives"]),
+        "false_positives": int(lr_metrics["false_positives"]),
+        "false_negatives": int(lr_metrics["false_negatives"]),
+    },
 }
 models_metadata["Logistic Regression"]["composite_score"] = float(lr_composite)
 models_metadata["Logistic Regression"]["meets_criteria"] = bool(lr_meets_criteria)
@@ -92,9 +93,9 @@ models_metadata["Logistic Regression"]["optimal_threshold"] = float(lr_optimal_t
 print()
 
 # Evaluate Random Forest
-print("┌" + "─"*98 + "┐")
-print("│" + " "*32 + "EVALUATING: RANDOM FOREST" + " "*41 + "│")
-print("└" + "─"*98 + "┘")
+print("┌" + "─" * 98 + "┐")
+print("│" + " " * 32 + "EVALUATING: RANDOM FOREST" + " " * 41 + "│")
+print("└" + "─" * 98 + "┘")
 
 rf_path = exp_dir / "random_forest.joblib"
 rf_model = joblib.load(rf_path)
@@ -114,39 +115,43 @@ EvaluationCriteria.print_evaluation_report("Random Forest", rf_metrics, y_val, y
 
 # Add to metadata
 models_metadata["Random Forest"]["validation_metrics"] = {
-    "accuracy": float(rf_metrics['accuracy']),
-    "precision": float(rf_metrics['precision']),
-    "recall": float(rf_metrics['recall']),
-    "f1": float(rf_metrics['f1']),
-    "roc_auc": float(rf_metrics['roc_auc']),
-    "specificity": float(rf_metrics['specificity']),
-    "false_negative_rate": float(rf_metrics['false_negative_rate']),
-    "false_positive_rate": float(rf_metrics['false_positive_rate']),
+    "accuracy": float(rf_metrics["accuracy"]),
+    "precision": float(rf_metrics["precision"]),
+    "recall": float(rf_metrics["recall"]),
+    "f1": float(rf_metrics["f1"]),
+    "roc_auc": float(rf_metrics["roc_auc"]),
+    "specificity": float(rf_metrics["specificity"]),
+    "false_negative_rate": float(rf_metrics["false_negative_rate"]),
+    "false_positive_rate": float(rf_metrics["false_positive_rate"]),
     "confusion_matrix": {
-        "true_positives": int(rf_metrics['true_positives']),
-        "true_negatives": int(rf_metrics['true_negatives']),
-        "false_positives": int(rf_metrics['false_positives']),
-        "false_negatives": int(rf_metrics['false_negatives'])
-    }
+        "true_positives": int(rf_metrics["true_positives"]),
+        "true_negatives": int(rf_metrics["true_negatives"]),
+        "false_positives": int(rf_metrics["false_positives"]),
+        "false_negatives": int(rf_metrics["false_negatives"]),
+    },
 }
 models_metadata["Random Forest"]["composite_score"] = float(rf_composite)
 models_metadata["Random Forest"]["meets_criteria"] = bool(rf_meets_criteria)
-models_metadata["Random Forest"]["criteria_checks"] = {
-    k: bool(v) for k, v in rf_checks.items()
-}
+models_metadata["Random Forest"]["criteria_checks"] = {k: bool(v) for k, v in rf_checks.items()}
 models_metadata["Random Forest"]["optimal_threshold"] = float(rf_optimal_threshold)
 
 print()
 
 # Model comparison
-print("="*100)
-print(" "*35 + "MODEL COMPARISON")
-print("="*100)
+print("=" * 100)
+print(" " * 35 + "MODEL COMPARISON")
+print("=" * 100)
 print()
-print(f"{'Model':<25} {'Recall':>8} {'F1':>8} {'ROC-AUC':>8} {'Composite':>10} {'Meets Criteria':>15}")
-print("-"*100)
-print(f"{'Logistic Regression':<25} {lr_metrics['recall']:>8.4f} {lr_metrics['f1']:>8.4f} {lr_metrics['roc_auc']:>8.4f} {lr_composite:>10.4f} {'✅ YES' if lr_meets_criteria else '❌ NO':>15}")
-print(f"{'Random Forest':<25} {rf_metrics['recall']:>8.4f} {rf_metrics['f1']:>8.4f} {rf_metrics['roc_auc']:>8.4f} {rf_composite:>10.4f} {'✅ YES' if rf_meets_criteria else '❌ NO':>15}")
+print(
+    f"{'Model':<25} {'Recall':>8} {'F1':>8} {'ROC-AUC':>8} {'Composite':>10} {'Meets Criteria':>15}"
+)
+print("-" * 100)
+print(
+    f"{'Logistic Regression':<25} {lr_metrics['recall']:>8.4f} {lr_metrics['f1']:>8.4f} {lr_metrics['roc_auc']:>8.4f} {lr_composite:>10.4f} {'✅ YES' if lr_meets_criteria else '❌ NO':>15}"
+)
+print(
+    f"{'Random Forest':<25} {rf_metrics['recall']:>8.4f} {rf_metrics['f1']:>8.4f} {rf_metrics['roc_auc']:>8.4f} {rf_composite:>10.4f} {'✅ YES' if rf_meets_criteria else '❌ NO':>15}"
+)
 print()
 
 # Determine best model
@@ -162,12 +167,12 @@ print(f"   Composite Score: {best_composite:.4f}")
 print()
 
 # Save updated metadata
-with open(metadata_path, 'w', encoding='utf-8') as f:
+with open(metadata_path, "w", encoding="utf-8") as f:
     json.dump(models_metadata, f, indent=2)
 
-print("="*100)
+print("=" * 100)
 print(f"💾 Updated metadata saved to: {metadata_path}")
-print("="*100)
+print("=" * 100)
 print()
 
 print("📋 METADATA NOW INCLUDES:")
@@ -181,4 +186,4 @@ print("  ✅ Composite score")
 print("  ✅ Criteria checks")
 print("  ✅ Optimal threshold")
 print()
-print("="*100)
+print("=" * 100)

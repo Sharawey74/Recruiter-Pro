@@ -10,6 +10,7 @@ could not explain and lets the caller decide; it no longer reaches for the
 rule-based text itself. The fallback chain lives in one place (ExplainerAgent)
 rather than being reimplemented inside every provider.
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import requests
+
     REQUESTS_AVAILABLE = True
 except ImportError:  # pragma: no cover - environment-dependent
     REQUESTS_AVAILABLE = False
@@ -38,9 +40,7 @@ class OllamaProvider:
         self.config = llm_config
         # A local Ollama has no quota, but it does have finite VRAM: parallel
         # generations on one small GPU are slower than serialising them.
-        self.throttle = throttle or Throttle(
-            getattr(llm_config, "max_concurrent_calls", 2)
-        )
+        self.throttle = throttle or Throttle(getattr(llm_config, "max_concurrent_calls", 2))
 
     def is_available(self) -> bool:
         """Ping Ollama and confirm the configured model is actually pulled."""
@@ -54,9 +54,7 @@ class OllamaProvider:
             names = [m.get("name") for m in response.json().get("models", [])]
             if self.config.model in names:
                 return True
-            logger.warning(
-                f"Ollama model {self.config.model} not found. Available: {names}"
-            )
+            logger.warning(f"Ollama model {self.config.model} not found. Available: {names}")
             return False
         except Exception as e:  # noqa: BLE001 - availability must never raise
             logger.warning(f"Ollama unavailable: {e}")

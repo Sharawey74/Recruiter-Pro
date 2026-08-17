@@ -9,6 +9,7 @@ to production, and the same gap covers this agent.
 Agent 1 is deliberately non-NLP: regex and string handling only. These tests
 pin that behaviour at the unit level.
 """
+
 import pytest
 
 from src.agents.agent1_parser import RawParser
@@ -80,8 +81,11 @@ class TestSegmentation:
     def test_returns_all_expected_keys_even_when_empty(self, parser):
         s = parser._segment_text("just some text with no headers at all")
         assert set(s) == {
-            "contact_block", "experience_block", "education_block",
-            "skills_block", "summary_block",
+            "contact_block",
+            "experience_block",
+            "education_block",
+            "skills_block",
+            "summary_block",
         }
 
     @pytest.mark.unit
@@ -89,9 +93,14 @@ class TestSegmentation:
         assert isinstance(parser._segment_text(""), dict)
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("header", [
-        "WORK EXPERIENCE", "Employment History", "professional background",
-    ])
+    @pytest.mark.parametrize(
+        "header",
+        [
+            "WORK EXPERIENCE",
+            "Employment History",
+            "professional background",
+        ],
+    )
     def test_experience_header_variants_are_recognised(self, parser, header):
         s = parser._segment_text(f"{header}\nSenior Engineer at Acme\n")
         assert "Acme" in s["experience_block"]

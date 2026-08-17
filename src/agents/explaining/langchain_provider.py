@@ -10,6 +10,7 @@ ADR-2 also records the condition for deleting this file: if LangChainProvider is
 never selected in practice, remove it and the four langchain* pins. It earns its
 place only while it is genuinely a fourth option.
 """
+
 from __future__ import annotations
 
 import logging

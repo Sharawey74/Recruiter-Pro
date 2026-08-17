@@ -16,6 +16,7 @@ string in a file full of plausible-looking strings, and review misses it.
 
 Exits 1 and prints the file, line and a masked excerpt of each match.
 """
+
 from __future__ import annotations
 
 import re
@@ -28,15 +29,15 @@ from pathlib import Path
 # rule would fire on hashes, minified JS and base64 assets, and a check that
 # cries wolf gets disabled.
 PATTERNS: list[tuple[str, re.Pattern]] = [
-    ("OpenRouter",    re.compile(r"sk-or-v1-[0-9a-f]{32,}")),
-    ("Anthropic",     re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}")),
-    ("OpenAI",        re.compile(r"sk-(?:proj-)?[A-Za-z0-9]{32,}")),
-    ("GitHub token",  re.compile(r"gh[pousr]_[A-Za-z0-9]{30,}")),
-    ("AWS key id",    re.compile(r"AKIA[0-9A-Z]{16}")),
-    ("Google API",    re.compile(r"AIza[0-9A-Za-z_\-]{35}")),
-    ("HuggingFace",   re.compile(r"hf_[A-Za-z0-9]{30,}")),
-    ("Slack token",   re.compile(r"xox[baprs]-[0-9A-Za-z\-]{10,}")),
-    ("Private key",   re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----")),
+    ("OpenRouter", re.compile(r"sk-or-v1-[0-9a-f]{32,}")),
+    ("Anthropic", re.compile(r"sk-ant-[A-Za-z0-9_\-]{20,}")),
+    ("OpenAI", re.compile(r"sk-(?:proj-)?[A-Za-z0-9]{32,}")),
+    ("GitHub token", re.compile(r"gh[pousr]_[A-Za-z0-9]{30,}")),
+    ("AWS key id", re.compile(r"AKIA[0-9A-Z]{16}")),
+    ("Google API", re.compile(r"AIza[0-9A-Za-z_\-]{35}")),
+    ("HuggingFace", re.compile(r"hf_[A-Za-z0-9]{30,}")),
+    ("Slack token", re.compile(r"xox[baprs]-[0-9A-Za-z\-]{10,}")),
+    ("Private key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----")),
 ]
 
 # This file names every pattern it hunts for, and .env.example documents the
@@ -46,8 +47,21 @@ SELF_EXEMPT = {
     ".env.example",
 }
 
-BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".joblib",
-                   ".pkl", ".db", ".sqlite", ".sqlite3", ".woff", ".woff2"}
+BINARY_SUFFIXES = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".pdf",
+    ".joblib",
+    ".pkl",
+    ".db",
+    ".sqlite",
+    ".sqlite3",
+    ".woff",
+    ".woff2",
+}
 
 
 def mask(secret: str) -> str:
@@ -120,8 +134,9 @@ def check_history() -> int:
     for label, pattern in PATTERNS:
         # -S is a content search across history; the regex then confirms and
         # locates the match, since -S alone only names the commits.
-        commits = git("log", "--all", "--format=%H", "-S", pattern.pattern,
-                      "--pickaxe-regex").splitlines()
+        commits = git(
+            "log", "--all", "--format=%H", "-S", pattern.pattern, "--pickaxe-regex"
+        ).splitlines()
         for commit in commits:
             blob = git("grep", "-nI", "-E", pattern.pattern, commit)
             for line in blob.splitlines():

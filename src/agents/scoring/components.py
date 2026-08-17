@@ -18,6 +18,7 @@ no score" stays checkable by diffing `scripts/score_probe.py` output:
   takes a `cv` and `job` it never reads. Both signatures are preserved as they
   were; tightening them is a separate change with its own diff.
 """
+
 from __future__ import annotations
 
 import re
@@ -70,18 +71,18 @@ def score_title_similarity(cv: CVProfile, job: JobPosting) -> float:
 
     # Extract candidate's role/title from CV
     cv_roles = []
-    if 'title' in cv.extracted_data:
-        cv_roles.append(cv.extracted_data['title'].lower())
-    if 'current_role' in cv.extracted_data:
-        cv_roles.append(cv.extracted_data['current_role'].lower())
+    if "title" in cv.extracted_data:
+        cv_roles.append(cv.extracted_data["title"].lower())
+    if "current_role" in cv.extracted_data:
+        cv_roles.append(cv.extracted_data["current_role"].lower())
 
     # Use CV text as fallback
     if not cv_roles and cv.raw_text:
         # Try to extract role from common patterns
         role_patterns = [
-            r'(software|web|mobile|backend|frontend|full[ -]?stack|data|ml|ai|devops|security|cloud)\s+(engineer|developer|architect|analyst)',
-            r'(junior|senior|lead|principal)\s+(engineer|developer|programmer)',
-            r'(intern|trainee|student).*?(engineer|developer|programmer)',
+            r"(software|web|mobile|backend|frontend|full[ -]?stack|data|ml|ai|devops|security|cloud)\s+(engineer|developer|architect|analyst)",
+            r"(junior|senior|lead|principal)\s+(engineer|developer|programmer)",
+            r"(intern|trainee|student).*?(engineer|developer|programmer)",
         ]
         for pattern in role_patterns:
             match = re.search(pattern, cv.raw_text.lower())
@@ -96,21 +97,21 @@ def score_title_similarity(cv: CVProfile, job: JobPosting) -> float:
 
     # Role synonyms and related terms
     role_keywords = {
-        'developer': ['engineer', 'programmer', 'coder', 'dev', 'software'],
-        'engineer': ['developer', 'architect', 'programmer', 'software'],
-        'analyst': ['researcher', 'data scientist', 'scientist', 'specialist'],
-        'manager': ['lead', 'director', 'head', 'supervisor', 'coordinator'],
-        'intern': ['trainee', 'junior', 'graduate', 'student', 'entry'],
-        'senior': ['sr', 'lead', 'principal', 'expert'],
-        'junior': ['jr', 'entry', 'associate', 'trainee'],
-        'full stack': ['fullstack', 'full-stack', 'full stack developer'],
-        'backend': ['back-end', 'back end', 'server side'],
-        'frontend': ['front-end', 'front end', 'client side', 'ui'],
-        'data': ['data science', 'analytics', 'business intelligence'],
-        'ai': ['artificial intelligence', 'machine learning', 'ml', 'deep learning'],
-        'devops': ['devsecops', 'sre', 'site reliability', 'infrastructure'],
-        'security': ['cyber', 'infosec', 'penetration', 'ethical hacker'],
-        'marketing': ['digital marketing', 'growth', 'brand', 'content'],
+        "developer": ["engineer", "programmer", "coder", "dev", "software"],
+        "engineer": ["developer", "architect", "programmer", "software"],
+        "analyst": ["researcher", "data scientist", "scientist", "specialist"],
+        "manager": ["lead", "director", "head", "supervisor", "coordinator"],
+        "intern": ["trainee", "junior", "graduate", "student", "entry"],
+        "senior": ["sr", "lead", "principal", "expert"],
+        "junior": ["jr", "entry", "associate", "trainee"],
+        "full stack": ["fullstack", "full-stack", "full stack developer"],
+        "backend": ["back-end", "back end", "server side"],
+        "frontend": ["front-end", "front end", "client side", "ui"],
+        "data": ["data science", "analytics", "business intelligence"],
+        "ai": ["artificial intelligence", "machine learning", "ml", "deep learning"],
+        "devops": ["devsecops", "sre", "site reliability", "infrastructure"],
+        "security": ["cyber", "infosec", "penetration", "ethical hacker"],
+        "marketing": ["digital marketing", "growth", "brand", "content"],
     }
 
     # Check for direct matches
@@ -137,7 +138,17 @@ def score_title_similarity(cv: CVProfile, job: JobPosting) -> float:
                 return 0.85
 
     # Check if seniority level matches
-    seniority_levels = ['intern', 'junior', 'mid', 'senior', 'lead', 'principal', 'staff', 'manager', 'director']
+    seniority_levels = [
+        "intern",
+        "junior",
+        "mid",
+        "senior",
+        "lead",
+        "principal",
+        "staff",
+        "manager",
+        "director",
+    ]
     for level in seniority_levels:
         if level in job_title:
             for cv_role in cv_roles:
@@ -145,7 +156,7 @@ def score_title_similarity(cv: CVProfile, job: JobPosting) -> float:
                     return 0.7  # Seniority match even if role differs
 
     # Check if general domain matches (engineering, data, marketing, etc.)
-    domains = ['engineering', 'developer', 'data', 'marketing', 'sales', 'design', 'product']
+    domains = ["engineering", "developer", "data", "marketing", "sales", "design", "product"]
     for domain in domains:
         domain_in_job = domain in job_title
         domain_in_cv = any(domain in cv_role for cv_role in cv_roles)
@@ -158,19 +169,19 @@ def score_title_similarity(cv: CVProfile, job: JobPosting) -> float:
 def score_education(cv: CVProfile, job: JobPosting) -> float:
     """Score education level match (0-1)"""
     education_levels = {
-        'high school': 1,
-        'diploma': 2,
-        'associate': 3,
-        'bachelor': 4,
+        "high school": 1,
+        "diploma": 2,
+        "associate": 3,
+        "bachelor": 4,
         "bachelor's": 4,
-        'master': 5,
+        "master": 5,
         "master's": 5,
-        'phd': 6,
-        'doctorate': 6
+        "phd": 6,
+        "doctorate": 6,
     }
 
-    cv_edu = (cv.education or '').lower()
-    job_edu = (job.education_level or '').lower()
+    cv_edu = (cv.education or "").lower()
+    job_edu = (job.education_level or "").lower()
 
     # Find education level
     cv_level = next((v for k, v in education_levels.items() if k in cv_edu), 3)
@@ -207,10 +218,10 @@ def score_keywords(cv: CVProfile, job: JobPosting) -> float:
 def extract_keywords(text: str) -> List[str]:
     """Extract important keywords from job description"""
     # Remove common words
-    stopwords = {'the', 'and', 'or', 'with', 'for', 'in', 'on', 'at', 'to', 'of', 'a', 'an'}
+    stopwords = {"the", "and", "or", "with", "for", "in", "on", "at", "to", "of", "a", "an"}
 
     # Extract words (3+ characters)
-    words = re.findall(r'\b[a-z]{3,}\b', text.lower())
+    words = re.findall(r"\b[a-z]{3,}\b", text.lower())
 
     # Rank by frequency, then alphabetically to break ties.
     #

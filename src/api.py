@@ -11,6 +11,7 @@ Endpoints:
 - POST /match/single  - Match CV to specific job
 - GET  /match/history - View match history
 """
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Request, UploadFile, HTTPException, Query
@@ -45,16 +46,16 @@ async def lifespan(app: FastAPI):
     serving a request. See the commit message.
     """
     global jobs_cache
-    
+
     logger.info("=" * 60)
     logger.info("🚀 Starting Recruiter Pro API server...")
     logger.info("=" * 60)
-    
+
     # Load jobs
     logger.info("Loading jobs from database...")
     jobs_cache = load_jobs()
     logger.info(f"✅ Loaded {len(jobs_cache)} jobs")
-    
+
     # Initialize database
     logger.info("Initializing database...")
     try:
@@ -62,7 +63,7 @@ async def lifespan(app: FastAPI):
         logger.info("[OK] Database ready")
     except Exception as e:
         logger.warning(f"[WARN] Database initialization failed: {e}")
-    
+
     # Check ML model
     if pipeline.agent3.ml_scorer.enabled:
         model_info = pipeline.agent3.ml_scorer.predictor.get_model_info()
@@ -81,13 +82,13 @@ async def lifespan(app: FastAPI):
         logger.warning("       Regenerate with: python -m src.ml_engine.train \\")
         logger.warning("                          --data-path data/AI_Resume_Screening.csv")
         logger.warning("!" * 60)
-    
+
     # Check Ollama
-    if hasattr(pipeline, 'config') and pipeline.config.llm.enabled:
+    if hasattr(pipeline, "config") and pipeline.config.llm.enabled:
         logger.info(f"✅ Ollama enabled: {pipeline.config.llm.model}")
     else:
         logger.info("ℹ️  Ollama disabled (explanations will be basic)")
-    
+
     logger.info("=" * 60)
     logger.info("✅ API Server Ready!")
     logger.info("📖 API Docs: http://localhost:8000/docs")
@@ -109,7 +110,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Enable CORS (allow frontend to call API)
@@ -177,6 +178,7 @@ except ImportError:
         def limit(_spec):
             def decorator(fn):
                 return fn
+
             return decorator
 
     limiter = _NoLimiter()
@@ -193,14 +195,14 @@ db = get_database()
 jobs_cache: List[JobPosting] = []
 
 # Upload guards
-ALLOWED_UPLOAD_SUFFIXES = ('.pdf', '.docx', '.txt')
+ALLOWED_UPLOAD_SUFFIXES = (".pdf", ".docx", ".txt")
 
 # What the bytes must actually start with, regardless of what the name claims.
 # PDF is %PDF-, DOCX is a zip (PK\x03\x04). TXT has no signature, so it is
 # checked by decoding instead.
 _MAGIC = {
-    '.pdf': b'%PDF-',
-    '.docx': b'PK\x03\x04',
+    ".pdf": b"%PDF-",
+    ".docx": b"PK\x03\x04",
 }
 
 
@@ -229,10 +231,7 @@ async def read_upload(file: UploadFile) -> tuple[bytes, str]:
 
     suffix = Path(file.filename).suffix.lower()
     if suffix not in ALLOWED_UPLOAD_SUFFIXES:
-        raise HTTPException(
-            400,
-            f"Unsupported file type: {suffix}. Use PDF, DOCX, or TXT"
-        )
+        raise HTTPException(400, f"Unsupported file type: {suffix}. Use PDF, DOCX, or TXT")
 
     max_bytes = get_config().api.max_upload_size_mb * 1024 * 1024
 
@@ -241,7 +240,7 @@ async def read_upload(file: UploadFile) -> tuple[bytes, str]:
         raise HTTPException(
             413,
             f"File too large: {file.size / 1024 / 1024:.1f} MB. "
-            f"Maximum is {get_config().api.max_upload_size_mb} MB"
+            f"Maximum is {get_config().api.max_upload_size_mb} MB",
         )
 
     content = await file.read()
@@ -251,7 +250,7 @@ async def read_upload(file: UploadFile) -> tuple[bytes, str]:
         raise HTTPException(
             413,
             f"File too large: {len(content) / 1024 / 1024:.1f} MB. "
-            f"Maximum is {get_config().api.max_upload_size_mb} MB"
+            f"Maximum is {get_config().api.max_upload_size_mb} MB",
         )
 
     if not content:
@@ -259,13 +258,10 @@ async def read_upload(file: UploadFile) -> tuple[bytes, str]:
 
     expected = _MAGIC.get(suffix)
     if expected and not content.startswith(expected):
-        raise HTTPException(
-            400,
-            f"File content does not match its {suffix} extension"
-        )
-    if suffix == '.txt':
+        raise HTTPException(400, f"File content does not match its {suffix} extension")
+    if suffix == ".txt":
         try:
-            content.decode('utf-8')
+            content.decode("utf-8")
         except UnicodeDecodeError:
             raise HTTPException(400, "Text file is not valid UTF-8") from None
 
@@ -291,7 +287,7 @@ def load_jobs() -> List[JobPosting]:
         return []
 
     try:
-        with open(jobs_path, 'r', encoding='utf-8') as f:
+        with open(jobs_path, "r", encoding="utf-8") as f:
             payload = json.load(f)
 
         if not isinstance(payload, dict) or "jobs" not in payload:
@@ -336,21 +332,23 @@ def parse_experience(exp_str: str) -> tuple:
     """Parse experience string into (min, max) years tuple"""
     if not exp_str:
         return (0, 0)
-    
+
     import re
+
     numbers = re.findall(r"\d+", str(exp_str))
-    
+
     if not numbers:
         return (0, 2)
     if len(numbers) == 1:
         return (int(numbers[0]), int(numbers[0]))
-    
+
     return (int(numbers[0]), int(numbers[1]))
 
 
 # ============================================
 # API ENDPOINTS
 # ============================================
+
 
 @app.get("/")
 async def root():
@@ -368,7 +366,7 @@ async def root():
             "match": "/match",
             "match_single": "/match/single",
             "history": "/match/history",
-        }
+        },
     }
 
 
@@ -386,8 +384,8 @@ async def health_check():
             "jobs_loaded": len(jobs_cache),
             "ml_model_loaded": pipeline.agent3.ml_scorer.enabled,
             "database_ready": db is not None,
-            "ollama_enabled": pipeline.config.llm.enabled if hasattr(pipeline, 'config') else False
-        }
+            "ollama_enabled": pipeline.config.llm.enabled if hasattr(pipeline, "config") else False,
+        },
     }
 
 
@@ -434,12 +432,19 @@ def job_payload(job: JobPosting) -> dict:
 MISSING_JOB_PAYLOAD = {
     "title": "Unknown role",
     "company_name": "N/A",
-    "location_city": "Unknown", "location_country": "Unknown",
-    "remote_type": "on-site", "employment_type": "full-time",
-    "seniority_level": "mid", "min_experience_years": 0,
-    "max_experience_years": 0, "description": None,
-    "required_skills": [], "preferred_skills": [],
-    "posted_date": None, "category": None, "salary_range": None,
+    "location_city": "Unknown",
+    "location_country": "Unknown",
+    "remote_type": "on-site",
+    "employment_type": "full-time",
+    "seniority_level": "mid",
+    "min_experience_years": 0,
+    "max_experience_years": 0,
+    "description": None,
+    "required_skills": [],
+    "preferred_skills": [],
+    "posted_date": None,
+    "category": None,
+    "salary_range": None,
 }
 
 
@@ -469,14 +474,19 @@ def job_matches_filters(
     """
     if search:
         needle = search.lower()
-        haystack = " ".join(filter(None, [
-            job.title,
-            job.company_name,
-            job.location_city,
-            job.description,
-            " ".join(job.required_skills or []),
-            " ".join(job.preferred_skills or []),
-        ])).lower()
+        haystack = " ".join(
+            filter(
+                None,
+                [
+                    job.title,
+                    job.company_name,
+                    job.location_city,
+                    job.description,
+                    " ".join(job.required_skills or []),
+                    " ".join(job.preferred_skills or []),
+                ],
+            )
+        ).lower()
         if needle not in haystack:
             return False
 
@@ -511,11 +521,12 @@ async def get_jobs(
     the parameter was sent and silently dropped.
     """
     matching = [
-        job for job in jobs_cache
+        job
+        for job in jobs_cache
         if job_matches_filters(job, search, category, remote_type, seniority)
     ]
 
-    paginated_jobs = matching[skip:skip + limit]
+    paginated_jobs = matching[skip : skip + limit]
 
     return {
         # The count of jobs that matched the filters, not the corpus size.
@@ -526,8 +537,10 @@ async def get_jobs(
         "limit": limit,
         "count": len(paginated_jobs),
         "filters": {
-            "search": search, "category": category,
-            "remote_type": remote_type, "seniority": seniority,
+            "search": search,
+            "category": category,
+            "remote_type": remote_type,
+            "seniority": seniority,
         },
         "jobs": [job_payload(job) for job in paginated_jobs],
     }
@@ -567,9 +580,7 @@ async def get_stats():
             per_country[job.location_country] = per_country.get(job.location_country, 0) + 1
 
     ml_enabled = pipeline.agent3.ml_scorer.enabled
-    model_info = (
-        pipeline.agent3.ml_scorer.predictor.get_model_info() if ml_enabled else {}
-    )
+    model_info = pipeline.agent3.ml_scorer.predictor.get_model_info() if ml_enabled else {}
 
     # The vocabulary Agent 2 is actually running, not the file on disk: those
     # differ whenever a caller injects one, and it is the loaded index that
@@ -614,11 +625,9 @@ async def get_job_facets():
     Hardcoding the options in the UI means the dropdown and the corpus drift
     apart, and a user can select a value that matches nothing.
     """
+
     def distinct(attr: str) -> List[str]:
-        return sorted({
-            value for job in jobs_cache
-            if (value := getattr(job, attr, None))
-        })
+        return sorted({value for job in jobs_cache if (value := getattr(job, attr, None))})
 
     return {
         "categories": distinct("category"),
@@ -650,61 +659,61 @@ async def get_job(job_id: str):
 async def upload_cv(request: Request, file: UploadFile = File(...)):
     """
     Upload and parse CV file
-    
+
     Extracts basic information:
     - Name, email, phone
     - Skills list
     - Years of experience
     - Education level
-    
+
     Returns extracted data without matching
     """
     logger.info(f"Uploading file: {file.filename}")
-    
+
     content, file_ext = await read_upload(file)
 
     # Save uploaded file temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
         tmp.write(content)
         tmp_path = tmp.name
-    
+
     try:
         # Parse with Agent 1
         logger.info("Parsing CV with Agent 1...")
         parse_result = pipeline.agent1.parse_file(tmp_path)
-        cv_text = parse_result.get('raw_text', '')
-        
+        cv_text = parse_result.get("raw_text", "")
+
         if not cv_text or len(cv_text) < 50:
             raise HTTPException(400, "Could not extract meaningful text from CV")
-        
+
         # Extract structured data with Agent 2
         logger.info("Extracting data with Agent 2...")
         extracted = pipeline.agent2.extract(cv_text)
-        
+
         return {
             "success": True,
             "filename": file.filename,
             "file_type": file_ext,
             "text_length": len(cv_text),
             "extracted_data": {
-                "name": extracted.get('name'),
-                "email": extracted.get('email'),
-                "phone": extracted.get('phone'),
-                "skills": extracted.get('skills', []),
-                "experience_years": extracted.get('experience_years'),
-                "education": extracted.get('education'),
-                "certifications": extracted.get('certifications'),
-                "projects_count": extracted.get('projects_count', 0)
+                "name": extracted.get("name"),
+                "email": extracted.get("email"),
+                "phone": extracted.get("phone"),
+                "skills": extracted.get("skills", []),
+                "experience_years": extracted.get("experience_years"),
+                "education": extracted.get("education"),
+                "certifications": extracted.get("certifications"),
+                "projects_count": extracted.get("projects_count", 0),
             },
-            "preview": cv_text[:500] + "..." if len(cv_text) > 500 else cv_text
+            "preview": cv_text[:500] + "..." if len(cv_text) > 500 else cv_text,
         }
-    
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to process CV: {e}", exc_info=True)
         raise HTTPException(500, f"Failed to process CV: {str(e)}") from e
-    
+
     finally:
         # Clean up temporary file. Narrow: a bare except here would also
         # swallow KeyboardInterrupt and SystemExit, and would hide a genuine
@@ -723,33 +732,35 @@ async def match_cv(
     top_k: int = Query(10, ge=1, le=50, description="Number of top matches to return"),
     explain: bool = Query(False, description="Generate AI explanations (slower)"),
     use_llm: bool = Query(False, description="Enable Ollama LLM (if false, uses rule-based only)"),
-    use_langchain: bool = Query(False, description="Use LangChain for advanced AI features")
+    use_langchain: bool = Query(False, description="Use LangChain for advanced AI features"),
 ):
     """
     Match CV to all jobs and return top K matches
-    
+
     This is the MAIN endpoint for resume-job matching!
-    
+
     Process:
     1. Parse CV file (Agent 1)
     2. Extract structured data (Agent 2)
     3. Score against all jobs (Agent 3)
     4. Optionally generate explanations (Agent 4)
-    
+
     Returns top K matches sorted by score
     """
-    logger.info(f"Matching CV: {file.filename} (top_k={top_k}, explain={explain}, use_llm={use_llm})")
-    
+    logger.info(
+        f"Matching CV: {file.filename} (top_k={top_k}, explain={explain}, use_llm={use_llm})"
+    )
+
     if not jobs_cache:
         raise HTTPException(503, "No jobs loaded. Please contact administrator.")
-    
+
     content, file_ext = await read_upload(file)
 
     # Save file temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
         tmp.write(content)
         tmp_path = tmp.name
-    
+
     try:
         # Per-request options are arguments, not mutations of the shared
         # pipeline.
@@ -786,7 +797,7 @@ async def match_cv(
             if final_score >= 75:
                 status = "accepted"  # Shortlist
             elif final_score >= 50:
-                status = "review"    # Manual review needed
+                status = "review"  # Manual review needed
             else:
                 status = "rejected"  # Below threshold
 
@@ -807,7 +818,8 @@ async def match_cv(
                 "experience_score": round(match.score_breakdown.experience_score * 100, 1),
                 "ml_score": (
                     round(match.score_breakdown.ml_score * 100, 1)
-                    if match.score_breakdown.ml_score is not None else None
+                    if match.score_breakdown.ml_score is not None
+                    else None
                 ),
                 # MatchCard renders skill badges from these two fields. Only
                 # /match/single sent them (nested as skills.matched/.missing),
@@ -817,7 +829,7 @@ async def match_cv(
                 "matched_skills": match.score_breakdown.matched_skills,
                 "missing_skills": match.score_breakdown.missing_skills,
                 "status": status,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             # Add explanation if requested, with what produced it.
@@ -850,15 +862,13 @@ async def match_cv(
             # produce plausible numbers, so the difference is invisible unless
             # it is stated. See TASKS.md 1.1.
             "ml_scoring_enabled": pipeline.agent3.ml_scorer.enabled,
-            "scoring_mode": (
-                "hybrid" if pipeline.agent3.ml_scorer.enabled else "rule_based_only"
-            )
+            "scoring_mode": ("hybrid" if pipeline.agent3.ml_scorer.enabled else "rule_based_only"),
         }
-    
+
     except Exception as e:
         logger.error(f"Matching failed: {e}", exc_info=True)
         raise HTTPException(500, f"Matching failed: {str(e)}") from e
-    
+
     finally:
         # Clean up temporary file. Narrow: a bare except here would also
         # swallow KeyboardInterrupt and SystemExit, and would hide a genuine
@@ -875,37 +885,35 @@ async def match_to_single_job(
     request: Request,
     file: UploadFile = File(...),
     job_id: str = Query(..., description="Job ID to match against"),
-    explain: bool = Query(True, description="Generate AI explanation")
+    explain: bool = Query(True, description="Generate AI explanation"),
 ):
     """
     Match CV to a specific job
-    
+
     More detailed than batch matching, includes full explanation
     """
     logger.info(f"Matching {file.filename} to job {job_id}")
-    
+
     # Find the job
     job = next((j for j in jobs_cache if j.job_id == job_id), None)
     if not job:
         raise HTTPException(404, f"Job {job_id} not found")
-    
+
     content, file_ext = await read_upload(file)
 
     # Save file temporarily
     with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
         tmp.write(content)
         tmp_path = tmp.name
-    
+
     try:
         # Run full 4-agent pipeline for single job
         logger.info(f"Running full pipeline for job: {job.title}")
-        
+
         match = pipeline.process_cv_for_job(
-            cv_file_path=tmp_path,
-            job=job,
-            generate_explanation=explain
+            cv_file_path=tmp_path, job=job, generate_explanation=explain
         )
-        
+
         return {
             "success": True,
             "match_id": match.match_id,
@@ -913,15 +921,15 @@ async def match_to_single_job(
             "job": {
                 "job_id": match.job_id,
                 "title": match.job_title,
-                "company": getattr(job, 'company', 'N/A'),
+                "company": getattr(job, "company", "N/A"),
                 "required_skills": job.required_skills[:10],
-                "min_experience": job.min_experience_years
+                "min_experience": job.min_experience_years,
             },
             "result": {
                 "score": round(match.score_breakdown.hybrid_score * 100, 1),
                 "decision": match.decision.decision.value,
                 "confidence": round(match.decision.confidence * 100, 1),
-                "reason": match.decision.reason
+                "reason": match.decision.reason,
             },
             "scores_breakdown": {
                 "skill_match": round(match.score_breakdown.skill_score * 100, 1),
@@ -930,32 +938,36 @@ async def match_to_single_job(
                 "education_match": round(match.score_breakdown.education_score * 100, 1),
                 "keyword_match": round(match.score_breakdown.keyword_score * 100, 1),
                 "rule_based_score": round(match.score_breakdown.rule_based_score * 100, 1),
-                "ml_score": round(match.score_breakdown.ml_score * 100, 1) if match.score_breakdown.ml_score else None,
-                "hybrid_score": round(match.score_breakdown.hybrid_score * 100, 1)
+                "ml_score": (
+                    round(match.score_breakdown.ml_score * 100, 1)
+                    if match.score_breakdown.ml_score
+                    else None
+                ),
+                "hybrid_score": round(match.score_breakdown.hybrid_score * 100, 1),
             },
             "skills": {
                 "matched": match.score_breakdown.matched_skills,
                 "missing": match.score_breakdown.missing_skills,
-                "extra": match.score_breakdown.extra_skills[:10]
+                "extra": match.score_breakdown.extra_skills[:10],
             },
             "insights": {
                 "strengths": match.decision.strengths,
                 "red_flags": match.decision.red_flags,
                 "recommendations": match.decision.recommendations,
                 "overqualified": match.score_breakdown.overqualified,
-                "underqualified": match.score_breakdown.underqualified
+                "underqualified": match.score_breakdown.underqualified,
             },
             "explanation": match.decision.explanation if explain else None,
             "explanation_source": match.explanation_source,
             # MatchResult has created_at, not timestamp. This raised
             # AttributeError on every call, so /match/single always 500'd.
-            "timestamp": match.created_at.isoformat()
+            "timestamp": match.created_at.isoformat(),
         }
-    
+
     except Exception as e:
         logger.error(f"Single job matching failed: {e}", exc_info=True)
         raise HTTPException(500, f"Matching failed: {str(e)}") from e
-    
+
     finally:
         # Clean up temporary file. Narrow: a bare except here would also
         # swallow KeyboardInterrupt and SystemExit, and would hide a genuine
@@ -996,30 +1008,30 @@ def _decode_skill_list(raw) -> List[str]:
 @app.get("/match/history")
 async def get_match_history_v2(
     limit: int = Query(50, ge=1, le=500, description="Max records to return"),
-    skip: int = Query(0, ge=0, description="Number of records to skip")
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
 ):
     """
     Get match history from database (Next.js frontend compatible)
-    
+
     Returns recent CV-job matches with format matching frontend TypeScript types
     """
     try:
         # Get matches from database using correct method
         all_matches = db.get_top_matches(limit=1000)  # Get recent matches
-        
+
         # Paginate
         total = len(all_matches)
-        paginated_matches = all_matches[skip:skip+limit]
-        
+        paginated_matches = all_matches[skip : skip + limit]
+
         # Format for Next.js frontend
         formatted_matches = []
         for m in paginated_matches:
             # Get full job details from cache using job_id
             job_details = next((j for j in jobs_cache if j.job_id == m.job_id), None)
-            
+
             # Calculate final score
             final_score = round(m.final_score * 100, 1)
-            
+
             # Auto-assign status based on score
             if final_score >= 75:
                 status = "accepted"
@@ -1027,7 +1039,7 @@ async def get_match_history_v2(
                 status = "review"
             else:
                 status = "rejected"
-            
+
             formatted_match = {
                 "match_id": m.match_id,
                 "job_id": m.job_id,
@@ -1035,12 +1047,12 @@ async def get_match_history_v2(
                 # The stored title wins when the job has since left the corpus,
                 # so a history row still names the role it was scored against.
                 "job_title": m.job_title,
-                "candidate_name": getattr(m, 'candidate_name', None),
+                "candidate_name": getattr(m, "candidate_name", None),
                 # cv_id is a UUID. It went out as `cv_filename`, so the history
                 # table printed a raw UUID under every candidate's name as
                 # though it were the document they uploaded. The filename is
                 # not stored, so the honest answer is null.
-                "cv_id": getattr(m, 'cv_id', None),
+                "cv_id": getattr(m, "cv_id", None),
                 "cv_filename": None,
                 # Use individual score fields from MatchHistory. Same names as
                 # /match: one match shape, whether it arrived from a live run
@@ -1049,28 +1061,27 @@ async def get_match_history_v2(
                 "rule_based_score": round(m.rule_based_score * 100, 1),
                 "skill_score": round(m.skill_score * 100, 1),
                 "experience_score": round(m.experience_score * 100, 1),
-                "ml_score": (
-                    round(m.ml_score * 100, 1) if m.ml_score is not None else None
-                ),
+                "ml_score": (round(m.ml_score * 100, 1) if m.ml_score is not None else None),
                 # Stored on every row and never served, so History and
                 # Shortlist rendered no skill badges at all.
-                "matched_skills": _decode_skill_list(getattr(m, 'matched_skills', None)),
-                "missing_skills": _decode_skill_list(getattr(m, 'missing_skills', None)),
+                "matched_skills": _decode_skill_list(getattr(m, "matched_skills", None)),
+                "missing_skills": _decode_skill_list(getattr(m, "missing_skills", None)),
                 "status": status,
-                "explanation": getattr(m, 'explanation', None),
+                "explanation": getattr(m, "explanation", None),
                 # Null, not guessed. MatchHistory has no column for the
                 # provider, so a stored explanation cannot say what wrote it;
                 # claiming a source here would be worse than admitting the gap.
                 "explanation_source": None,
-                "timestamp": m.created_at.isoformat() if hasattr(m, 'created_at') else datetime.now().isoformat()
+                "timestamp": (
+                    m.created_at.isoformat()
+                    if hasattr(m, "created_at")
+                    else datetime.now().isoformat()
+                ),
             }
             formatted_matches.append(formatted_match)
-        
-        return {
-            "matches": formatted_matches,
-            "total": total
-        }
-    
+
+        return {"matches": formatted_matches, "total": total}
+
     except Exception as e:
         logger.error(f"Failed to get history: {e}")
         raise HTTPException(500, f"Failed to retrieve history: {str(e)}") from e
@@ -1080,19 +1091,19 @@ async def get_match_history_v2(
 async def clear_match_history():
     """
     Clear all match history from database
-    
+
     WARNING: This permanently deletes all match records!
     """
     try:
         deleted_count = db.clear_all_matches()
         logger.info(f"Cleared {deleted_count} matches from database")
-        
+
         return {
             "success": True,
             "deleted_count": deleted_count,
-            "message": f"Successfully cleared {deleted_count} match records"
+            "message": f"Successfully cleared {deleted_count} match records",
         }
-    
+
     except Exception as e:
         logger.error(f"Failed to clear history: {e}")
         raise HTTPException(500, f"Failed to clear history: {str(e)}") from e
@@ -1108,11 +1119,11 @@ async def clear_match_history():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "src.api:app",
         host="0.0.0.0",
         port=8000,
         reload=True,  # Auto-reload on code changes
-        log_level="info"
+        log_level="info",
     )

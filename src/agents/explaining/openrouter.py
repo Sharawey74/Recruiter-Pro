@@ -15,6 +15,7 @@ never written to config, and never returned in a response. No key means
 is_available() is False and the chain falls through to rule-based -- a missing
 secret degrades the demo, it does not break it.
 """
+
 from __future__ import annotations
 
 import logging
@@ -83,9 +84,7 @@ class OpenRouterProvider:
         self._api_key = api_key or os.getenv(ENV_KEY)
         self.model = model or os.getenv("OPENROUTER_MODEL") or DEFAULT_MODEL
         self._client = None
-        self.throttle = throttle or Throttle(
-            getattr(llm_config, "max_concurrent_calls", 2)
-        )
+        self.throttle = throttle or Throttle(getattr(llm_config, "max_concurrent_calls", 2))
 
     def is_available(self) -> bool:
         """

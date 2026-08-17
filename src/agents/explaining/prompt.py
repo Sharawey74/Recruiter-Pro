@@ -6,6 +6,7 @@ same instruction. Three copies of a prompt drift, and then two providers
 silently produce differently-shaped explanations for identical input -- which
 looks like a model difference and is not.
 """
+
 from __future__ import annotations
 
 from .protocol import ExplanationContext

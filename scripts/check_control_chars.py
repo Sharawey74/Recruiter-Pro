@@ -31,6 +31,7 @@ be at byte level. This is that check.
 
 Exits 1 and prints every offending file, line and byte offset.
 """
+
 import sys
 from pathlib import Path
 
@@ -42,11 +43,19 @@ LINE_FEED = 0x0A
 
 # Source and prose. Not data/ -- the job corpus is a megabyte of JSON that no
 # human edits by hand, and scanning it on every CI run buys nothing.
-SUFFIXES = (".py", ".ts", ".tsx", ".js", ".mjs", ".css", ".ps1", ".md",
-            ".json", ".yml", ".yaml")
+SUFFIXES = (".py", ".ts", ".tsx", ".js", ".mjs", ".css", ".ps1", ".md", ".json", ".yml", ".yaml")
 
-SKIP_DIRS = {"__pycache__", "node_modules", ".next", ".git", ".venv", "venv",
-             "htmlcov", ".pytest_cache", "Images"}
+SKIP_DIRS = {
+    "__pycache__",
+    "node_modules",
+    ".next",
+    ".git",
+    ".venv",
+    "venv",
+    "htmlcov",
+    ".pytest_cache",
+    "Images",
+}
 
 # Directories walked recursively, plus the root files worth checking. README.md
 # is here because that is where the third incident landed, and TASKS.md because
@@ -54,8 +63,17 @@ SKIP_DIRS = {"__pycache__", "node_modules", ".next", ".git", ".venv", "venv",
 # check -- the same `.\\run.ps1` string, the same raw 0x0D, written by the same
 # tooling. TASKS.md is gitignored, so it will not exist in CI; a missing path is
 # skipped rather than failing, and the point of listing it is the local run.
-DEFAULT_PATHS = ("src", "tests", "scripts", "frontend/app", "frontend/components",
-                 "frontend/lib", "README.md", "TASKS.md", "run.ps1")
+DEFAULT_PATHS = (
+    "src",
+    "tests",
+    "scripts",
+    "frontend/app",
+    "frontend/components",
+    "frontend/lib",
+    "README.md",
+    "TASKS.md",
+    "run.ps1",
+)
 
 
 def candidates(root: Path):
@@ -84,7 +102,7 @@ def offenders(path: Path):
             continue
 
         line = raw.count(b"\n", 0, offset) + 1
-        context = raw[max(0, offset - 30):offset + 10]
+        context = raw[max(0, offset - 30) : offset + 10]
         yield line, offset, byte, context
 
 
@@ -100,18 +118,22 @@ def main(argv) -> int:
             scanned += 1
             for line, offset, byte, context in offenders(path):
                 found += 1
-                label = "bare carriage return" if byte == CARRIAGE_RETURN else \
-                        f"control character {hex(byte)}"
+                label = (
+                    "bare carriage return"
+                    if byte == CARRIAGE_RETURN
+                    else f"control character {hex(byte)}"
+                )
                 print(f"{path}:{line}: {label} at byte {offset}")
                 print(f"    context: {context!r}")
 
     if found:
-        print(f"\n{found} control character(s) found across {scanned} files. "
-              f"See the module docstring for why this is a hard failure.")
+        print(
+            f"\n{found} control character(s) found across {scanned} files. "
+            f"See the module docstring for why this is a hard failure."
+        )
         return 1
 
-    print(f"No control characters in {scanned} files "
-          f"({', '.join(str(r) for r in roots)})")
+    print(f"No control characters in {scanned} files " f"({', '.join(str(r) for r in roots)})")
     return 0
 
 

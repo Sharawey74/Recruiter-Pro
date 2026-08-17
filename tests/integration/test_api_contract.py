@@ -20,6 +20,7 @@ already failing, so an already-broken module absorbed a new bug in silence.
 starting the application is itself the first assertion. That check is now
 enforced by the suite rather than performed by hand.
 """
+
 import json
 
 import pytest
@@ -133,8 +134,15 @@ class TestMatchEndpoint:
             files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
         )
         for match in r.json()["matches"]:
-            for field in ("job_id", "job_title", "company_name", "final_score",
-                          "matched_skills", "missing_skills", "status"):
+            for field in (
+                "job_id",
+                "job_title",
+                "company_name",
+                "final_score",
+                "matched_skills",
+                "missing_skills",
+                "status",
+            ):
                 assert field in match, f"{field} missing from the match payload"
 
     def test_scores_are_percentages(self, client):
@@ -143,8 +151,7 @@ class TestMatchEndpoint:
             files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
         )
         for match in r.json()["matches"]:
-            for field in ("final_score", "rule_based_score", "skill_score",
-                          "experience_score"):
+            for field in ("final_score", "rule_based_score", "skill_score", "experience_score"):
                 assert 0.0 <= match[field] <= 100.0, f"{field}={match[field]}"
 
     def test_component_scores_are_named_for_what_they_measure(self, client):
@@ -202,9 +209,9 @@ class TestMatchEndpoint:
             pytest.skip("no match scored high enough to be explained")
 
         for match in explained:
-            assert match.get("explanation_source"), (
-                "an explanation was returned without saying what produced it"
-            )
+            assert match.get(
+                "explanation_source"
+            ), "an explanation was returned without saying what produced it"
 
     def test_processing_time_is_measured(self, client):
         """
@@ -232,8 +239,13 @@ class TestMatchEndpoint:
         )
         assert r.status_code == 200
         breakdown = r.json()["scores_breakdown"]
-        for component in ("skill_match", "title_match", "experience_match",
-                          "education_match", "keyword_match"):
+        for component in (
+            "skill_match",
+            "title_match",
+            "experience_match",
+            "education_match",
+            "keyword_match",
+        ):
             assert component in breakdown, f"{component} missing from the breakdown"
 
     def test_rejects_a_bad_file_before_scoring(self, client):
@@ -270,8 +282,15 @@ class TestHistoryEndpoints:
     def test_history_records_carry_the_fields_the_frontend_reads(self, client):
         r = client.get("/match/history?limit=5")
         for record in r.json()["matches"]:
-            for field in ("match_id", "job_title", "final_score", "status",
-                          "candidate_name", "matched_skills", "timestamp"):
+            for field in (
+                "match_id",
+                "job_title",
+                "final_score",
+                "status",
+                "candidate_name",
+                "matched_skills",
+                "timestamp",
+            ):
                 assert field in record, f"{field} missing from a history record"
 
     def test_a_stored_match_has_the_same_shape_as_a_live_one(self, client):
@@ -288,9 +307,18 @@ class TestHistoryEndpoints:
         if not stored:
             pytest.skip("nothing persisted to compare against")
 
-        for field in ("match_id", "job_id", "job_title", "company_name",
-                      "final_score", "rule_based_score", "skill_score",
-                      "experience_score", "status", "matched_skills"):
+        for field in (
+            "match_id",
+            "job_id",
+            "job_title",
+            "company_name",
+            "final_score",
+            "rule_based_score",
+            "skill_score",
+            "experience_score",
+            "status",
+            "matched_skills",
+        ):
             assert field in live and field in stored[0], f"{field} not on both"
 
     def test_the_duplicate_history_endpoint_is_gone(self, client):
@@ -326,11 +354,14 @@ class TestJobFiltering:
         assert r.json()["total"] == 0
         assert r.json()["jobs"] == []
 
-    @pytest.mark.parametrize("param,value", [
-        ("category", "engineering"),
-        ("remote_type", "remote"),
-        ("seniority", "senior"),
-    ])
+    @pytest.mark.parametrize(
+        "param,value",
+        [
+            ("category", "engineering"),
+            ("remote_type", "remote"),
+            ("seniority", "senior"),
+        ],
+    )
     def test_each_facet_filters_and_every_row_honours_it(self, client, param, value):
         body = client.get(f"/jobs?limit=50&{param}={value}").json()
         assert body["total"] > 0, f"{param}={value} matched nothing"

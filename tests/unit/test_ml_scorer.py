@@ -11,6 +11,7 @@ result against the job list with `strict=True`, so a provider returning a
 short list is a loud failure rather than a corpus silently scored in part --
 but only if the contract holds at this boundary.
 """
+
 import pytest
 
 from src.agents.scoring.ml_scorer import MLScorer
@@ -18,20 +19,33 @@ from src.core.config import get_config
 from src.storage.models import CVProfile, JobPosting
 
 CV = CVProfile(
-    cv_id="ml", file_name="ml.txt", name="Jane",
-    skills=["Python", "Docker"], experience_years=5, education="Bachelor's",
+    cv_id="ml",
+    file_name="ml.txt",
+    name="Jane",
+    skills=["Python", "Docker"],
+    experience_years=5,
+    education="Bachelor's",
     extracted_data={"certifications": "AWS", "projects_count": 4},
 )
 
 JOBS = [
     JobPosting(
-        job_id=f"JOB-{i}", title=f"Engineer {i}", company_name="Acme",
-        location_city="Cairo", location_country="Egypt", remote_type="on-site",
-        employment_type="full-time", seniority_level="mid",
-        required_skills=["Python"], preferred_skills=[],
-        min_experience_years=2, max_experience_years=6,
-        education_level="Bachelor", description="A job. " * 30,
-        category="engineering", posted_date="2026-01-15",
+        job_id=f"JOB-{i}",
+        title=f"Engineer {i}",
+        company_name="Acme",
+        location_city="Cairo",
+        location_country="Egypt",
+        remote_type="on-site",
+        employment_type="full-time",
+        seniority_level="mid",
+        required_skills=["Python"],
+        preferred_skills=[],
+        min_experience_years=2,
+        max_experience_years=6,
+        education_level="Bachelor",
+        description="A job. " * 30,
+        category="engineering",
+        posted_date="2026-01-15",
     )
     for i in range(3)
 ]

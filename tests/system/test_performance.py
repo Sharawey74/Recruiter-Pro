@@ -16,6 +16,7 @@ Thresholds are set well above the measured figures. The point is to catch a
 regression of the kind Phase 3 removed -- a per-job model call, or a database
 write per row -- not to police normal variance on a loaded machine.
 """
+
 import json
 import time
 from pathlib import Path
@@ -31,8 +32,18 @@ CV = CVProfile(
     cv_id="perf",
     file_name="perf.txt",
     name="Perf Candidate",
-    skills=["Python", "JavaScript", "Docker", "SQL", "React", "AWS",
-            "PostgreSQL", "Kubernetes", "Git", "Linux"],
+    skills=[
+        "Python",
+        "JavaScript",
+        "Docker",
+        "SQL",
+        "React",
+        "AWS",
+        "PostgreSQL",
+        "Kubernetes",
+        "Git",
+        "Linux",
+    ],
     experience_years=5,
     education="Bachelor's",
     raw_text="Senior Software Engineer with 5 years of experience. " * 40,
@@ -42,9 +53,7 @@ CV = CVProfile(
 
 @pytest.fixture(scope="module")
 def jobs():
-    payload = json.loads(
-        (PROJECT_ROOT / "data/json/jobs.json").read_text(encoding="utf-8")
-    )
+    payload = json.loads((PROJECT_ROOT / "data/json/jobs.json").read_text(encoding="utf-8"))
     return [JobPosting(**j) for j in payload["jobs"]]
 
 
@@ -109,23 +118,32 @@ class TestPersistencePerformance:
     @staticmethod
     def _rows(count: int, prefix: str):
         from src.storage.models import (
-            DecisionType, MatchDecision, MatchResult, ScoreBreakdown,
+            DecisionType,
+            MatchDecision,
+            MatchResult,
+            ScoreBreakdown,
         )
 
         breakdown = ScoreBreakdown(
-            skill_score=0.5, title_score=0.5, experience_score=0.5,
-            education_score=0.5, keyword_score=0.5, rule_based_score=0.5,
+            skill_score=0.5,
+            title_score=0.5,
+            experience_score=0.5,
+            education_score=0.5,
+            keyword_score=0.5,
+            rule_based_score=0.5,
             hybrid_score=0.5,
         )
         return [
             MatchResult(
-                match_id=f"{prefix}-{i}", cv_id="perf", job_id=f"JOB-{i}",
-                candidate_name="Perf", job_title="Engineer",
+                match_id=f"{prefix}-{i}",
+                cv_id="perf",
+                job_id=f"JOB-{i}",
+                candidate_name="Perf",
+                job_title="Engineer",
                 score_breakdown=breakdown,
-                decision=MatchDecision(
-                    decision=DecisionType.REVIEW, confidence=0.5, reason="perf"
-                ),
-                final_score=0.5, processing_time_ms=1.0,
+                decision=MatchDecision(decision=DecisionType.REVIEW, confidence=0.5, reason="perf"),
+                final_score=0.5,
+                processing_time_ms=1.0,
             )
             for i in range(count)
         ]
@@ -191,7 +209,7 @@ class TestPersistencePerformance:
         from src.storage.database import Database
 
         db = Database(db_path=str(tmp_path / "perf.db"))
-        db.initialize_schema()   # one-off; not what this measures
+        db.initialize_schema()  # one-off; not what this measures
 
         # The shape this replaced: a connection, a commit and a close per row.
         # Twenty-five is enough to establish the per-row cost without paying

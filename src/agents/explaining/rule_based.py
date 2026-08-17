@@ -14,6 +14,7 @@ that produced varying keyword scores in Agent 3 and it violates the determinism
 rule in ADR-1. It uses crc32 now, which is stable across processes and
 machines.
 """
+
 from __future__ import annotations
 
 from typing import List
@@ -93,7 +94,9 @@ class RuleBasedProvider:
             count = len(c.matched_skills)
             top = ", ".join(c.matched_skills[:6])
             if c.skill_score >= 0.85:
-                details.append(f"Excellent technical proficiency demonstrated in {top} ({count} matched skills).")
+                details.append(
+                    f"Excellent technical proficiency demonstrated in {top} ({count} matched skills)."
+                )
             elif c.skill_score >= 0.70:
                 details.append(f"Strong capabilities in {top} with {count} matched skills.")
             else:
@@ -151,7 +154,9 @@ class RuleBasedProvider:
             if c.final_score >= 0.85:
                 parts.append("Assess cultural fit and discuss role expectations.")
             else:
-                parts.append("Verify proficiency in matched skills and assess learning agility for gaps.")
+                parts.append(
+                    "Verify proficiency in matched skills and assess learning agility for gaps."
+                )
 
         elif decision == "review":
             parts.append("Recommend detailed manual review of experience and portfolio.")
@@ -159,7 +164,9 @@ class RuleBasedProvider:
                 training = ", ".join(c.missing_skills[:3])
                 parts.append(f"Evaluate training potential for {training}.")
             if c.skill_score < 0.65:
-                parts.append("Consider alternative roles better matching candidate's skill profile.")
+                parts.append(
+                    "Consider alternative roles better matching candidate's skill profile."
+                )
 
         else:  # reject
             if c.final_score < 0.50:

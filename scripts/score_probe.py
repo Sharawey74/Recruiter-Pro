@@ -22,6 +22,7 @@ This harness carried every Phase 2 commit. It is what established that
 ``c27b86f`` (the weights consolidation) moved zero scores across all 800 jobs,
 and it is the acceptance test for the Agent 3 extraction in 2.7.
 """
+
 import csv
 import json
 import sys
@@ -46,9 +47,21 @@ CV = CVProfile(
     name="Probe Candidate",
     email="probe@example.com",
     skills=[
-        "Python", "JavaScript", "Docker", "SQL", "React", "AWS",
-        "PostgreSQL", "Kubernetes", ".NET", "DevOps", "Communication",
-        "Machine Learning", "Git", "Linux", "REST API",
+        "Python",
+        "JavaScript",
+        "Docker",
+        "SQL",
+        "React",
+        "AWS",
+        "PostgreSQL",
+        "Kubernetes",
+        ".NET",
+        "DevOps",
+        "Communication",
+        "Machine Learning",
+        "Git",
+        "Linux",
+        "REST API",
     ],
     experience_years=5,
     education="Bachelor's",
@@ -68,24 +81,36 @@ def main() -> int:
 
     with out_path.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
-        w.writerow([
-            "job_id", "skill", "title", "experience", "education", "keyword",
-            "rule_based", "overall", "matched", "missing",
-        ])
+        w.writerow(
+            [
+                "job_id",
+                "skill",
+                "title",
+                "experience",
+                "education",
+                "keyword",
+                "rule_based",
+                "overall",
+                "matched",
+                "missing",
+            ]
+        )
         for job in sorted(jobs, key=lambda j: j.job_id):
             b = agent.score_match(CV, job, include_ml=False)
-            w.writerow([
-                job.job_id,
-                f"{b.skill_score:.6f}",
-                f"{getattr(b, 'title_score', 0.0):.6f}",
-                f"{b.experience_score:.6f}",
-                f"{b.education_score:.6f}",
-                f"{b.keyword_score:.6f}",
-                f"{b.rule_based_score:.6f}",
-                f"{b.hybrid_score:.6f}",
-                "|".join(sorted(b.matched_skills or [])),
-                "|".join(sorted(b.missing_skills or [])),
-            ])
+            w.writerow(
+                [
+                    job.job_id,
+                    f"{b.skill_score:.6f}",
+                    f"{getattr(b, 'title_score', 0.0):.6f}",
+                    f"{b.experience_score:.6f}",
+                    f"{b.education_score:.6f}",
+                    f"{b.keyword_score:.6f}",
+                    f"{b.rule_based_score:.6f}",
+                    f"{b.hybrid_score:.6f}",
+                    "|".join(sorted(b.matched_skills or [])),
+                    "|".join(sorted(b.missing_skills or [])),
+                ]
+            )
 
     print(f"wrote {out_path} for {len(jobs)} jobs")
     return 0

@@ -12,6 +12,7 @@ match "JavaScript".
 This class deliberately knows nothing about `CVProfile` or `JobPosting`: it
 takes and returns skill names. Its caller does the unpacking.
 """
+
 from __future__ import annotations
 
 import re
@@ -22,6 +23,7 @@ from typing import Dict, List, Optional, Set
 @dataclass
 class SkillMatch:
     """Skill matching results"""
+
     matched_skills: List[str]
     missing_skills: List[str]
     extra_skills: List[str]
@@ -66,7 +68,7 @@ class SkillMatcher:
                 continue
 
             # Fall back to the punctuation-stripped form.
-            stripped = cleaned.replace('.', '').replace('-', ' ')
+            stripped = cleaned.replace(".", "").replace("-", " ")
             normalized.append(self.canonical(stripped) or stripped)
 
         return normalized
@@ -141,9 +143,7 @@ class SkillMatcher:
     @staticmethod
     def tokens(skill: str) -> frozenset:
         """Split a skill into comparable whole tokens, ignoring punctuation."""
-        return frozenset(
-            t for t in re.split(r"[^a-z0-9+#]+", skill.lower()) if t
-        )
+        return frozenset(t for t in re.split(r"[^a-z0-9+#]+", skill.lower()) if t)
 
     # -- scoring ---------------------------------------------------------
 
@@ -183,7 +183,9 @@ class SkillMatcher:
 
         # Weighted ratio: required skills are critical (85%), preferred are bonus (15%)
         required_match_ratio = len(matched_required) / total_required
-        preferred_match_ratio = len(matched_preferred) / max(total_preferred, 1) if total_preferred > 0 else 0
+        preferred_match_ratio = (
+            len(matched_preferred) / max(total_preferred, 1) if total_preferred > 0 else 0
+        )
 
         match_ratio = (required_match_ratio * 0.85) + (preferred_match_ratio * 0.15)
 
@@ -195,5 +197,5 @@ class SkillMatcher:
             matched_skills=matched_skills,
             missing_skills=missing_required + missing_preferred,
             extra_skills=extra_skills[:10],  # Limit to top 10
-            match_ratio=min(1.0, match_ratio)
+            match_ratio=min(1.0, match_ratio),
         )

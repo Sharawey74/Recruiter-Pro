@@ -15,6 +15,7 @@ silently, with no exception and no log line.
 
 These tests are the guard that should have existed from the start.
 """
+
 import pytest
 
 from src.agents.scoring.skill_matcher import SkillMatcher
@@ -39,13 +40,16 @@ class TestSkillNormalizationIsNotCategoryCollapse:
     """The core defect: unrelated skills must not normalize to the same string."""
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("a, b", [
-        ("python", "java"),          # both were "programming_languages"
-        ("python", "javascript"),
-        ("java", "javascript"),
-        ("react", "django"),         # both were "frameworks"
-        ("mysql", "postgresql"),     # both were "databases"
-    ])
+    @pytest.mark.parametrize(
+        "a, b",
+        [
+            ("python", "java"),  # both were "programming_languages"
+            ("python", "javascript"),
+            ("java", "javascript"),
+            ("react", "django"),  # both were "frameworks"
+            ("mysql", "postgresql"),  # both were "databases"
+        ],
+    )
     def test_unrelated_skills_do_not_collapse(self, matcher, a, b):
         na = matcher.normalize([a])[0]
         nb = matcher.normalize([b])[0]
@@ -55,9 +59,18 @@ class TestSkillNormalizationIsNotCategoryCollapse:
         )
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("skill", [
-        "python", "java", "react", "docker", "mysql", "excel", "salesforce",
-    ])
+    @pytest.mark.parametrize(
+        "skill",
+        [
+            "python",
+            "java",
+            "react",
+            "docker",
+            "mysql",
+            "excel",
+            "salesforce",
+        ],
+    )
     def test_normalization_never_returns_a_family_name(self, matcher, skill):
         """
         A family name is never a valid canonical skill. This is the specific
@@ -66,12 +79,19 @@ class TestSkillNormalizationIsNotCategoryCollapse:
         """
         result = matcher.normalize([skill])[0]
         family_names = {
-            "programming_languages", "frameworks", "databases", "devops",
-            "cloud", "tools", "soft_skills", "data_science", "families",
+            "programming_languages",
+            "frameworks",
+            "databases",
+            "devops",
+            "cloud",
+            "tools",
+            "soft_skills",
+            "data_science",
+            "families",
         }
-        assert result.lower() not in family_names, (
-            f"{skill!r} normalized to the family name {result!r}"
-        )
+        assert (
+            result.lower() not in family_names
+        ), f"{skill!r} normalized to the family name {result!r}"
 
     @pytest.mark.unit
     def test_aliases_resolve_to_their_canonical_form(self, matcher):
@@ -88,9 +108,7 @@ class TestSkillNormalizationIsNotCategoryCollapse:
     @pytest.mark.unit
     def test_unknown_skills_pass_through_unchanged(self, matcher):
         """A skill absent from the vocabulary must survive, not vanish."""
-        assert matcher.normalize(["quantum basket weaving"]) == [
-            "quantum basket weaving"
-        ]
+        assert matcher.normalize(["quantum basket weaving"]) == ["quantum basket weaving"]
 
 
 class TestScoringConsequence:
@@ -100,9 +118,9 @@ class TestScoringConsequence:
     def test_python_cv_does_not_perfectly_match_a_java_job(self, matcher):
         cv_skills = set(matcher.normalize(["Python", "Django", "PostgreSQL"]))
         java_job = set(matcher.normalize(["Java", "Spring", "Oracle"]))
-        assert not (cv_skills & java_job), (
-            f"A Python CV shares {cv_skills & java_job} with a Java-only job."
-        )
+        assert not (
+            cv_skills & java_job
+        ), f"A Python CV shares {cv_skills & java_job} with a Java-only job."
 
     @pytest.mark.unit
     def test_matching_skills_still_match(self, matcher):
@@ -129,44 +147,57 @@ class TestSubstringCollisions:
     """
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("job_skill,cv_skill", [
-        ("Java", "JavaScript"),
-        ("Git", "GitHub"),
-        ("Git", "GitHub Actions"),
-        ("SQL", "MySQL"),
-        ("Swift", "SwiftUI"),
-        ("Penetration Testing", ".NET"),
-    ])
+    @pytest.mark.parametrize(
+        "job_skill,cv_skill",
+        [
+            ("Java", "JavaScript"),
+            ("Git", "GitHub"),
+            ("Git", "GitHub Actions"),
+            ("SQL", "MySQL"),
+            ("Swift", "SwiftUI"),
+            ("Penetration Testing", ".NET"),
+        ],
+    )
     def test_substring_overlap_is_not_a_match(self, matcher, job_skill, cv_skill):
         cv = set(matcher.normalize([cv_skill]))
-        assert not matcher.find_matches(cv, set(matcher.normalize([job_skill]))), (
-            f"{cv_skill!r} should not satisfy a {job_skill!r} requirement"
-        )
+        assert not matcher.find_matches(
+            cv, set(matcher.normalize([job_skill]))
+        ), f"{cv_skill!r} should not satisfy a {job_skill!r} requirement"
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("job_skill,cv_skill", [
-        ("Ruby", "Ruby on Rails"),
-        ("React", "React Native"),
-        ("Communication", "Written Communication"),
-        (".NET", "ASP.NET"),
-    ])
-    def test_holding_the_specialisation_satisfies_the_general_skill(self, matcher, job_skill, cv_skill):
+    @pytest.mark.parametrize(
+        "job_skill,cv_skill",
+        [
+            ("Ruby", "Ruby on Rails"),
+            ("React", "React Native"),
+            ("Communication", "Written Communication"),
+            (".NET", "ASP.NET"),
+        ],
+    )
+    def test_holding_the_specialisation_satisfies_the_general_skill(
+        self, matcher, job_skill, cv_skill
+    ):
         cv = set(matcher.normalize([cv_skill]))
-        assert matcher.find_matches(cv, set(matcher.normalize([job_skill]))), (
-            f"{cv_skill!r} should satisfy a {job_skill!r} requirement"
-        )
+        assert matcher.find_matches(
+            cv, set(matcher.normalize([job_skill]))
+        ), f"{cv_skill!r} should satisfy a {job_skill!r} requirement"
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("job_skill,cv_skill", [
-        ("Ruby on Rails", "Ruby"),
-        ("React Native", "React"),
-        ("Written Communication", "Communication"),
-    ])
-    def test_the_general_skill_does_not_satisfy_the_specialisation(self, matcher, job_skill, cv_skill):
+    @pytest.mark.parametrize(
+        "job_skill,cv_skill",
+        [
+            ("Ruby on Rails", "Ruby"),
+            ("React Native", "React"),
+            ("Written Communication", "Communication"),
+        ],
+    )
+    def test_the_general_skill_does_not_satisfy_the_specialisation(
+        self, matcher, job_skill, cv_skill
+    ):
         cv = set(matcher.normalize([cv_skill]))
-        assert not matcher.find_matches(cv, set(matcher.normalize([job_skill]))), (
-            f"{cv_skill!r} should not satisfy a {job_skill!r} requirement"
-        )
+        assert not matcher.find_matches(
+            cv, set(matcher.normalize([job_skill]))
+        ), f"{cv_skill!r} should not satisfy a {job_skill!r} requirement"
 
 
 class TestPunctuatedSkillsResolve:
@@ -174,17 +205,29 @@ class TestPunctuatedSkillsResolve:
     was stripped before the vocabulary was consulted, so '.NET' became 'net'."""
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("skill", [
-        ".NET", "T-SQL", "Monday.com", "Outreach.io", "Stand-ups",
-        "Non-Conformance Management",
-    ])
+    @pytest.mark.parametrize(
+        "skill",
+        [
+            ".NET",
+            "T-SQL",
+            "Monday.com",
+            "Outreach.io",
+            "Stand-ups",
+            "Non-Conformance Management",
+        ],
+    )
     def test_punctuated_canonical_resolves_to_itself(self, matcher, skill):
         assert matcher.normalize([skill])[0] == skill
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("given,expected", [
-        ("node.js", "Node.js"), ("dev-ops", "DevOps"), ("c++", "C++"),
-    ])
+    @pytest.mark.parametrize(
+        "given,expected",
+        [
+            ("node.js", "Node.js"),
+            ("dev-ops", "DevOps"),
+            ("c++", "C++"),
+        ],
+    )
     def test_stripped_fallback_still_resolves(self, matcher, given, expected):
         """Forms the index does not carry verbatim must still resolve."""
         assert matcher.normalize([given])[0] == expected

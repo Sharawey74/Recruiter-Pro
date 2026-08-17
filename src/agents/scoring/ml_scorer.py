@@ -11,6 +11,7 @@ Loading is a classmethod, not constructor work, per 2.7: constructing a scorer
 must not read the filesystem. `MLScorer(predictor)` is inert and cheap;
 `MLScorer.load()` is the one call that does I/O, and it is the caller's choice.
 """
+
 from __future__ import annotations
 
 import logging
@@ -62,13 +63,13 @@ class MLScorer:
         property of the candidate.
         """
         return {
-            'Skills': ', '.join(cv.skills),
-            'Experience': cv.experience_years or 0,
-            'Education': cv.education or 'Bachelor',
-            'Certifications': cv.extracted_data.get('certifications', 'None'),
-            'Job Role': job.title,
-            'Projects Count': cv.extracted_data.get('projects_count', 0),
-            'Salary': cv.extracted_data.get('expected_salary', 50000)
+            "Skills": ", ".join(cv.skills),
+            "Experience": cv.experience_years or 0,
+            "Education": cv.education or "Bachelor",
+            "Certifications": cv.extracted_data.get("certifications", "None"),
+            "Job Role": job.title,
+            "Projects Count": cv.extracted_data.get("projects_count", 0),
+            "Salary": cv.extracted_data.get("expected_salary", 50000),
         }
 
     @staticmethod
@@ -76,7 +77,7 @@ class MLScorer:
         """0-100 -> 0-1. The model reports an int percentage; callers want a ratio."""
         if not result:
             return None
-        raw = result['ml_score']
+        raw = result["ml_score"]
         return raw / 100.0 if raw > 1 else raw
 
     def score_batch(self, cv: CVProfile, jobs: List[JobPosting]) -> List[Optional[float]]:
@@ -130,9 +131,7 @@ class MLScorer:
             return None
 
         try:
-            result = self.predictor.predict(
-                self._features(cv, job), use_optimal_threshold=True
-            )
+            result = self.predictor.predict(self._features(cv, job), use_optimal_threshold=True)
         except Exception as e:  # noqa: BLE001 - scoring must survive a bad row
             logger.error(f"ML scoring failed: {e}")
             return None

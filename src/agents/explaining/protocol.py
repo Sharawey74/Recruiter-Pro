@@ -10,6 +10,7 @@ explanation needs thirteen scalar facts about a match; handing providers the
 whole `MatchResult` would couple every provider to the persistence layer and to
 whatever that model grows next.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

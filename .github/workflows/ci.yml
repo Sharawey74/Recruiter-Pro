@@ -44,12 +44,12 @@ jobs:
         run: ruff check src/ scripts/ tests/
 
       - name: Format check (black)
-        # Non-blocking. `black --check src/` currently reformats 28 of 30 files,
-        # and a formatting sweep is a large diff that should land as its own
-        # commit rather than being forced through by CI on unrelated work.
-        # Flip to a hard failure once that commit exists (TASKS.md 6.3).
+        # Blocking as of 17 Aug 2026. It was `continue-on-error` because the
+        # sweep would have reformatted 84 of 91 files, and that diff belonged in
+        # its own commit rather than being forced through on unrelated work.
+        # That commit now exists, so a regression is a failure rather than a
+        # line in a log nobody reads.
         run: black --check src/ scripts/ tests/
-        continue-on-error: true
 
       - name: Test
         # No ML model or Ollama on the runner. The rule-based provider is a

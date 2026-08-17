@@ -11,6 +11,7 @@ They also pin the weighted-sum identity: the five reported components must
 reconstruct rule_based_score. Before title_score was surfaced they could not,
 because a sixth of the score was computed and discarded.
 """
+
 import json
 
 import pytest
@@ -70,8 +71,10 @@ class TestDeterminism:
         """Agent construction must not carry state that changes results."""
         one, two = HybridScoringAgent(), HybridScoringAgent()
         for job in jobs[:5]:
-            assert (one.score_match(cv, job, include_ml=False).model_dump()
-                    == two.score_match(cv, job, include_ml=False).model_dump())
+            assert (
+                one.score_match(cv, job, include_ml=False).model_dump()
+                == two.score_match(cv, job, include_ml=False).model_dump()
+            )
 
     @pytest.mark.unit
     def test_scoring_does_not_mutate_its_inputs(self, agent, cv, jobs):
@@ -106,8 +109,14 @@ class TestScoreStructure:
     def test_all_components_are_within_range(self, agent, cv, jobs):
         for job in jobs:
             b = agent.score_match(cv, job, include_ml=False)
-            for field in ("skill_score", "title_score", "experience_score",
-                          "education_score", "keyword_score", "rule_based_score"):
+            for field in (
+                "skill_score",
+                "title_score",
+                "experience_score",
+                "education_score",
+                "keyword_score",
+                "rule_based_score",
+            ):
                 assert 0.0 <= getattr(b, field) <= 1.0, f"{job.job_id}.{field}"
 
     @pytest.mark.unit
@@ -120,8 +129,12 @@ class TestScoreStructure:
     @pytest.mark.unit
     def test_a_cv_with_no_skills_scores_no_skill_match(self, agent, jobs):
         empty = CVProfile(
-            cv_id="empty", file_name="empty.pdf", skills=[],
-            experience_years=0, education="High School", extracted_data={},
+            cv_id="empty",
+            file_name="empty.pdf",
+            skills=[],
+            experience_years=0,
+            education="High School",
+            extracted_data={},
         )
         b = agent.score_match(empty, jobs[0], include_ml=False)
         assert b.skill_score == 0.0

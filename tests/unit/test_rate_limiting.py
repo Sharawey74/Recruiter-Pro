@@ -10,6 +10,7 @@ Three layers solve three different problems and none substitutes for another:
 A rate limiter still permits 5 uploads a minute forever; a daily quota still
 permits one client to consume all of it in a burst.
 """
+
 import os
 import tempfile
 import threading
@@ -131,6 +132,7 @@ class TestDailyBudget:
         A budget that cannot be read must not silently downgrade every
         explanation on the instance with nothing to point at.
         """
+
         class Broken:
             def llm_calls_today(self, day=None):
                 raise RuntimeError("disk gone")
@@ -179,13 +181,16 @@ class TestThrottle:
             pass  # would block forever if the permit leaked
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("headers,expected", [
-        ({"retry-after": "12"}, 12.0),
-        ({"Retry-After": "3.5s"}, 3.5),
-        ({"retry-after": "not-a-number"}, None),
-        ({}, None),
-        (None, None),
-    ])
+    @pytest.mark.parametrize(
+        "headers,expected",
+        [
+            ({"retry-after": "12"}, 12.0),
+            ({"Retry-After": "3.5s"}, 3.5),
+            ({"retry-after": "not-a-number"}, None),
+            ({}, None),
+            (None, None),
+        ],
+    )
     def test_retry_after_parsing(self, headers, expected):
         exc = RuntimeError("429")
         exc.response = type("R", (), {"headers": headers})()
@@ -237,9 +242,7 @@ class TestEndpointRateLimit:
         try:
             with TestClient(app) as client:
                 codes = [
-                    client.post(
-                        "/upload", files={"file": ("cv.txt", cv, "text/plain")}
-                    ).status_code
+                    client.post("/upload", files={"file": ("cv.txt", cv, "text/plain")}).status_code
                     for _ in range(12)
                 ]
         finally:

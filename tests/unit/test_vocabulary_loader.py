@@ -12,6 +12,7 @@ in one place. These tests hold it there, and cover the degradation paths: a
 missing file, unreadable JSON, and a shape the loader does not recognise all
 have to yield an empty index and a warning rather than taking startup down.
 """
+
 import json
 
 import pytest
@@ -184,7 +185,14 @@ class TestTheRealVocabulary:
 
         canonicals = canonical_names(load_alias_index(get_config().skills_database_path))
         families = {
-            "programming_languages", "frameworks", "databases", "devops",
-            "cloud", "tools", "soft_skills", "data_science", "families",
+            "programming_languages",
+            "frameworks",
+            "databases",
+            "devops",
+            "cloud",
+            "tools",
+            "soft_skills",
+            "data_science",
+            "families",
         }
         assert not (canonicals & families)

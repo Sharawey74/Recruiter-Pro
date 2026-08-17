@@ -11,6 +11,7 @@ Usage:
 
 Exit code 0 = corpus is loadable and internally consistent. Non-zero = do not ship it.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,12 +25,24 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 CATEGORIES = [
-    "engineering", "sales", "marketing", "accounting",
-    "management", "administrators", "maintenance", "operations",
+    "engineering",
+    "sales",
+    "marketing",
+    "accounting",
+    "management",
+    "administrators",
+    "maintenance",
+    "operations",
 ]
 PREFIX = {
-    "engineering": "ENG", "sales": "SAL", "marketing": "MKT", "accounting": "ACC",
-    "management": "MGT", "administrators": "ADM", "maintenance": "MNT", "operations": "OPS",
+    "engineering": "ENG",
+    "sales": "SAL",
+    "marketing": "MKT",
+    "accounting": "ACC",
+    "management": "MGT",
+    "administrators": "ADM",
+    "maintenance": "MNT",
+    "operations": "OPS",
 }
 # seniority -> (min_lo, min_hi, max_lo, max_hi)
 SENIORITY_BANDS = {
@@ -118,9 +131,11 @@ def validate(jobs_path: Path, skills_path: Path) -> int:
     payload = json.loads(jobs_path.read_text(encoding="utf-8"))
     skills_raw = json.loads(skills_path.read_text(encoding="utf-8"))
 
-    r.check("jobs file is an object with a 'jobs' key (not a bare array)",
-            isinstance(payload, dict) and "jobs" in payload,
-            "Expected the envelope: {schema_version, generated_at, ..., jobs: [...]}")
+    r.check(
+        "jobs file is an object with a 'jobs' key (not a bare array)",
+        isinstance(payload, dict) and "jobs" in payload,
+        "Expected the envelope: {schema_version, generated_at, ..., jobs: [...]}",
+    )
     if not isinstance(payload, dict) or "jobs" not in payload:
         return 1
 
@@ -131,9 +146,11 @@ def validate(jobs_path: Path, skills_path: Path) -> int:
 
     # ---------- structural ----------
     print("\n[2] Structure and identity")
-    r.check("record_count matches actual length",
-            payload.get("record_count") == len(jobs),
-            f"metadata says {payload.get('record_count')}, file holds {len(jobs)}")
+    r.check(
+        "record_count matches actual length",
+        payload.get("record_count") == len(jobs),
+        f"metadata says {payload.get('record_count')}, file holds {len(jobs)}",
+    )
 
     by_cat = Counter(j.get("category") for j in jobs)
     bad_cat = {c for c in by_cat if c not in CATEGORIES}
@@ -148,7 +165,8 @@ def validate(jobs_path: Path, skills_path: Path) -> int:
     r.check("job_id values are unique", not dupe_ids, _sample(dupe_ids))
 
     bad_prefix = {
-        j["job_id"] for j in jobs
+        j["job_id"]
+        for j in jobs
         if j.get("category") in PREFIX
         and not str(j.get("job_id", "")).startswith(PREFIX[j["category"]] + "-")
     }
@@ -164,20 +182,29 @@ def validate(jobs_path: Path, skills_path: Path) -> int:
         for s in (j.get("required_skills") or []) + (j.get("preferred_skills") or []):
             if s not in vocab:
                 unknown.add(s)
-    r.check("every job skill is a canonical name in the vocabulary", not unknown,
-            _sample(unknown, 10) if unknown else "")
+    r.check(
+        "every job skill is a canonical name in the vocabulary",
+        not unknown,
+        _sample(unknown, 10) if unknown else "",
+    )
 
     case_only = {s for s in unknown if s.lower() in vocab_lower}
     if case_only:
-        r.warn("some unknown skills differ only by case (alias used instead of canonical)",
-               _sample(case_only, 8))
+        r.warn(
+            "some unknown skills differ only by case (alias used instead of canonical)",
+            _sample(case_only, 8),
+        )
 
-    overlap = {j.get("job_id") for j in jobs
-               if set(j.get("required_skills") or []) & set(j.get("preferred_skills") or [])}
+    overlap = {
+        j.get("job_id")
+        for j in jobs
+        if set(j.get("required_skills") or []) & set(j.get("preferred_skills") or [])
+    }
     r.check("required and preferred skills do not overlap", not overlap, _sample(overlap))
 
-    bad_count = {j.get("job_id") for j in jobs
-                 if not (5 <= len(j.get("required_skills") or []) <= 9)}
+    bad_count = {
+        j.get("job_id") for j in jobs if not (5 <= len(j.get("required_skills") or []) <= 9)
+    }
     r.check("each job has 5-9 required skills", not bad_count, _sample(bad_count))
 
     # ---------- consistency ----------
@@ -192,20 +219,30 @@ def validate(jobs_path: Path, skills_path: Path) -> int:
         mn, mx = j.get("min_experience_years"), j.get("max_experience_years")
         if mn is None or mx is None or not (lo_a <= mn <= lo_b and hi_a <= mx <= hi_b and mx > mn):
             bad_band.append(f"{j.get('job_id')}: {j.get('seniority_level')} has {mn}-{mx}")
-    r.check("experience range fits the seniority band", not bad_band,
-            "\n".join(bad_band[:6]) + (f"\n... {len(bad_band)} total" if len(bad_band) > 6 else ""))
+    r.check(
+        "experience range fits the seniority band",
+        not bad_band,
+        "\n".join(bad_band[:6]) + (f"\n... {len(bad_band)} total" if len(bad_band) > 6 else ""),
+    )
 
     bad_remote = {
-        f"{j.get('job_id')} ({j.get('category')}={j.get('remote_type')})" for j in jobs
+        f"{j.get('job_id')} ({j.get('category')}={j.get('remote_type')})"
+        for j in jobs
         if j.get("remote_type") not in REMOTE_ALLOWED.get(j.get("category"), DEFAULT_REMOTE)
     }
-    r.check("remote_type is possible for the category (maintenance is on-site only)",
-            not bad_remote, _sample(bad_remote))
+    r.check(
+        "remote_type is possible for the category (maintenance is on-site only)",
+        not bad_remote,
+        _sample(bad_remote),
+    )
 
     pairs = Counter((j.get("title"), j.get("company_name")) for j in jobs)
     dupe_pairs = {p for p, n in pairs.items() if n > 1}
-    r.check("no duplicate (title, company_name) pairs", not dupe_pairs,
-            _sample([f"{t} @ {c}" for t, c in dupe_pairs]))
+    r.check(
+        "no duplicate (title, company_name) pairs",
+        not dupe_pairs,
+        _sample([f"{t} @ {c}" for t, c in dupe_pairs]),
+    )
 
     bad_edu = {j.get("education_level") for j in jobs if j.get("education_level") not in EDUCATION}
     r.check("education_level is one of the allowed values", not bad_edu, _sample(bad_edu))
@@ -222,12 +259,17 @@ def validate(jobs_path: Path, skills_path: Path) -> int:
         req = j.get("required_skills") or []
         if req and sum(1 for s in req if s.lower() in d.lower()) == len(req):
             echoes.append(str(j.get("job_id")))
-    r.check(f"description length within {DESC_MIN}-{DESC_MAX} chars", not bad_len,
-            "\n".join(bad_len[:6]) + (f"\n... {len(bad_len)} total" if len(bad_len) > 6 else ""))
+    r.check(
+        f"description length within {DESC_MIN}-{DESC_MAX} chars",
+        not bad_len,
+        "\n".join(bad_len[:6]) + (f"\n... {len(bad_len)} total" if len(bad_len) > 6 else ""),
+    )
     r.check("all four headings present in order", not bad_head, _sample(bad_head))
     if echoes:
-        r.warn("descriptions that name every required skill (possible template echo)",
-               _sample(echoes, 8) + "\n        Keyword scoring becomes circular when this happens.")
+        r.warn(
+            "descriptions that name every required skill (possible template echo)",
+            _sample(echoes, 8) + "\n        Keyword scoring becomes circular when this happens.",
+        )
 
     # ---------- dates ----------
     print("\n[6] Dates")
@@ -248,13 +290,17 @@ def validate(jobs_path: Path, skills_path: Path) -> int:
                 continue
             if not (window <= d <= gen_d):
                 bad_dates.append(f"{j.get('job_id')}: {d}")
-        r.check("posted_date within 90 days before generated_at", not bad_dates,
-                "\n".join(bad_dates[:6]))
+        r.check(
+            "posted_date within 90 days before generated_at",
+            not bad_dates,
+            "\n".join(bad_dates[:6]),
+        )
 
     # ---------- the real test: does the app load it ----------
     print("\n[7] Pydantic model acceptance")
     try:
         from src.storage.models import JobPosting
+
         errs = []
         for j in jobs:
             try:
@@ -272,10 +318,12 @@ def validate(jobs_path: Path, skills_path: Path) -> int:
             r.warn("no record constructs, so the category probe was skipped")
         else:
             probe = JobPosting(**probe_src)
-            r.check("category survives model construction",
-                    getattr(probe, "category", None) == probe_src.get("category"),
-                    "The model is dropping 'category'. Pydantic v2 ignores unknown fields by "
-                    "default, so an undeclared field vanishes silently.")
+            r.check(
+                "category survives model construction",
+                getattr(probe, "category", None) == probe_src.get("category"),
+                "The model is dropping 'category'. Pydantic v2 ignores unknown fields by "
+                "default, so an undeclared field vanishes silently.",
+            )
     except ImportError as exc:
         r.warn("could not import JobPosting", str(exc))
 
@@ -294,11 +342,11 @@ def validate(jobs_path: Path, skills_path: Path) -> int:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(description=__doc__,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     p.add_argument("--jobs", type=Path, default=PROJECT_ROOT / "data/json/jobs.json")
-    p.add_argument("--skills", type=Path,
-                   default=PROJECT_ROOT / "data/dictionaries/skills.json")
+    p.add_argument("--skills", type=Path, default=PROJECT_ROOT / "data/dictionaries/skills.json")
     a = p.parse_args()
     return validate(a.jobs, a.skills)
 

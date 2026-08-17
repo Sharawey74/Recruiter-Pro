@@ -12,6 +12,7 @@ runs offline in CI. The contract each one checks is the same: a provider that
 cannot answer returns None for that item and lets ExplainerAgent fall back --
 it never raises, and it never returns a half-formed explanation.
 """
+
 import json
 
 import pytest
@@ -79,8 +80,10 @@ class TestPromptBuilding:
     @pytest.mark.unit
     def test_handles_a_context_with_no_skills_either_way(self):
         import dataclasses
-        empty = dataclasses.replace(CONTEXT, matched_skills=[], missing_skills=[],
-                                    overqualified=False, underqualified=False)
+
+        empty = dataclasses.replace(
+            CONTEXT, matched_skills=[], missing_skills=[], overqualified=False, underqualified=False
+        )
         text = prompt.build(empty)
         assert "None" in text  # rather than an empty list or a crash
 
@@ -96,8 +99,9 @@ class TestOllamaAvailability:
 
     @pytest.mark.unit
     def test_unavailable_on_a_non_200(self, llm_config, monkeypatch):
-        monkeypatch.setattr("src.agents.explaining.ollama.requests.get",
-                            lambda *a, **k: FakeResponse(503))
+        monkeypatch.setattr(
+            "src.agents.explaining.ollama.requests.get", lambda *a, **k: FakeResponse(503)
+        )
         assert OllamaProvider(llm_config).is_available() is False
 
     @pytest.mark.unit
@@ -124,10 +128,13 @@ class TestOllamaAvailability:
     @pytest.mark.unit
     def test_unavailable_when_the_llm_is_disabled_by_config(self, llm_config, monkeypatch):
         import dataclasses
+
         disabled = dataclasses.replace(llm_config, enabled=False)
         # No request should even be attempted.
-        monkeypatch.setattr("src.agents.explaining.ollama.requests.get",
-                            lambda *a, **k: pytest.fail("pinged a disabled provider"))
+        monkeypatch.setattr(
+            "src.agents.explaining.ollama.requests.get",
+            lambda *a, **k: pytest.fail("pinged a disabled provider"),
+        )
         assert OllamaProvider(disabled).is_available() is False
 
 
@@ -138,6 +145,7 @@ class TestOllamaGeneration:
             if isinstance(response, Exception):
                 raise response
             return response
+
         monkeypatch.setattr("src.agents.explaining.ollama.requests.post", post)
 
     @pytest.mark.unit
@@ -180,9 +188,7 @@ class TestOllamaGeneration:
         assert len(OllamaProvider(llm_config).explain([CONTEXT] * 3)) == 3
 
     @pytest.mark.unit
-    def test_the_payload_carries_the_configured_model_and_options(
-        self, llm_config, monkeypatch
-    ):
+    def test_the_payload_carries_the_configured_model_and_options(self, llm_config, monkeypatch):
         seen = {}
 
         def post(url, json=None, timeout=None, **k):
@@ -209,10 +215,9 @@ class FakeCompletions:
         if isinstance(self.behaviour, Exception):
             raise self.behaviour
         import types
+
         return types.SimpleNamespace(
-            choices=[types.SimpleNamespace(
-                message=types.SimpleNamespace(content=self.behaviour)
-            )]
+            choices=[types.SimpleNamespace(message=types.SimpleNamespace(content=self.behaviour))]
         )
 
 
@@ -221,6 +226,7 @@ class FakeClient:
         completions = FakeCompletions(behaviour)
         self.completions = completions
         import types
+
         self.chat = types.SimpleNamespace(completions=completions)
 
 
@@ -247,11 +253,14 @@ class TestOpenRouterCalls:
         assert roles == ["system", "user"]
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("error", [
-        RuntimeError("429 rate limit exceeded"),
-        TimeoutError("request timed out"),
-        ConnectionError("name resolution failed"),
-    ])
+    @pytest.mark.parametrize(
+        "error",
+        [
+            RuntimeError("429 rate limit exceeded"),
+            TimeoutError("request timed out"),
+            ConnectionError("name resolution failed"),
+        ],
+    )
     def test_any_call_failure_yields_none(self, llm_config, error):
         provider, _ = _openrouter(llm_config, error)
         assert provider.explain([CONTEXT]) == [None]

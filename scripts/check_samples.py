@@ -2,7 +2,7 @@ import json
 import random
 
 # Load cleaned jobs
-with open('data/json/jobs_cleaned.json', 'r', encoding='utf-8') as f:
+with open("data/json/jobs_cleaned.json", "r", encoding="utf-8") as f:
     jobs = json.load(f)
 
 # Sample 15 jobs
@@ -16,7 +16,9 @@ for i, job in enumerate(samples, 1):
     print(f"\n{i}. {job['title']}")
     print(f"   Company: {job['company_name']}")
     print(f"   Location: {job['location_city']}, {job['location_country']} ({job['remote_type']})")
-    print(f"   Seniority: {job['seniority_level']} | Experience: {job['min_experience_years']}-{job['max_experience_years']} years")
+    print(
+        f"   Seniority: {job['seniority_level']} | Experience: {job['min_experience_years']}-{job['max_experience_years']} years"
+    )
     print(f"   Required Skills: {', '.join(job['required_skills'][:8])}")
     print(f"   Type: {job['employment_type']}")
 

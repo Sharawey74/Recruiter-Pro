@@ -14,6 +14,7 @@ The provider is chosen once, at construction, and never reassigned. That is what
 makes the A7 race structurally impossible rather than merely fixed: there is no
 mutable state on the agent for a concurrent request to disturb.
 """
+
 from __future__ import annotations
 
 import logging
@@ -97,11 +98,7 @@ class ExplainerAgent:
         """Read-only. Kept because existing callers ask; no longer assignable."""
         return self.provider.name != SOURCE_RULE_BASED and self.provider.is_available()
 
-    def explain(
-        self,
-        batch: List[ExplanationContext],
-        use_llm: bool = True
-    ) -> List[Explanation]:
+    def explain(self, batch: List[ExplanationContext], use_llm: bool = True) -> List[Explanation]:
         """
         Explain a batch, falling back per item.
 

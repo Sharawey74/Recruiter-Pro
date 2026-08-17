@@ -12,6 +12,7 @@ This module is the only place the vocabulary file is read and flattened, so
 "one vocabulary" is enforced by there being one loader rather than by
 convention.
 """
+
 from __future__ import annotations
 
 import json

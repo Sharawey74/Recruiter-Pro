@@ -10,6 +10,7 @@ tests pin what it does rather than what a reader might hope it does -- a
 section header has to be a line on its own, and anything before the first
 header belongs to the contact block.
 """
+
 import json
 
 import pytest
@@ -64,8 +65,11 @@ class TestSegmentation:
         """Consumers index these keys; a missing one is a KeyError elsewhere."""
         sections = parser._segment_text("just some text")
         assert set(sections) == {
-            "contact_block", "experience_block", "education_block",
-            "skills_block", "summary_block",
+            "contact_block",
+            "experience_block",
+            "education_block",
+            "skills_block",
+            "summary_block",
         }
 
     @pytest.mark.unit
@@ -87,18 +91,21 @@ class TestSegmentation:
         assert "Python" in sections["skills_block"]
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("header,block", [
-        ("Work Experience", "experience_block"),
-        ("Employment History", "experience_block"),
-        ("Professional Background", "experience_block"),
-        ("Academic Background", "education_block"),
-        ("Qualifications", "education_block"),
-        ("Technical Skills", "skills_block"),
-        ("Competencies", "skills_block"),
-        ("Expertise", "skills_block"),
-        ("Objective", "summary_block"),
-        ("About Me", "summary_block"),
-    ])
+    @pytest.mark.parametrize(
+        "header,block",
+        [
+            ("Work Experience", "experience_block"),
+            ("Employment History", "experience_block"),
+            ("Professional Background", "experience_block"),
+            ("Academic Background", "education_block"),
+            ("Qualifications", "education_block"),
+            ("Technical Skills", "skills_block"),
+            ("Competencies", "skills_block"),
+            ("Expertise", "skills_block"),
+            ("Objective", "summary_block"),
+            ("About Me", "summary_block"),
+        ],
+    )
     def test_header_synonyms(self, parser, header, block):
         sections = parser._segment_text(f"{header}\nMARKER")
         assert "MARKER" in sections[block]

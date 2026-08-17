@@ -11,6 +11,7 @@ made it expensive.
 `tests/conftest.py` redirects the path at import time. If that redirection is
 removed or stops working, this fails before anything writes.
 """
+
 from pathlib import Path
 
 import pytest

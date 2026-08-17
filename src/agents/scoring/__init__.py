@@ -22,6 +22,7 @@ rather than scoring. And four of the five would have wrapped functions that read
 no state, giving them empty constructors -- ceremony that satisfies "inject your
 dependencies" only because there are none to inject.
 """
+
 from .components import (
     extract_keywords,
     is_overqualified,

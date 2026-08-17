@@ -12,6 +12,7 @@ model's internals, so it breaks whenever the model type changes -- a
 coefficient-based classifier and a tree-based one expose importance
 differently.
 """
+
 import json
 
 import numpy as np
@@ -116,11 +117,19 @@ class TestTheShippedModel:
     @pytest.mark.ml
     def test_a_dataframe_input_is_accepted(self, loaded):
         """Both dict and DataFrame are documented inputs."""
-        row = pd.DataFrame([{
-            "Skills": "Python, Docker", "Experience": 5, "Education": "Bachelor",
-            "Certifications": "AWS", "Job Role": "Engineer",
-            "Projects Count": 3, "Salary": 90000,
-        }])
+        row = pd.DataFrame(
+            [
+                {
+                    "Skills": "Python, Docker",
+                    "Experience": 5,
+                    "Education": "Bachelor",
+                    "Certifications": "AWS",
+                    "Job Role": "Engineer",
+                    "Projects Count": 3,
+                    "Salary": 90000,
+                }
+            ]
+        )
         assert 0 <= loaded.predict(row)["ml_score"] <= 100
 
     @pytest.mark.unit
@@ -137,20 +146,38 @@ class TestTheShippedModel:
     @pytest.mark.unit
     @pytest.mark.ml
     def test_the_result_carries_every_documented_field(self, loaded):
-        result = loaded.predict({
-            "Skills": "Python", "Experience": 5, "Education": "Bachelor",
-            "Certifications": "None", "Job Role": "Engineer",
-            "Projects Count": 1, "Salary": 80000,
-        })
-        for field in ("decision", "ml_score", "probability", "confidence",
-                      "risk_level", "threshold_used", "model_name"):
+        result = loaded.predict(
+            {
+                "Skills": "Python",
+                "Experience": 5,
+                "Education": "Bachelor",
+                "Certifications": "None",
+                "Job Role": "Engineer",
+                "Projects Count": 1,
+                "Salary": 80000,
+            }
+        )
+        for field in (
+            "decision",
+            "ml_score",
+            "probability",
+            "confidence",
+            "risk_level",
+            "threshold_used",
+            "model_name",
+        ):
             assert field in result
 
     @pytest.mark.unit
     @pytest.mark.ml
-    @pytest.mark.parametrize("proba,expected", [
-        (0.95, "Low Risk"), (0.70, "Medium Risk"), (0.20, "High Risk"),
-    ])
+    @pytest.mark.parametrize(
+        "proba,expected",
+        [
+            (0.95, "Low Risk"),
+            (0.70, "Medium Risk"),
+            (0.20, "High Risk"),
+        ],
+    )
     def test_risk_bands(self, proba, expected):
         assert ATSPredictor._build_result(proba, 0.5, "m")["risk_level"] == expected
 

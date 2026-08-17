@@ -15,6 +15,7 @@ Every `pytest` run therefore inserted its sample candidate into the real
 history, and the History page filled up with test data that no one had
 analysed. 78 of the 81 rows in that file were test output.
 """
+
 import os
 import shutil
 import tempfile

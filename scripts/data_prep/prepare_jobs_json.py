@@ -1,9 +1,11 @@
 """
 Script to prepare training data from CSV and create JSON files for jobs and sample resumes.
 """
+
 import pandas as pd
 import json
 from pathlib import Path
+
 
 def prepare_jobs_json():
     """
@@ -11,65 +13,66 @@ def prepare_jobs_json():
     """
     # Load the training dataset
     data_path = Path("data/raw/final_training_dataset_v2.csv")
-    
+
     if not data_path.exists():
         print(f"Error: Dataset not found at {data_path}")
         return []
-    
+
     print(f"Loading dataset from {data_path}...")
     df = pd.read_csv(data_path)
-    
+
     print(f"Dataset shape: {df.shape}")
     print(f"Columns: {df.columns.tolist()}")
-    
+
     # The CSV has these columns:
-    # profile_id, profile_text, target_job_id, job_title, job_skills, 
+    # profile_id, profile_text, target_job_id, job_title, job_skills,
     # job_experience, match_score, match_label, role_category, data_source
-    
+
     # Get unique jobs by target_job_id
-    job_columns = ['target_job_id', 'job_title', 'job_skills', 'job_experience', 'role_category']
-    
+    job_columns = ["target_job_id", "job_title", "job_skills", "job_experience", "role_category"]
+
     # Check which columns exist
     existing_cols = [col for col in job_columns if col in df.columns]
     print(f"Using columns: {existing_cols}")
-    
+
     # Get unique jobs
-    jobs_df = df[existing_cols].drop_duplicates(subset=['target_job_id'])
-    
+    jobs_df = df[existing_cols].drop_duplicates(subset=["target_job_id"])
+
     # Fill NaN values with empty strings BEFORE renaming
-    jobs_df = jobs_df.fillna('')
-    
+    jobs_df = jobs_df.fillna("")
+
     # Filter out jobs with empty job titles
-    jobs_df = jobs_df[jobs_df['job_title'].str.strip() != '']
-    
+    jobs_df = jobs_df[jobs_df["job_title"].str.strip() != ""]
+
     # Rename columns to match expected format
-    jobs_df = jobs_df.rename(columns={
-        'target_job_id': 'Job Id',
-        'job_title': 'Job Title',
-        'job_skills': 'skills',
-        'job_experience': 'Experience',
-        'role_category': 'Role Category'
-    })
-    
+    jobs_df = jobs_df.rename(
+        columns={
+            "target_job_id": "Job Id",
+            "job_title": "Job Title",
+            "job_skills": "skills",
+            "job_experience": "Experience",
+            "role_category": "Role Category",
+        }
+    )
+
     # Add missing columns with defaults
-    jobs_df['Location'] = 'Remote'
-    jobs_df['Qualifications'] = jobs_df['Job Title'] + ' position requiring ' + jobs_df['skills']
-    
+    jobs_df["Location"] = "Remote"
+    jobs_df["Qualifications"] = jobs_df["Job Title"] + " position requiring " + jobs_df["skills"]
+
     # Convert to list of dictionaries
-    jobs = jobs_df.to_dict('records')
-    
+    jobs = jobs_df.to_dict("records")
+
     # Save to JSON
     output_path = Path("data/json/jobs.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
+
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(jobs, f, indent=2, ensure_ascii=False)
-    
+
     print(f"✓ Created {output_path} with {len(jobs)} jobs")
     print("  (Filtered out jobs with missing titles)")
-    
-    return jobs
 
+    return jobs
 
 
 def create_sample_resumes():
@@ -124,7 +127,7 @@ CERTIFICATIONS
             """,
             "expected_skills": ["python", "java", "javascript", "aws", "docker", "kubernetes"],
             "expected_experience": 8,
-            "expected_seniority": "senior"
+            "expected_seniority": "senior",
         },
         {
             "resume_id": "resume_002",
@@ -166,7 +169,7 @@ PROJECTS
             """,
             "expected_skills": ["python", "machine learning", "tensorflow", "aws", "sql"],
             "expected_experience": 5,
-            "expected_seniority": "mid-level"
+            "expected_seniority": "mid-level",
         },
         {
             "resume_id": "resume_003",
@@ -213,7 +216,7 @@ CERTIFICATIONS
             """,
             "expected_skills": ["python", "javascript", "react", "node.js", "mongodb"],
             "expected_experience": 0,
-            "expected_seniority": "entry-level"
+            "expected_seniority": "entry-level",
         },
         {
             "resume_id": "resume_004",
@@ -260,7 +263,7 @@ CERTIFICATIONS
             """,
             "expected_skills": ["aws", "kubernetes", "docker", "terraform", "python"],
             "expected_experience": 6,
-            "expected_seniority": "senior"
+            "expected_seniority": "senior",
         },
         {
             "resume_id": "resume_005",
@@ -302,19 +305,19 @@ SIDE PROJECTS
             """,
             "expected_skills": ["javascript", "react", "node.js", "python", "aws"],
             "expected_experience": 4,
-            "expected_seniority": "mid-level"
-        }
+            "expected_seniority": "mid-level",
+        },
     ]
-    
+
     # Save to JSON
     output_path = Path("data/json/resumes_sample.json")
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(output_path, 'w', encoding='utf-8') as f:
+
+    with open(output_path, "w", encoding="utf-8") as f:
         json.dump(sample_resumes, f, indent=2, ensure_ascii=False)
-    
+
     print(f"✓ Created {output_path} with {len(sample_resumes)} sample resumes")
-    
+
     return sample_resumes
 
 
@@ -323,15 +326,15 @@ def main():
     print("=" * 60)
     print("Preparing Training Data")
     print("=" * 60)
-    
+
     # Create jobs.json
     print("\n1. Creating jobs.json...")
     jobs = prepare_jobs_json()
-    
+
     # Create sample resumes
     print("\n2. Creating sample resumes...")
     resumes = create_sample_resumes()
-    
+
     print("\n" + "=" * 60)
     print("Data Preparation Complete!")
     print("=" * 60)

@@ -12,6 +12,7 @@ Three things are worth testing here and the rest is prose generation:
    in a mutable attribute on a shared object. These assert it is not possible
    to get back into that position.
 """
+
 import types
 
 import pytest
@@ -69,16 +70,28 @@ class Fake:
 
 class TestProtocolConformance:
     @pytest.mark.unit
-    @pytest.mark.parametrize("cls", [
-        RuleBasedProvider, OllamaProvider, OpenRouterProvider, LangChainProvider,
-    ])
+    @pytest.mark.parametrize(
+        "cls",
+        [
+            RuleBasedProvider,
+            OllamaProvider,
+            OpenRouterProvider,
+            LangChainProvider,
+        ],
+    )
     def test_every_provider_satisfies_the_protocol(self, cls):
         assert isinstance(cls.__new__(cls), LLMProvider)
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("cls", [
-        RuleBasedProvider, OllamaProvider, OpenRouterProvider, LangChainProvider,
-    ])
+    @pytest.mark.parametrize(
+        "cls",
+        [
+            RuleBasedProvider,
+            OllamaProvider,
+            OpenRouterProvider,
+            LangChainProvider,
+        ],
+    )
     def test_every_provider_names_itself(self, cls):
         assert isinstance(cls.name, str) and cls.name
 
@@ -102,6 +115,7 @@ class TestFallbackChain:
     @pytest.mark.unit
     def test_fallback_is_per_item_not_per_batch(self):
         """One bad response must not discard the good ones beside it."""
+
         class Partial(Fake):
             def explain(self, batch):
                 return [Explanation("y" * 100, self.name), None]
@@ -186,6 +200,7 @@ class TestRuleBasedProvider:
     @pytest.mark.parametrize("decision", ["shortlist", "review", "reject"])
     def test_every_decision_produces_a_recommendation(self, decision):
         import dataclasses
+
         ctx = dataclasses.replace(CONTEXT, decision=decision)
         assert len(RuleBasedProvider().explain([ctx])[0].text) > 50
 
@@ -234,6 +249,7 @@ class TestOpenRouterResponseHandling:
         monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
         from src.core.config import get_config
+
         provider = OpenRouterProvider(get_config().llm, api_key=None)
         assert provider.is_available() is False
 
@@ -243,24 +259,29 @@ class TestOpenRouterResponseHandling:
         monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-v1-from-the-environment")
 
         from src.core.config import get_config
+
         provider = OpenRouterProvider(get_config().llm, api_key="sk-or-v1-injected")
         assert provider._api_key == "sk-or-v1-injected"
 
     @pytest.mark.unit
     def test_key_is_never_exposed_on_the_instance_repr(self):
         from src.core.config import get_config
+
         provider = OpenRouterProvider(get_config().llm, api_key="sk-secret-value")
         assert "sk-secret-value" not in repr(provider)
 
 
 class TestProviderSelection:
     @pytest.mark.unit
-    @pytest.mark.parametrize("name,expected", [
-        ("ollama", "ollama"),
-        ("openrouter", "openrouter"),
-        ("langchain", "langchain"),
-        ("rule_based", "rule_based"),
-    ])
+    @pytest.mark.parametrize(
+        "name,expected",
+        [
+            ("ollama", "ollama"),
+            ("openrouter", "openrouter"),
+            ("langchain", "langchain"),
+            ("rule_based", "rule_based"),
+        ],
+    )
     def test_config_selects_the_provider(self, name, expected):
         assert build_provider(name=name).name == expected
 

@@ -10,6 +10,7 @@ model would add latency and a hallucination surface for no gain.
 Ported from agent4_llm_explainer.generate_structured_insights, behaviour
 unchanged.
 """
+
 from __future__ import annotations
 
 from typing import Dict, List
@@ -37,8 +38,7 @@ def build(c: ExplanationContext) -> Dict[str, List[str]]:
 
     if c.missing_skills:
         weaknesses.append(
-            f"Lacks {len(c.missing_skills)} required skills: "
-            f"{', '.join(c.missing_skills[:4])}"
+            f"Lacks {len(c.missing_skills)} required skills: " f"{', '.join(c.missing_skills[:4])}"
         )
     if c.experience_score < 0.5:
         weaknesses.append("Experience level below job requirements")
@@ -49,23 +49,29 @@ def build(c: ExplanationContext) -> Dict[str, List[str]]:
 
     decision = (c.decision or "").lower()
     if decision == "shortlist":
-        recommendations.extend([
-            "Schedule technical interview to validate key skills",
-            "Assess cultural fit and team dynamics",
-            "Verify depth of experience in matched skills",
-        ])
+        recommendations.extend(
+            [
+                "Schedule technical interview to validate key skills",
+                "Assess cultural fit and team dynamics",
+                "Verify depth of experience in matched skills",
+            ]
+        )
     elif decision == "review":
-        recommendations.extend([
-            "Deep-dive review of work history and projects",
-            f"Assess learning potential for missing skills: "
-            f"{', '.join(c.missing_skills[:3])}",
-            "Consider alternative roles that better match skill set",
-        ])
+        recommendations.extend(
+            [
+                "Deep-dive review of work history and projects",
+                f"Assess learning potential for missing skills: "
+                f"{', '.join(c.missing_skills[:3])}",
+                "Consider alternative roles that better match skill set",
+            ]
+        )
     else:
-        recommendations.extend([
-            "Keep profile for future positions with different requirements",
-            "Consider for junior roles if experience is the main gap",
-        ])
+        recommendations.extend(
+            [
+                "Keep profile for future positions with different requirements",
+                "Consider for junior roles if experience is the main gap",
+            ]
+        )
 
     return {
         "strengths": strengths,

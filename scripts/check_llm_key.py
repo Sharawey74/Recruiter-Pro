@@ -17,6 +17,7 @@ The key is read from the environment, never printed, and never written
 anywhere. Output shows a masked prefix only -- enough to confirm which key is
 loaded, not enough to use it.
 """
+
 from __future__ import annotations
 
 import os
@@ -37,6 +38,7 @@ def main() -> int:
     # only variables exported into the current shell.
     try:
         from dotenv import load_dotenv
+
         load_dotenv()
     except ImportError:
         pass

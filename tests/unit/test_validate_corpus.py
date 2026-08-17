@@ -6,6 +6,7 @@ The validator is the thing standing between a generated corpus and the app, so
 must be shown to catch it — a validator that silently passes bad data is worse
 than no validator, because it converts an unknown into a false assurance.
 """
+
 import copy
 import importlib.util
 import json
@@ -61,26 +62,28 @@ def _jobs_payload() -> dict:
     jobs = []
     for i, c in enumerate(CATEGORIES):
         skills = [f"{c.title()} Skill {n}" for n in range(1, 10)]
-        jobs.append({
-            "job_id": f"{PREFIX[c]}-{i + 1:04d}",
-            "category": c,
-            "title": f"{c.title()} Specialist",
-            "company_name": f"Company {i}",
-            "location_city": "Cairo",
-            "location_country": "Egypt",
-            "remote_type": "on-site",
-            "employment_type": "full-time",
-            "seniority_level": "mid",
-            "min_experience_years": 3,
-            "max_experience_years": 6,
-            "description": _description(),
-            "required_skills": skills[:6],
-            "preferred_skills": skills[6:9],
-            "posted_date": str(GEN_DATE - timedelta(days=10)),
-            "education_level": "Bachelor's",
-            "salary_range": "45000-65000 USD",
-            "is_active": True,
-        })
+        jobs.append(
+            {
+                "job_id": f"{PREFIX[c]}-{i + 1:04d}",
+                "category": c,
+                "title": f"{c.title()} Specialist",
+                "company_name": f"Company {i}",
+                "location_city": "Cairo",
+                "location_country": "Egypt",
+                "remote_type": "on-site",
+                "employment_type": "full-time",
+                "seniority_level": "mid",
+                "min_experience_years": 3,
+                "max_experience_years": 6,
+                "description": _description(),
+                "required_skills": skills[:6],
+                "preferred_skills": skills[6:9],
+                "posted_date": str(GEN_DATE - timedelta(days=10)),
+                "education_level": "Bachelor's",
+                "salary_range": "45000-65000 USD",
+                "is_active": True,
+            }
+        )
     return {
         "schema_version": "2.0",
         "generated_at": str(GEN_DATE),
@@ -104,6 +107,7 @@ def _run(tmp_path: Path, jobs: dict, skills: dict | None = None) -> int:
 # meaningless — they would "catch" defects that were never the real cause.
 # --------------------------------------------------------------------------
 
+
 def test_clean_corpus_passes(tmp_path):
     assert _run(tmp_path, _jobs_payload()) == 0
 
@@ -112,82 +116,97 @@ def test_clean_corpus_passes(tmp_path):
 # One planted defect per rule. Each must be caught.
 # --------------------------------------------------------------------------
 
+
 def _mutate(fn):
     payload = _jobs_payload()
     fn(payload)
     return payload
 
 
-@pytest.mark.parametrize("label, mutate", [
-    ("record_count disagrees with actual length",
-     lambda p: p.update(record_count=999)),
-
-    ("category outside the eight",
-     lambda p: p["jobs"][0].update(category="devops")),
-
-    ("duplicate job_id",
-     lambda p: p["jobs"][1].update(job_id=p["jobs"][0]["job_id"])),
-
-    ("job_id prefix does not match category",
-     lambda p: p["jobs"][1].update(job_id="ZZZ-0002")),
-
-    ("deprecated key present",
-     lambda p: p["jobs"][0].update(company="Legacy Corp")),
-
-    ("skill absent from the vocabulary",
-     lambda p: p["jobs"][0].update(
-         required_skills=["Totally Invented Skill", "Engineering Skill 2",
-                          "Engineering Skill 3", "Engineering Skill 4",
-                          "Engineering Skill 5", "Engineering Skill 6"])),
-
-    ("required and preferred skills overlap",
-     lambda p: p["jobs"][0].update(
-         preferred_skills=p["jobs"][0]["required_skills"][:2])),
-
-    ("too few required skills",
-     lambda p: p["jobs"][0].update(required_skills=["Engineering Skill 1"])),
-
-    ("experience range outside the seniority band",
-     lambda p: p["jobs"][0].update(min_experience_years=25,
-                                   max_experience_years=30)),
-
-    ("maintenance job marked remote",
-     lambda p: next(j for j in p["jobs"] if j["category"] == "maintenance")
-     .update(remote_type="remote")),
-
-    ("maintenance job marked hybrid",
-     lambda p: next(j for j in p["jobs"] if j["category"] == "maintenance")
-     .update(remote_type="hybrid")),
-
-    ("duplicate (title, company_name) pair",
-     lambda p: p["jobs"][1].update(title=p["jobs"][0]["title"],
-                                   company_name=p["jobs"][0]["company_name"])),
-
-    ("education_level not in the allowed set",
-     lambda p: p["jobs"][0].update(education_level="Postgraduate Certificate")),
-
-    ("description too short",
-     lambda p: p["jobs"][0].update(description="About the role\nToo short.")),
-
-    ("description too long",
-     lambda p: p["jobs"][0].update(description=_description() + "x" * 900)),
-
-    ("description missing a required heading",
-     lambda p: p["jobs"][0].update(
-         description=_description().replace("Nice to have", "Bonus points"))),
-
-    ("posted_date outside the 90-day window",
-     lambda p: p["jobs"][0].update(posted_date=str(GEN_DATE - timedelta(days=400)))),
-
-    ("posted_date in the future",
-     lambda p: p["jobs"][0].update(posted_date=str(GEN_DATE + timedelta(days=5)))),
-
-    ("posted_date malformed",
-     lambda p: p["jobs"][0].update(posted_date="09-08-2026")),
-
-    ("record fails JobPosting construction",
-     lambda p: p["jobs"][0].update(remote_type="anywhere")),
-])
+@pytest.mark.parametrize(
+    "label, mutate",
+    [
+        ("record_count disagrees with actual length", lambda p: p.update(record_count=999)),
+        ("category outside the eight", lambda p: p["jobs"][0].update(category="devops")),
+        ("duplicate job_id", lambda p: p["jobs"][1].update(job_id=p["jobs"][0]["job_id"])),
+        ("job_id prefix does not match category", lambda p: p["jobs"][1].update(job_id="ZZZ-0002")),
+        ("deprecated key present", lambda p: p["jobs"][0].update(company="Legacy Corp")),
+        (
+            "skill absent from the vocabulary",
+            lambda p: p["jobs"][0].update(
+                required_skills=[
+                    "Totally Invented Skill",
+                    "Engineering Skill 2",
+                    "Engineering Skill 3",
+                    "Engineering Skill 4",
+                    "Engineering Skill 5",
+                    "Engineering Skill 6",
+                ]
+            ),
+        ),
+        (
+            "required and preferred skills overlap",
+            lambda p: p["jobs"][0].update(preferred_skills=p["jobs"][0]["required_skills"][:2]),
+        ),
+        (
+            "too few required skills",
+            lambda p: p["jobs"][0].update(required_skills=["Engineering Skill 1"]),
+        ),
+        (
+            "experience range outside the seniority band",
+            lambda p: p["jobs"][0].update(min_experience_years=25, max_experience_years=30),
+        ),
+        (
+            "maintenance job marked remote",
+            lambda p: next(j for j in p["jobs"] if j["category"] == "maintenance").update(
+                remote_type="remote"
+            ),
+        ),
+        (
+            "maintenance job marked hybrid",
+            lambda p: next(j for j in p["jobs"] if j["category"] == "maintenance").update(
+                remote_type="hybrid"
+            ),
+        ),
+        (
+            "duplicate (title, company_name) pair",
+            lambda p: p["jobs"][1].update(
+                title=p["jobs"][0]["title"], company_name=p["jobs"][0]["company_name"]
+            ),
+        ),
+        (
+            "education_level not in the allowed set",
+            lambda p: p["jobs"][0].update(education_level="Postgraduate Certificate"),
+        ),
+        (
+            "description too short",
+            lambda p: p["jobs"][0].update(description="About the role\nToo short."),
+        ),
+        (
+            "description too long",
+            lambda p: p["jobs"][0].update(description=_description() + "x" * 900),
+        ),
+        (
+            "description missing a required heading",
+            lambda p: p["jobs"][0].update(
+                description=_description().replace("Nice to have", "Bonus points")
+            ),
+        ),
+        (
+            "posted_date outside the 90-day window",
+            lambda p: p["jobs"][0].update(posted_date=str(GEN_DATE - timedelta(days=400))),
+        ),
+        (
+            "posted_date in the future",
+            lambda p: p["jobs"][0].update(posted_date=str(GEN_DATE + timedelta(days=5))),
+        ),
+        ("posted_date malformed", lambda p: p["jobs"][0].update(posted_date="09-08-2026")),
+        (
+            "record fails JobPosting construction",
+            lambda p: p["jobs"][0].update(remote_type="anywhere"),
+        ),
+    ],
+)
 def test_planted_defect_is_caught(tmp_path, label, mutate):
     assert _run(tmp_path, _mutate(mutate)) == 1, f"validator did NOT catch: {label}"
 
@@ -195,6 +214,7 @@ def test_planted_defect_is_caught(tmp_path, label, mutate):
 # --------------------------------------------------------------------------
 # Structural failures
 # --------------------------------------------------------------------------
+
 
 def test_bare_array_is_rejected(tmp_path):
     """The old corpus was a bare array; the new one must be an envelope."""

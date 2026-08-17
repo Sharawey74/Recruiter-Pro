@@ -10,6 +10,7 @@ machinery is wired the way the code claims.
 Real training runs here, on a tiny synthetic frame with a fixed seed. It is
 slow enough to notice and fast enough to keep.
 """
+
 import numpy as np
 import pytest
 from sklearn.model_selection import ParameterGrid
@@ -44,11 +45,14 @@ def trainer(tmp_path):
 class TestPipelineConstruction:
     @pytest.mark.unit
     @pytest.mark.ml
-    @pytest.mark.parametrize("factory", [
-        "create_logistic_regression_pipeline",
-        "create_random_forest_pipeline",
-        "create_xgboost_pipeline",
-    ])
+    @pytest.mark.parametrize(
+        "factory",
+        [
+            "create_logistic_regression_pipeline",
+            "create_random_forest_pipeline",
+            "create_xgboost_pipeline",
+        ],
+    )
     def test_every_pipeline_puts_smote_before_the_classifier(self, trainer, factory):
         """
         Order matters and is easy to get wrong: oversampling before the split
@@ -62,11 +66,14 @@ class TestPipelineConstruction:
 
     @pytest.mark.unit
     @pytest.mark.ml
-    @pytest.mark.parametrize("factory", [
-        "create_logistic_regression_pipeline",
-        "create_random_forest_pipeline",
-        "create_xgboost_pipeline",
-    ])
+    @pytest.mark.parametrize(
+        "factory",
+        [
+            "create_logistic_regression_pipeline",
+            "create_random_forest_pipeline",
+            "create_xgboost_pipeline",
+        ],
+    )
     def test_every_pipeline_returns_a_searchable_grid(self, trainer, factory):
         _, grid = getattr(trainer, factory)()
         assert grid, "an empty grid makes the hyperparameter search a no-op"
@@ -98,18 +105,15 @@ class TestPipelineConstruction:
         candidates = list(ParameterGrid(grid))
 
         misapplied = [
-            c for c in candidates
-            if "classifier__l1_ratio" in c
-            and c["classifier__penalty"] != "elasticnet"
+            c
+            for c in candidates
+            if "classifier__l1_ratio" in c and c["classifier__penalty"] != "elasticnet"
         ]
         assert not misapplied, (
-            f"{len(misapplied)} candidates vary l1_ratio under a penalty that "
-            f"ignores it"
+            f"{len(misapplied)} candidates vary l1_ratio under a penalty that " f"ignores it"
         )
 
-        elasticnet = [
-            c for c in candidates if c["classifier__penalty"] == "elasticnet"
-        ]
+        elasticnet = [c for c in candidates if c["classifier__penalty"] == "elasticnet"]
         assert elasticnet, "elasticnet dropped out of the search entirely"
         assert all("classifier__l1_ratio" in c for c in elasticnet), (
             "elasticnet without an l1_ratio falls back to sklearn's default "
@@ -263,10 +267,12 @@ class TestResultsSummary:
         trainer.models = {
             "LogReg": {
                 "val_metrics": {"recall": 0.9, "f1": 0.85, "roc_auc": 0.88},
-                "cv_score": 0.86, "composite_score": 0.87,
+                "cv_score": 0.86,
+                "composite_score": 0.87,
                 "meets_criteria": np.bool_(False),
                 "optimal_threshold": np.float64(0.5),
-                "best_params": {}, "model": object(),
+                "best_params": {},
+                "model": object(),
             }
         }
         trainer.best_model_name = "LogReg"

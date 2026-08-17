@@ -6,6 +6,7 @@ computed from. It had no unit tests: a wrong skill list or a missed experience
 figure still produces a plausible number at the end of the pipeline, so
 integration tests do not catch it.
 """
+
 import pytest
 
 from src.agents.agent2_extractor import CandidateExtractor
@@ -37,11 +38,14 @@ class TestContactExtraction:
         assert extractor.extract(CV)["email"] == "jane.doe@example.com"
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("text,expected", [
-        ("Contact: a.b@example.co.uk", "a.b@example.co.uk"),
-        ("EMAIL: UPPER@EXAMPLE.COM", "UPPER@EXAMPLE.COM"),
-        ("no address here", ""),
-    ])
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("Contact: a.b@example.co.uk", "a.b@example.co.uk"),
+            ("EMAIL: UPPER@EXAMPLE.COM", "UPPER@EXAMPLE.COM"),
+            ("no address here", ""),
+        ],
+    )
     def test_email_variants(self, extractor, text, expected):
         assert extractor._extract_email(text) == expected
 
@@ -145,12 +149,15 @@ class TestSharedVocabulary:
         assert e._extract_skills("I know python and widgetry") == ["Python", "Widgetry"]
 
     @pytest.mark.unit
-    @pytest.mark.parametrize("text,expected", [
-        ("experienced in .NET development", ".NET"),
-        ("wrote T-SQL queries", "T-SQL"),
-        ("node.js backend", "Node.js"),
-        ("c++ and c#", "C++"),
-    ])
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("experienced in .NET development", ".NET"),
+            ("wrote T-SQL queries", "T-SQL"),
+            ("node.js backend", "Node.js"),
+            ("c++ and c#", "C++"),
+        ],
+    )
     def test_punctuated_skills_survive_tokenisation(self, extractor, text, expected):
         assert expected in extractor._extract_skills(text)
 

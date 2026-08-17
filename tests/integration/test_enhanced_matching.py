@@ -11,6 +11,7 @@ Rewritten as the test the name promised. It is the only coverage that starts
 from a file rather than a constructed CVProfile, so it is what would catch a
 break in the hand-off between the three agents.
 """
+
 import json
 from pathlib import Path
 
@@ -51,9 +52,7 @@ def parsed_cv():
 
 @pytest.fixture(scope="module")
 def jobs():
-    payload = json.loads(
-        (PROJECT_ROOT / "data/json/jobs.json").read_text(encoding="utf-8")
-    )
+    payload = json.loads((PROJECT_ROOT / "data/json/jobs.json").read_text(encoding="utf-8"))
     return [JobPosting(**j) for j in payload["jobs"][:120]]
 
 
@@ -123,7 +122,9 @@ class TestScoringAcrossTheCorpus:
         job perfectly.
         """
         agent = HybridScoringAgent()
-        scored = list(zip(jobs, agent.score_matches(parsed_cv, jobs, include_ml=False), strict=True))
+        scored = list(
+            zip(jobs, agent.score_matches(parsed_cv, jobs, include_ml=False), strict=True)
+        )
         scored.sort(key=lambda pair: -pair[1].hybrid_score)
 
         best_job, best = scored[0]

@@ -10,6 +10,7 @@ sum-to-1.0 validator guarded numbers that were never used.
 test_yaml_matches_dataclass_defaults is the guard: it fails the moment the two
 declarations drift apart again.
 """
+
 from pathlib import Path
 
 import pytest
@@ -98,9 +99,7 @@ class TestSingleSourceOfTruth:
         from src.agents.agent3_scorer import HybridScoringAgent
         from src.storage.models import CVProfile, JobPosting
 
-        payload = json.loads(
-            (PROJECT_ROOT / "data/json/jobs.json").read_text(encoding="utf-8")
-        )
+        payload = json.loads((PROJECT_ROOT / "data/json/jobs.json").read_text(encoding="utf-8"))
         job = JobPosting(**payload["jobs"][0])
         cv = CVProfile(
             cv_id="weights-probe",

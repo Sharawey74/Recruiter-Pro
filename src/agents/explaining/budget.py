@@ -20,6 +20,7 @@ slower way to get rate-limited again.
 
 Both are deliberately dumb: a counter and a semaphore. Neither is a scheduler.
 """
+
 from __future__ import annotations
 
 import logging
@@ -117,9 +118,7 @@ class Throttle:
         if not seconds or seconds <= 0:
             return
         with self._lock:
-            self._blocked_until = max(
-                self._blocked_until, time.monotonic() + min(seconds, 300.0)
-            )
+            self._blocked_until = max(self._blocked_until, time.monotonic() + min(seconds, 300.0))
 
 
 def retry_after_seconds(exc: Exception) -> Optional[float]:

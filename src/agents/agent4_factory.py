@@ -7,6 +7,7 @@ ended at Ollama -- and it does not extend to four options without becoming
 `use_langchain`, `use_openrouter`, `use_rules` and an ambiguous set of
 combinations. See ADR-2.
 """
+
 from typing import Optional
 import logging
 
@@ -30,6 +31,7 @@ def _build_budget(config) -> CallBudget:
 
     try:
         from ..storage.database import get_database
+
         db = get_database()
     except Exception as e:  # noqa: BLE001 - no budget is better than no service
         logger.warning(f"LLM budget unavailable ({e}); explanations are uncapped.")
