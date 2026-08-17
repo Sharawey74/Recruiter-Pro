@@ -157,13 +157,54 @@ class CandidateExtractor:
         for line in lines[:15]:
             if self._is_valid_name(line):
                 words = line.split()
-                # Verify not an address
-                if not any(word.lower() in self.ADDRESS_TOKENS for word in words):
+                if not self._looks_like_address(line):
                     # Must be 2-5 words for a typical name
                     if 2 <= len(words) <= 5:
                         return line
 
         return "Unknown Candidate"
+
+    def _looks_like_address(self, text: str) -> bool:
+        """
+        Whether a line is a location rather than a person.
+
+        This used to be `any(word in ADDRESS_TOKENS)`, and it was wrong in both
+        directions at once.
+
+        Too strict: ADDRESS_TOKENS carries city names so "Cairo, Egypt" is not
+        read as a candidate, and 'alex' is in there for Alexandria. So the line
+        "Alex Rivera" was rejected as an address -- one of the most common
+        given names there is, vetoed by a single word. The extractor then took
+        the next valid-looking line, which on a normal CV header is the
+        location, and a real walkthrough produced a shortlist entry for a
+        candidate named "Berlin, Germany".
+
+        Too loose: nothing rejected a digit, so "742 Evergreen Terrace" passed
+        as a person.
+
+        One shared word is a coincidence; the evidence has to be stronger:
+
+        - any digit at all -- house and flat numbers, postcodes
+        - two or more address tokens
+        - a "Place, Place" shape, which is how CVs write a location
+
+        The last rule also rejects "Smith, John". That inversion is rare in a
+        CV header and a location line is not, so the trade is deliberate.
+        """
+        if any(character.isdigit() for character in text):
+            return True
+
+        words = [word.strip(",.").lower() for word in text.split()]
+        if sum(1 for word in words if word in self.ADDRESS_TOKENS) >= 2:
+            return True
+
+        # "Berlin, Germany" / "San Francisco, United States"
+        head, separator, tail = text.partition(",")
+        if separator and head.strip() and tail.strip():
+            if all(part.replace(" ", "").isalpha() for part in (head, tail)):
+                return True
+
+        return False
 
     def _is_valid_name(self, text: str) -> bool:
         """Validate if text looks like a person's name"""

@@ -165,3 +165,66 @@ class TestSharedVocabulary:
     def test_multiword_skills_beat_their_parts(self, extractor):
         """'machine learning' must not be reduced to 'learning'."""
         assert "Machine Learning" in extractor._extract_skills("strong machine learning background")
+
+
+class TestNameExtraction:
+    """
+    The name is the only extracted field a human reads back verbatim.
+
+    Every other field is consumed by scoring, where a wrong value moves a
+    number. A wrong name is displayed on the shortlist, in the history and on
+    the exported CSV as if it were a person -- so it fails visibly and in front
+    of whoever is being shown the product.
+
+    This class exists because a walkthrough put a real CV through the app and
+    the shortlist rendered a candidate called "Berlin, Germany".
+    """
+
+    def test_extracts_a_plain_name_from_the_first_line(self, extractor):
+        assert extractor.extract("Jane Doe\njane@example.com\n")["name"] == "Jane Doe"
+
+    def test_an_explicit_header_wins(self, extractor):
+        text = "CURRICULUM VITAE\nName: Priya Raman\nBerlin, Germany\n"
+        assert extractor.extract(text)["name"] == "Priya Raman"
+
+    @pytest.mark.parametrize(
+        "first_line",
+        [
+            "Alex Rivera",       # 'alex' is in ADDRESS_TOKENS, for Alexandria
+            "Alexandra Chen",
+            "Cairo Mensah",      # 'cairo' likewise
+            "Victoria Park",     # 'park' is street furniture and a surname
+        ],
+    )
+    def test_a_name_colliding_with_a_place_token_is_still_a_name(
+        self, extractor, first_line
+    ):
+        """
+        A single word shared with the address blocklist must not veto a line.
+
+        ADDRESS_TOKENS carries city names so that "Cairo, Egypt" is not read as
+        a person. But 'alex' is Alexandria *and* one of the most common given
+        names there is, so the blocklist rejected "Alex Rivera" as an address
+        and then accepted the location line underneath it instead. The evidence
+        for "this is an address" has to be stronger than one word.
+        """
+        text = f"{first_line}\nsomeone@example.com\n+1 555 0142\nBerlin, Germany\n"
+        assert extractor.extract(text)["name"] == first_line
+
+    @pytest.mark.parametrize(
+        "location",
+        ["Berlin, Germany", "Cairo, Egypt", "San Francisco, United States"],
+    )
+    def test_a_city_country_line_is_never_the_name(self, extractor, location):
+        """A location must not be promoted to candidate when no name is found."""
+        text = f"{location}\nsomeone@example.com\n\nSUMMARY\nBackend engineer.\n"
+        assert extractor.extract(text)["name"] != location
+
+    @pytest.mark.parametrize(
+        "address",
+        ["12 Nasr Road, Apartment 4", "742 Evergreen Terrace", "Flat 9, Dokki Street"],
+    )
+    def test_a_street_address_is_still_rejected(self, extractor, address):
+        """The behaviour the blocklist was added for, kept."""
+        text = f"{address}\nsomeone@example.com\n"
+        assert extractor.extract(text)["name"] != address
