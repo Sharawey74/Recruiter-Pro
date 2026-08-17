@@ -158,6 +158,12 @@ deliberate cost of one dependency file instead of three; it affects build time
 and image size, not correctness. The runtime section of `requirements.txt` is
 marked, and splitting it back out is the fix if builds drag.
 
+Four `langchain*` pins used to be in that list too and are gone as of
+`332471f` — the provider that needed them wrapped `ChatOllama` to reach the
+same Ollama server the `ollama` provider reaches directly, and Ollama is not
+reachable from Railway in any case. That is the single largest thing already
+removed from this build.
+
 **There is no authentication.** `POST`, `PUT` and `DELETE /jobs` are open on a
 public URL. They are rate limited per IP, which bounds the damage but is not a
 substitute for auth — anyone who finds them can edit the corpus. This was a
