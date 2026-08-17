@@ -104,10 +104,24 @@ pytest-cov==7.0.0
 pytest-mock==3.15.1
 pytest-timeout>=2.2,<3.0
 httpx>=0.25,<1.0             # required by fastapi.testclient
-black>=24.0.0
-ruff>=0.4,<1.0               # replaces flake8 + isort; one config, much faster
-mypy>=1.8.0
-types-requests>=2.31          # requests ships no stubs; the Ollama provider uses it
+# Exact pins, not lower bounds. These four decide whether CI passes, so a
+# range makes "correctly formatted" a function of the install date rather than
+# of the code: a clean CI clone resolves to the newest release while a
+# developer keeps whatever they installed months ago, and the two disagree
+# with nobody having changed a line.
+#
+# That is not hypothetical. `black>=24.0.0` had CI resolve to 26.5.1 against a
+# local 25.11.0, and black's stable style changes yearly -- 7 files failed CI
+# that were clean locally. `mypy>=1.8.0` was the same trap one major version
+# deep: CI would have installed 2.3.1 against a baseline verified on 1.19.0.
+#
+# The test tools beside them were exact-pinned already; these were the
+# inconsistency. Upgrading any of them is now a deliberate commit that shows
+# the reformat or the new findings, which is the only way to read them.
+black==25.11.0
+ruff==0.16.2                 # replaces flake8 + isort; one config, much faster
+mypy==1.19.0
+types-requests==2.33.0.20260712  # requests ships no stubs; the Ollama provider uses it
 
 
 # Removed - pinned but never imported anywhere in src/ or scripts/:
