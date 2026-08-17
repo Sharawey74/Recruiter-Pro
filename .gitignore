@@ -10,6 +10,15 @@ JOBS_DATASET_SPEC.md
 PASS3_PROMPT.md
 CONTRIBUTING.md
 
+# Untracked 17 Aug 2026, after the deployment ran. It carries the host
+# comparison, the variable tables and the tunnel walkthrough -- operational
+# detail for whoever runs it, which is currently one person. The README link to
+# it was replaced with the two facts a reader actually needs (build-time
+# inlining of NEXT_PUBLIC_*, and why the API cannot be serverless) rather than
+# left pointing at a file that is no longer there. See 7.4.1: a public file
+# citing a private one is the defect, not the privacy.
+DEPLOYMENT.md
+
 # Architecture Decision Records are public — they are the record of why the
 # system is shaped the way it is, and must survive the blanket docs/ ignore.
 !docs/adr/

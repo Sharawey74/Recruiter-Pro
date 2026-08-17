@@ -439,8 +439,15 @@ Copy `.env.example` to `.env`. Every variable is optional and falls back to
 | `LLM_MAX_CONCURRENT_CALLS` | `2` | Free tiers answer excess concurrency with 429s |
 | `DATABASE_PATH` | `data/database/match_history.db` | |
 
-Deployment to Vercel and Railway — including the environment variables each
-side needs — is in [`DEPLOYMENT.md`](DEPLOYMENT.md).
+The frontend deploys to Vercel with `frontend` as the root directory and one
+variable, `NEXT_PUBLIC_API_URL`, pointing at the API. It is inlined at build
+time rather than read at runtime, so it must be set before the first build.
+
+The API is a long-running process holding the corpus and the model in memory —
+215 MB resident, 21.9 s cold start, both measured. That rules out serverless
+hosts, whose function timeouts are shorter than the cold start alone. It needs
+somewhere that stays running, with a volume for the SQLite file, since match
+history, the daily LLM quota and the job corpus all live there.
 
 ## Star this repo
 
