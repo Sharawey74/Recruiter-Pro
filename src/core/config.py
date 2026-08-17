@@ -172,6 +172,19 @@ class APIConfig:
     match_rate_limit: str = "5/minute"
     upload_rate_limit: str = "10/minute"
 
+    # Whether to believe X-Forwarded-For when identifying a client.
+    #
+    # Off by default, and that default is the safe one in both directions.
+    # Behind a proxy the socket address is the *proxy's*, so every visitor
+    # shares one rate-limit bucket and normal traffic starts collecting 429s.
+    # Without a proxy, trusting the header lets any client set it and evade the
+    # limit entirely by rotating a made-up address.
+    #
+    # So it is opt-in, and it must only be turned on where something in front
+    # actually sets the header -- Railway, Fly, a load balancer. Turning it on
+    # for a directly-exposed server makes the limiter decorative.
+    trust_proxy_headers: bool = False
+
 
 @dataclass
 class Config:
@@ -277,6 +290,8 @@ class Config:
             self.api.match_rate_limit = os.getenv("MATCH_RATE_LIMIT")
         if os.getenv("UPLOAD_RATE_LIMIT"):
             self.api.upload_rate_limit = os.getenv("UPLOAD_RATE_LIMIT")
+        if os.getenv("TRUST_PROXY_HEADERS"):
+            self.api.trust_proxy_headers = os.getenv("TRUST_PROXY_HEADERS").lower() == "true"
 
         # LLM budget
         if os.getenv("LLM_DAILY_QUOTA"):

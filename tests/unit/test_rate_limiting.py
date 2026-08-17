@@ -261,3 +261,58 @@ class TestEndpointRateLimit:
         with TestClient(app) as client:
             codes = {client.get("/health").status_code for _ in range(15)}
         assert codes == {200}
+
+
+class TestClientIdentification:
+    """
+    Who a rate limit is charged to, once there is a proxy in front.
+
+    This is the difference between a working limiter and a decorative one on a
+    hosted deployment, and it fails in both directions: trusting the socket
+    address behind a proxy puts every visitor in one bucket, and trusting
+    X-Forwarded-For without a proxy lets any client invent an address per
+    request.
+    """
+
+    @staticmethod
+    def _request(headers: dict, client_host: str = "10.0.0.1"):
+        from starlette.datastructures import Headers
+
+        class _Request:
+            def __init__(self):
+                self.headers = Headers(headers)
+                self.client = type("C", (), {"host": client_host})()
+
+        return _Request()
+
+    @pytest.mark.unit
+    def test_the_socket_address_is_used_when_proxies_are_not_trusted(self, monkeypatch):
+        from src.api import _api_config, client_address
+
+        monkeypatch.setattr(_api_config, "trust_proxy_headers", False)
+        request = self._request({"x-forwarded-for": "203.0.113.9"}, client_host="10.0.0.1")
+
+        # The header is present and deliberately ignored: with nothing in front
+        # setting it, believing it would let a client rotate a fake address and
+        # never hit the limit.
+        assert client_address(request) == "10.0.0.1"
+
+    @pytest.mark.unit
+    def test_the_original_client_is_used_when_proxies_are_trusted(self, monkeypatch):
+        from src.api import _api_config, client_address
+
+        monkeypatch.setattr(_api_config, "trust_proxy_headers", True)
+        request = self._request(
+            {"x-forwarded-for": "203.0.113.9, 70.41.3.18"}, client_host="10.0.0.1"
+        )
+
+        # Leftmost is the original client; the rest are proxies it passed
+        # through. Charging the proxy would bucket everyone together.
+        assert client_address(request) == "203.0.113.9"
+
+    @pytest.mark.unit
+    def test_a_trusted_proxy_with_no_header_falls_back_to_the_socket(self, monkeypatch):
+        from src.api import _api_config, client_address
+
+        monkeypatch.setattr(_api_config, "trust_proxy_headers", True)
+        assert client_address(self._request({}, client_host="10.0.0.1")) == "10.0.0.1"

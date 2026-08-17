@@ -149,8 +149,28 @@ try:
     from slowapi.errors import RateLimitExceeded
     from slowapi.util import get_remote_address
 
+    def client_address(request: Request) -> str:
+        """
+        Who to charge this request to.
+
+        `get_remote_address` reads the socket address, which behind a proxy is
+        the *proxy's* -- so on a hosted deployment every visitor lands in one
+        bucket and ordinary traffic starts collecting 429s while an attacker is
+        no more limited than before.
+
+        X-Forwarded-For is a client-supplied header, so it is only believed
+        when `trust_proxy_headers` says something in front is setting it. The
+        leftmost entry is the original client; the rest are the proxies it
+        passed through.
+        """
+        if _api_config.trust_proxy_headers:
+            forwarded = request.headers.get("x-forwarded-for")
+            if forwarded:
+                return forwarded.split(",")[0].strip()
+        return get_remote_address(request)
+
     limiter = Limiter(
-        key_func=get_remote_address,
+        key_func=client_address,
         enabled=_api_config.rate_limit_enabled,
     )
     app.state.limiter = limiter
