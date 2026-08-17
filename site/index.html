@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recruiter Pro — CV screening against a live job corpus</title>
+<meta name="description" content="A four-agent pipeline that parses a CV, resolves its skills against a controlled vocabulary, scores it against 800 roles and explains every match. 544 tests, 83.7% branch coverage.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <img src="favicon.svg" alt="">
+      <span>Recruiter Pro</span>
+    </a>
+    <nav class="nav">
+      <a href="index.html">Overview</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="walkthrough.html">Walkthrough</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-sm" href="https://github.com/Sharawey74/Recruiter-Pro">Source</a>
+      <a class="btn btn-sm btn-primary" href="https://recruiter-pro-nine.vercel.app">Live app</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">Four-agent CV screening pipeline</p>
+      <h1>Every score, broken into the parts that made it.</h1>
+      <p class="lede">
+        Upload a résumé. It is parsed, its skills resolved against a controlled
+        vocabulary of 679 canonical terms, and scored against all 800 roles in
+        the corpus in a single pass — with five weighted components returned
+        separately, so any total can be reconstructed from its parts rather
+        than taken on trust.
+      </p>
+
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="https://recruiter-pro-nine.vercel.app">Open the live app</a>
+        <a class="btn" href="walkthrough.html">See it running</a>
+        <a class="btn" href="https://github.com/Sharawey74/Recruiter-Pro">Read the source</a>
+      </div>
+
+      <p class="hero-note">
+        The live API runs on a development machine behind a tunnel, so the demo
+        is only up while that machine is. If it does not respond, the
+        walkthrough is a full capture of the same app running.
+      </p>
+
+      <div class="stat-strip">
+        <div class="stat"><b>800</b><span>roles in the corpus</span></div>
+        <div class="stat"><b>679</b><span>canonical skills</span></div>
+        <div class="stat"><b>544</b><span>tests passing</span></div>
+        <div class="stat"><b>83.7%</b><span>branch coverage</span></div>
+        <div class="stat"><b>15</b><span>API operations</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="reveal">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">What this proves</p>
+        <h2>Five problems that only show up when you build the whole thing</h2>
+        <p class="lede">
+          Each of these was found in this codebase, reproduced, and fixed with
+          a test that failed first. The file is named so the claim can be
+          checked rather than believed.
+        </p>
+      </div>
+
+      <div class="grid grid-2">
+
+        <article class="card">
+          <h3><span class="badge badge-violet">Concurrency</span></h3>
+          <p>
+            <strong>A race that only exists above one worker.</strong> Choosing
+            an explanation provider per request was done by writing to a
+            module-level singleton and restoring it afterwards — and the
+            restore was not in a <code>finally</code>. Two concurrent requests
+            saw each other's settings, and any request that raised in between
+            left the singleton altered for every request after it.
+          </p>
+          <p>
+            The fix was not a lock. The provider is now injected once at
+            construction and never reassigned, so there is no mutable state for
+            a second request to disturb: the race is structurally impossible
+            rather than defended against.
+          </p>
+          <span class="file">src/agents/explaining/__init__.py · docs/adr/002-llm-provider-abstraction.md</span>
+        </article>
+
+        <article class="card">
+          <h3><span class="badge badge-violet">Determinism</span></h3>
+          <p>
+            <strong>The same input scored two different numbers.</strong>
+            Keyword extraction took <code>[:20]</code> from a Python
+            <code>set</code>. String hashing is randomised per process, so set
+            order changed between runs — the same CV against the same job
+            scored 0.40 or 0.45 depending on which process answered. Measured
+            across five processes.
+          </p>
+          <p>
+            Terms are now ranked by frequency and tied alphabetically, which is
+            both deterministic and more useful: a term repeated in a job
+            description matters more than one that appears once.
+          </p>
+          <span class="file">src/agents/agent3_scorer.py · tests/unit/test_skill_normalization.py</span>
+        </article>
+
+        <article class="card">
+          <h3><span class="badge badge-green">Idempotency</span></h3>
+          <p>
+            <strong>Seeding that cannot overwrite your data.</strong> The job
+            corpus began as a read-only JSON file and became writable through
+            <code>POST /jobs</code>. On a host with an ephemeral filesystem the
+            obvious implementation reseeds on every deploy and silently
+            discards every edit anyone made.
+          </p>
+          <p>
+            <code>seed_jobs</code> returns zero and writes nothing if the table
+            is already populated, so a redeploy is a no-op and the JSON file is
+            a seed rather than a source of truth.
+          </p>
+          <span class="file">src/storage/database.py</span>
+        </article>
+
+        <article class="card">
+          <h3><span class="badge badge-amber">Trust boundary</span></h3>
+          <p>
+            <strong>Rate limits charged to the right client.</strong> Per-IP
+            limits read the socket address, which behind a proxy is the
+            <em>proxy's</em> — so every visitor shares one bucket, ordinary
+            traffic starts collecting 429s, and an attacker is no more limited
+            than before.
+          </p>
+          <p>
+            <code>X-Forwarded-For</code> fixes it and is client-supplied, so it
+            is only believed when <code>TRUST_PROXY_HEADERS</code> says
+            something is in front. It defaults to off, because the opposite
+            mistake is worse: trusting that header with nothing in front lets
+            any client invent a fresh identity per request.
+          </p>
+          <span class="file">src/api.py · client_address()</span>
+        </article>
+
+        <article class="card">
+          <h3><span class="badge badge-green">Honest metrics</span></h3>
+          <p>
+            <strong>Target leakage found in my own model.</strong> It scored a
+            perfect 1.000 ROC-AUC. Removing the feature I suspected changed
+            nothing — the metrics came back identical to the digit. Digging
+            further: the label is a threshold on a column already excluded from
+            training, and two ordinary columns rebuild it anyway.
+            <em>Experience</em> alone reaches 0.9244; with <em>Projects
+            Count</em>, 0.9933.
+          </p>
+          <p>
+            No feature engineering makes that dataset non-trivial, so the
+            finding is reported instead of the score. <code>GET /stats</code>
+            publishes no accuracy figure at all, and a contract test asserts
+            none ever appears.
+          </p>
+          <span class="file">models/production/model_metadata.json · tests/integration/test_api_contract.py</span>
+        </article>
+
+        <article class="card">
+          <h3><span class="badge badge-amber">Silent failure</span></h3>
+          <p>
+            <strong>A degraded run must not look like a healthy one.</strong> A
+            rule-based explanation and a model-written one are both fluent
+            paragraphs. With a provider configured but unreachable — dead key,
+            spent quota, no network — a broken demo is indistinguishable from a
+            working one.
+          </p>
+          <p>
+            Every match carries <code>explanation_source</code> and the
+            interface prints it; <code>scoring_mode</code> says whether the ML
+            model ran; and <code>/health</code> names the provider that will
+            actually answer rather than reporting a config flag.
+          </p>
+          <span class="file">src/agents/explaining/protocol.py · src/api.py</span>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="reveal">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Built with</p>
+        <h2>Stack</h2>
+        <p>Versions as pinned in <code>requirements.txt</code> and <code>frontend/package.json</code>.</p>
+      </div>
+
+      <div class="chips">
+        <span class="chip"><b>Python</b> <code>3.10+</code></span>
+        <span class="chip"><b>FastAPI</b> <code>0.104.1</code></span>
+        <span class="chip"><b>Pydantic</b> <code>2.12.5</code></span>
+        <span class="chip"><b>scikit-learn</b> <code>1.3+</code></span>
+        <span class="chip"><b>SQLite</b> <code>WAL</code></span>
+        <span class="chip"><b>slowapi</b> <code>rate limits</code></span>
+        <span class="chip"><b>Next.js</b> <code>16.3.0</code></span>
+        <span class="chip"><b>React</b> <code>18.3.1</code></span>
+        <span class="chip"><b>TypeScript</b> <code>5.4.2</code></span>
+        <span class="chip"><b>Tailwind CSS</b> <code>3.4.1</code></span>
+        <span class="chip"><b>pytest</b> <code>8.4.1</code></span>
+        <span class="chip"><b>mypy</b> <code>1.19.0</code></span>
+        <span class="chip"><b>ruff</b> <code>0.16.2</code></span>
+        <span class="chip"><b>black</b> <code>25.11.0</code></span>
+      </div>
+
+      <div class="note is-violet">
+        <p>
+          <strong>The lint toolchain is pinned exactly, not by lower bound.</strong>
+          A range makes "correctly formatted" a function of the install date
+          rather than of the code: an open <code>black&gt;=24.0.0</code> had CI
+          resolve a major version ahead of a developer's machine, and the two
+          disagreed about seven files nobody had touched.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="reveal">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">How a score is built</p>
+        <h2>Five weighted components, each returned separately</h2>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th>Component</th><th class="num">Weight</th><th>What it measures</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><b>Skill match</b></td><td class="num">50%</td><td>CV skills against required and preferred, both resolved to the vocabulary</td></tr>
+            <tr><td><b>Experience</b></td><td class="num">20%</td><td>Years against the stated range, penalising both directions</td></tr>
+            <tr><td><b>Title similarity</b></td><td class="num">17%</td><td>The candidate's role against the job title</td></tr>
+            <tr><td><b>Education</b></td><td class="num">8%</td><td>Highest degree against the stated requirement</td></tr>
+            <tr><td><b>Keyword overlap</b></td><td class="num">5%</td><td>Terms from the description present in the CV</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="proof">
+        <b>Enforced, not documented.</b> The weights live in
+        <code>config/agents.yaml</code> and nowhere else. A set that does not
+        sum to 1.0 fails at import with the offending values named, and a
+        contract test asserts the five components add up to the reported
+        rule-based total — because a stacked bar built on drifting weights does
+        not look wrong, it looks right.
+      </p>
+
+      <div class="hero-actions">
+        <a class="btn" href="architecture.html">See the architecture</a>
+        <a class="btn" href="walkthrough.html">See it running on a real CV</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-about">
+        <a class="brand" href="index.html">
+          <img src="favicon.svg" alt="">
+          <span>Recruiter Pro</span>
+        </a>
+        <p>
+          A four-agent pipeline that parses a CV, resolves its skills against a
+          controlled vocabulary, scores it against 800 roles and explains every
+          match — with every figure measured rather than asserted.
+        </p>
+      </div>
+
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="index.html">Overview</a></li>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="walkthrough.html">Walkthrough</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Elsewhere</h4>
+        <ul>
+          <li><a href="https://recruiter-pro-nine.vercel.app">Live app</a></li>
+          <li><a href="https://github.com/Sharawey74/Recruiter-Pro#api">API reference</a></li>
+          <li><a href="https://github.com/Sharawey74/Recruiter-Pro">GitHub source</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>MIT Licensed</span>
+      <span>Built by Abdelrhman Mohamed</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>
