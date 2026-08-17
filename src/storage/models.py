@@ -248,8 +248,8 @@ class MatchResult(BaseModel):
     # Decision
     decision: MatchDecision
 
-    # What produced the explanation: "ollama", "openrouter", "langchain" or
-    # "rule_based". ADR-2 requires this be surfaced rather than hidden -- a
+    # What produced the explanation: "ollama", "openrouter" or "rule_based".
+    # ADR-2 requires this be surfaced rather than hidden -- a
     # rule-based fallback after a quota failure must be distinguishable from
     # model output, both in the UI and when debugging a bad explanation.
     explanation_source: Optional[str] = Field(

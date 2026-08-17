@@ -5,10 +5,15 @@ Selection is `config.llm.provider` -- the field that has declared
 `# ollama, openai, anthropic` since the beginning and that nothing ever read.
 It is read here.
 
-    provider: ollama       local development (default)
+    provider: ollama       local development (default); direct HTTP to Ollama
     provider: openrouter   hosted demo; needs OPENROUTER_API_KEY
-    provider: langchain    optional fourth path
     provider: rule_based   offline, CI, and the fallback for all of the above
+
+A fourth provider, `langchain`, wrapped `ChatOllama` to reach the same Ollama
+server the `ollama` provider already reached directly. ADR-2 admitted it on the
+condition that it be deleted if never selected in practice, and it never was --
+so it is gone, along with its four pins. Ollama support is unaffected; it was
+the second road to one destination, not the road.
 
 The provider is chosen once, at construction, and never reassigned. That is what
 makes the A7 race structurally impossible rather than merely fixed: there is no
@@ -22,7 +27,6 @@ from typing import List, Optional
 
 from . import insights
 from .budget import CallBudget, Throttle
-from .langchain_provider import LangChainProvider
 from .ollama import OllamaProvider
 from .openrouter import OpenRouterProvider
 from .protocol import (
@@ -38,7 +42,6 @@ logger = logging.getLogger(__name__)
 _PROVIDERS = {
     "ollama": OllamaProvider,
     "openrouter": OpenRouterProvider,
-    "langchain": LangChainProvider,
     "rule_based": RuleBasedProvider,
 }
 
@@ -175,7 +178,6 @@ __all__ = [
     "Explanation",
     "ExplanationContext",
     "LLMProvider",
-    "LangChainProvider",
     "OllamaProvider",
     "OpenRouterProvider",
     "RuleBasedProvider",

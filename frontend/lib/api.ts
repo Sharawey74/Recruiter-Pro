@@ -85,8 +85,7 @@ export async function getJob(jobId: string): Promise<JobDetail> {
 export async function matchCV(
   file: File,
   topK = 10,
-  useLLM = false,
-  useLangChain = false
+  useLLM = false
 ): Promise<MatchResponse> {
   const formData = new FormData();
   formData.append("file", file);
@@ -98,7 +97,6 @@ export async function matchCV(
       top_k: topK,
       explain: useLLM,
       use_llm: useLLM,
-      use_langchain: useLangChain,
     },
     headers: { "Content-Type": "multipart/form-data" },
   });

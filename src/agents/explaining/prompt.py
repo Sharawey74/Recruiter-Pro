@@ -5,6 +5,9 @@ Ollama, OpenRouter and LangChain were each building their own version of the
 same instruction. Three copies of a prompt drift, and then two providers
 silently produce differently-shaped explanations for identical input -- which
 looks like a model difference and is not.
+
+Two model-backed providers remain, and they share this module rather than a
+resemblance.
 """
 
 from __future__ import annotations

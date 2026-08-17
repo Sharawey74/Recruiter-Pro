@@ -1,6 +1,11 @@
 """
-Test Agent 4 modes: Direct HTTP vs LangChain
-Run with: pytest tests/test_agent4_modes.py -v -s
+Agent 4 end-to-end: the factory builds an explainer and it produces text.
+
+This file used to test "Direct HTTP vs LangChain" -- two modes that both ended
+at the same Ollama server. The LangChain one is gone, so what is left is the
+part that was always the point: whatever provider is configured, a MatchResult
+goes in and a usable explanation comes out. Provider selection itself is
+covered in test_explaining_providers.py.
 """
 
 import pytest
@@ -42,91 +47,38 @@ def sample_match():
     )
 
 
-def test_direct_http_mode(sample_match):
-    """Test Direct HTTP mode (fast)"""
-    print("\n" + "=" * 60)
-    print("TEST 1: Direct HTTP Mode (Fast)")
-    print("=" * 60)
-
-    agent = get_explainer_agent(use_langchain=False)
+def test_configured_provider_explains(sample_match):
+    """The configured provider turns a MatchResult into an explanation."""
+    agent = get_explainer_agent()
     explanation = agent.generate_explanation(sample_match)
-
-    print(f"\nAgent Type: {type(agent).__name__}")
-    print(f"Explanation Length: {len(explanation)} characters")
-    print(f"\nExplanation:\n{explanation}")
 
     assert len(explanation) > 50, "Explanation too short"
     assert "Python" in explanation, "Should mention matched skills"
     assert "Developer" in explanation, "Should mention job title"
 
-    print("\n✅ Direct HTTP mode test PASSED")
 
+def test_an_unresolvable_provider_still_explains(sample_match):
+    """
+    A provider name the factory cannot build must not cost the caller an
+    explanation. This was the "graceful fallback from LangChain" test; the
+    property it asserted is about the factory, not about LangChain, so it
+    outlived the provider that prompted it.
+    """
+    agent = get_explainer_agent(provider="nonsense")
 
-def test_langchain_mode(sample_match):
-    """Test LangChain mode (advanced)"""
-    print("\n" + "=" * 60)
-    print("TEST 2: LangChain Mode (Advanced)")
-    print("=" * 60)
-
-    try:
-        agent = get_explainer_agent(use_langchain=True)
-        print(f"Agent Type: {type(agent).__name__}")
-
-        explanation = agent.generate_explanation(sample_match)
-
-        print(f"Explanation Length: {len(explanation)} characters")
-        print(f"\nExplanation:\n{explanation}")
-
-        assert len(explanation) > 50, "Explanation too short"
-        assert any(
-            skill in explanation for skill in ["Python", "Django", "PostgreSQL"]
-        ), "Should mention matched skills"
-
-        print("\n✅ LangChain mode test PASSED")
-
-    except ImportError as e:
-        pytest.skip(f"LangChain not installed: {e}")
-
-
-def test_factory_fallback(sample_match):
-    """Test graceful fallback from LangChain to Direct HTTP"""
-    print("\n" + "=" * 60)
-    print("TEST 3: Factory Fallback Mechanism")
-    print("=" * 60)
-
-    # Even if LangChain is requested but fails, should work
-    agent = get_explainer_agent(use_langchain=True)
-    explanation = agent.generate_explanation(sample_match)
-
-    print(f"Agent Type: {type(agent).__name__}")
-    print(f"Explanation:\n{explanation}")
-
-    assert explanation is not None
-    assert len(explanation) > 50
-
-    print("\n✅ Fallback test PASSED")
+    assert agent.provider.name == "rule_based"
+    assert len(agent.generate_explanation(sample_match)) > 50
 
 
 def test_structured_insights(sample_match):
-    """Test structured insights generation"""
-    print("\n" + "=" * 60)
-    print("TEST 4: Structured Insights (Backward Compatibility)")
-    print("=" * 60)
-
-    agent = get_explainer_agent(use_langchain=False)
+    """Strengths, weaknesses and recommendations are read off the breakdown."""
+    agent = get_explainer_agent()
     insights = agent.generate_structured_insights(sample_match)
-
-    print("\nInsights:")
-    print(f"  Strengths: {insights['strengths']}")
-    print(f"  Weaknesses: {insights['weaknesses']}")
-    print(f"  Recommendations: {insights['recommendations']}")
 
     assert "strengths" in insights
     assert "weaknesses" in insights
     assert "recommendations" in insights
     assert len(insights["strengths"]) > 0
-
-    print("\n✅ Structured insights test PASSED")
 
 
 if __name__ == "__main__":

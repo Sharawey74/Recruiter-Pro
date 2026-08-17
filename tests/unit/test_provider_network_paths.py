@@ -19,7 +19,6 @@ import pytest
 
 from src.agents.explaining import (
     ExplanationContext,
-    LangChainProvider,
     OllamaProvider,
     OpenRouterProvider,
     prompt,
@@ -295,50 +294,8 @@ class TestOpenRouterCalls:
         assert provider.model == "acme/model-1"
 
 
-class TestLangChainProvider:
-    @pytest.mark.unit
-    def test_unavailable_without_the_package(self, llm_config, monkeypatch):
-        provider = LangChainProvider(llm_config)
-        monkeypatch.setattr(provider, "_get_llm", lambda: None)
-        assert provider.is_available() is False
-        assert provider.explain([CONTEXT, CONTEXT]) == [None, None]
-
-    @pytest.mark.unit
-    def test_extracts_content_from_a_message_object(self, llm_config, monkeypatch):
-        """
-        LangChain returns a message, not a string -- one of the four response
-        shapes ADR-2 flagged as needing normalisation.
-        """
-        import types
-
-        class FakeLLM:
-            def invoke(self, messages):
-                return types.SimpleNamespace(content=GOOD_TEXT)
-
-        provider = LangChainProvider(llm_config)
-        monkeypatch.setattr(provider, "_get_llm", lambda: FakeLLM())
-        out = provider.explain([CONTEXT])
-        assert out[0].source == "langchain"
-        assert out[0].text.startswith("This candidate")
-
-    @pytest.mark.unit
-    def test_an_invocation_failure_yields_none(self, llm_config, monkeypatch):
-        class FailingLLM:
-            def invoke(self, messages):
-                raise RuntimeError("model unavailable")
-
-        provider = LangChainProvider(llm_config)
-        monkeypatch.setattr(provider, "_get_llm", lambda: FailingLLM())
-        assert provider.explain([CONTEXT]) == [None]
-
-    @pytest.mark.unit
-    def test_a_response_with_no_content_yields_none(self, llm_config, monkeypatch):
-        import types
-
-        class EmptyLLM:
-            def invoke(self, messages):
-                return types.SimpleNamespace(content=None)
-
-        provider = LangChainProvider(llm_config)
-        monkeypatch.setattr(provider, "_get_llm", lambda: EmptyLLM())
-        assert provider.explain([CONTEXT]) == [None]
+# TestLangChainProvider lived here: four tests over a provider that wrapped
+# ChatOllama to reach the same Ollama server TestOllamaProvider already covers
+# directly. Deleted with the provider. The response-shape normalisation it
+# exercised (a message object rather than a string) was specific to LangChain's
+# return type and has nothing left to normalise.

@@ -915,7 +915,6 @@ async def match_cv(
     top_k: int = Query(10, ge=1, le=50, description="Number of top matches to return"),
     explain: bool = Query(False, description="Generate AI explanations (slower)"),
     use_llm: bool = Query(False, description="Enable Ollama LLM (if false, uses rule-based only)"),
-    use_langchain: bool = Query(False, description="Use LangChain for advanced AI features"),
 ):
     """
     Match CV to all jobs and return top K matches
@@ -963,7 +962,6 @@ async def match_cv(
             top_k=top_k,
             generate_explanations=explain,
             use_llm=use_llm,
-            use_langchain=use_langchain,
         )
         elapsed = time.perf_counter() - started
 

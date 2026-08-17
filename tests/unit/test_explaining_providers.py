@@ -22,7 +22,6 @@ from src.agents.explaining import (
     Explanation,
     ExplanationContext,
     LLMProvider,
-    LangChainProvider,
     OllamaProvider,
     OpenRouterProvider,
     RuleBasedProvider,
@@ -76,7 +75,6 @@ class TestProtocolConformance:
             RuleBasedProvider,
             OllamaProvider,
             OpenRouterProvider,
-            LangChainProvider,
         ],
     )
     def test_every_provider_satisfies_the_protocol(self, cls):
@@ -89,7 +87,6 @@ class TestProtocolConformance:
             RuleBasedProvider,
             OllamaProvider,
             OpenRouterProvider,
-            LangChainProvider,
         ],
     )
     def test_every_provider_names_itself(self, cls):
@@ -278,7 +275,6 @@ class TestProviderSelection:
         [
             ("ollama", "ollama"),
             ("openrouter", "openrouter"),
-            ("langchain", "langchain"),
             ("rule_based", "rule_based"),
         ],
     )

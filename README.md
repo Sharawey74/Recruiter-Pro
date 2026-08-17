@@ -11,7 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4.2-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
 [![Ollama](https://img.shields.io/badge/Ollama-LLM-000000?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.ai)
-[![LangChain](https://img.shields.io/badge/LangChain-0.3.13-1C3C3C?style=for-the-badge&logo=chainlink&logoColor=white)](https://langchain.com)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3+-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
 
 [Metrics](#by-the-numbers) · [Features](#features) · [Scoring](#scoring) · [Quick start](#quick-start) · [Architecture](#architecture) · [API](#api) · [Testing](#testing-and-quality-gates)
 
@@ -105,7 +105,7 @@ Four agents, each with one job and a defined contract between them.
 | **Explainable by construction** | Skill, experience, title, education, keyword and ML sub-scores are all in the payload — nothing is a black box |
 | **Skill gap analysis** | Matched and missing skills per role, resolved through the vocabulary rather than by string equality |
 | **Searchable corpus** | Server-side search across title, company, city and skill, with category, work-model and seniority filters drawn from the corpus itself |
-| **Provider independence** | Ollama, OpenRouter, LangChain or rule-based — selected by config, behind one protocol |
+| **Provider independence** | Ollama, OpenRouter or rule-based — selected by config, behind one protocol |
 | **Honest degradation** | If the ML model or the LLM is unavailable the app keeps working and says so; it never presents a rule-based result as a model-backed one |
 | **Persistent history** | Every match written to SQLite, browsable and clearable from the UI |
 | **Shortlisting** | Accept and reject decisions per match, persisted across sessions |
@@ -132,6 +132,33 @@ These weights live in `config/agents.yaml` and nowhere else. They are validated
 on load — a set that does not sum to 1.0 fails at import with the offending
 values named. There is no semantic-similarity component; earlier versions of
 this file described one.
+
+### Explanation providers
+
+Scoring produces the numbers; a provider writes the prose. All three implement
+one protocol, are chosen once at construction by `LLM_PROVIDER`, and fall back
+to rule-based on any failure.
+
+**What a badge cannot tell you is whether a path is switched on**, so:
+
+| Provider | State | Needs | Where it runs |
+|---|---|---|---|
+| `rule_based` | **Always live** | Nothing | Everywhere. The default fallback, and what CI runs |
+| `openrouter` | **Live when keyed** | `OPENROUTER_API_KEY` | The only model-backed option on a hosted deploy |
+| `ollama` | **Live locally only** | Ollama running on `OLLAMA_BASE_URL` | Development. A 3B model needs several GB of RAM, so it is not reachable from a free-tier host |
+
+`ollama` is the configured default, which means **an unkeyed deployment serves
+rule-based explanations** — Ollama is not there to answer. That is by design
+rather than by omission: it degrades instead of erroring. It is also the reason
+every match carries an `explanation_source` and the UI prints it. A rule-based
+explanation and a model-written one are both fluent paragraphs, so without that
+field a silently degraded instance is indistinguishable from a working one.
+
+A fourth provider wrapped LangChain's `ChatOllama` to reach the same Ollama
+server the `ollama` provider already reached directly. It was never selected and
+cost 22.7 s to import, so it was deleted along with its four pins —
+[ADR-2](docs/adr/002-llm-provider-abstraction.md#outcome--2026-08-17) recorded
+the condition in advance and the outcome afterwards.
 
 ## Quick start
 
@@ -218,13 +245,13 @@ process — the arrows between agents are function calls, not requests.
       ┌──────────────────┴────┐  ┌────────┴───────────┐  ┌─┴────────────────────────┐
       │ VOCABULARY            │  │ CORPUS + MODEL     │  │ PROVIDER PROTOCOL        │
       │ 679 canonical skills  │  │ 800 roles          │  │ ollama · openrouter      │
-      │ 1,554 aliases         │  │ 1 predict_proba    │  │ langchain · rule_based   │
+      │ 1,554 aliases         │  │ 1 predict_proba    │  │ rule_based (fallback)    │
       └───────────────────────┘  └────────────────────┘  └──────────────────────────┘
 ```
 
 SQLite holds the match history and the daily LLM quota. Every match carries an
-`explanation_source`, so which of the four providers answered is recorded rather
-than inferred.
+`explanation_source`, so which provider answered is recorded rather than
+inferred.
 
 ### Request lifecycle
 
@@ -290,7 +317,7 @@ src/
 │   ├── agent2_extractor.py   text → structured profile
 │   ├── agent3_scorer.py      profile + job → score breakdown
 │   ├── scoring/              components, skill matcher, ML scorer
-│   ├── explaining/           protocol + ollama, openrouter, langchain, rule_based
+│   ├── explaining/           protocol + ollama, openrouter, rule_based
 │   └── pipeline.py           orchestrator
 ├── core/                     config, controlled vocabulary
 ├── ml_engine/                training, evaluation, prediction
@@ -441,7 +468,7 @@ Copy `.env.example` to `.env`. Every variable is optional and falls back to
 | `API_PORT` | `8000` | |
 | `CORS_ORIGINS` | `http://localhost:3000` | A real control, not a formality |
 | `RATE_LIMIT_ENABLED` | `true` | |
-| `LLM_PROVIDER` | `ollama` | `ollama` · `openrouter` · `langchain` · `rule_based` |
+| `LLM_PROVIDER` | `ollama` | `ollama` · `openrouter` · `rule_based` — see [Explanation providers](#explanation-providers) |
 | `OPENROUTER_API_KEY` | — | Environment only |
 | `LLM_DAILY_QUOTA` | `200` | Degrades to rule-based rather than breaking |
 | `LLM_MAX_CONCURRENT_CALLS` | `2` | Free tiers answer excess concurrency with 429s |

@@ -70,8 +70,7 @@ class MatchingPipeline:
         logger.info("✅ Agent 3 (Scorer) ready")
 
         self.agent4 = get_explainer_agent(config=self.config)
-        langchain_mode = getattr(self.config.llm, "use_langchain", False)
-        logger.info(f"✅ Agent 4 (Explainer) ready - LangChain: {langchain_mode}")
+        logger.info(f"✅ Agent 4 (Explainer) ready - provider: {self.agent4.provider.name}")
 
         logger.info("🎉 Pipeline initialization complete!")
 
@@ -179,29 +178,6 @@ class MatchingPipeline:
     # has to be bounded by something other than the corpus size.
     MAX_EXPLANATIONS = 3
 
-    def explainer_for(self, use_langchain: bool = False):
-        """
-        Return the explainer for this request without reconfiguring the shared one.
-
-        The API used to assign a new agent onto pipeline.agent4 for the duration
-        of a request and put the old one back afterwards. Two requests with
-        different modes raced, and the restore was not in a finally block, so a
-        request that raised left the singleton swapped for every later request.
-
-        The LangChain explainer is built once, on first use, and cached. Worst
-        case under concurrency is that two get constructed and one is discarded;
-        neither request sees the other's mode.
-        """
-        if not use_langchain:
-            return self.agent4
-
-        if getattr(self, "_agent4_langchain", None) is None:
-            from src.agents.agent4_factory import get_explainer_agent
-
-            self._agent4_langchain = get_explainer_agent(use_langchain=True, config=self.config)
-            logger.info("LangChain explainer created (cached for later requests)")
-        return self._agent4_langchain
-
     def process_cv_batch(
         self,
         cv_file_path: str,
@@ -209,7 +185,6 @@ class MatchingPipeline:
         top_k: int = 10,
         generate_explanations: bool = True,
         use_llm: bool = True,
-        use_langchain: bool = False,
     ) -> List[MatchResult]:
         """
         Process one CV against multiple jobs
@@ -280,7 +255,14 @@ class MatchingPipeline:
         # Now: rank first, then explain at most MAX_EXPLANATIONS of what is
         # actually being returned.
         if generate_explanations:
-            explainer = self.explainer_for(use_langchain)
+            # The shared agent, used directly and never reconfigured. The API
+            # used to assign a new agent onto pipeline.agent4 for the duration
+            # of a request and put the old one back afterwards: two requests
+            # with different modes raced, and the restore was not in a finally
+            # block, so a request that raised left the singleton swapped for
+            # every later request. Per-request provider selection is what made
+            # that necessary, and there is no longer any such thing.
+            explainer = self.agent4
             eligible = [m for m in top_matches[: self.MAX_EXPLANATIONS] if m.final_score >= 0.6]
             if eligible:
                 # One batched call. The provider owns the fallback chain, so

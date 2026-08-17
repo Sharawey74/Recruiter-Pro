@@ -1,6 +1,6 @@
 # ADR-2: An `LLMProvider` protocol for Agent 4
 
-**Status:** Accepted
+**Status:** Accepted · amended 2026-08-17 ([Outcome](#outcome--2026-08-17))
 **Date:** 2026-08-09
 **Deciders:** Repository owner (solo project)
 **Related:** [ADR-1](001-llm-allocation.md) · [ADR-3](003-unified-skill-vocabulary.md)
@@ -252,3 +252,37 @@ can be added later by extending a single implementation without touching the oth
        `explanation_source: "rule_based"`, surfaced in the UI
 9. [ ] Tests: a fake provider for the fallback chain; a malformed-response test per
        implementation; assert no provider state is mutated during a request
+
+---
+
+## Outcome — 2026-08-17
+
+**The `LangChainProvider` was deleted, on the condition this ADR set for it.**
+
+"To revisit" said: *if it is never selected in practice, delete it and its four
+`langchain*` pins; keep it only while it is genuinely a fourth option.* It was never
+selected. The evidence, checked before removing it:
+
+| | |
+|---|---|
+| Selected by any caller | No — `use_langchain` was a `POST /match` query parameter defaulting to `False`, and the frontend argument that fed it was never passed by either call site |
+| What it reached | `ChatOllama` against **the same Ollama server** `OllamaProvider` already reaches over plain HTTP |
+| Import cost | **22.7 s** — the heaviest import in the tree. Lazy, so never paid at startup, which is precisely why it went unnoticed |
+| Weight | Four pins: `langchain`, `langchain-core`, `langchain-community`, `langchain-ollama` |
+
+So it was a second road to one destination, not a fourth destination. **Ollama support is
+unaffected** — `LLM_PROVIDER=ollama` goes through `OllamaProvider` exactly as before.
+
+Removed with it: the `use_langchain` query parameter on `POST /match`, the boolean on
+`get_explainer_agent`, `Pipeline.explainer_for`, and three `LLMConfig` keys that nothing
+read (`use_langchain`, `streaming`, `enable_tracing`). Deleting the query parameter before
+the first public deploy is why this was done now rather than later: afterwards it is a
+breaking change to the API.
+
+**The protocol itself is unaffected and still justified.** The scope guardrail is *no new
+abstraction without ≥2 real implementations*; three remain — rule-based, Ollama, OpenRouter
+— and they genuinely differ, which is the argument this ADR made. What changed is only that
+one of the four turned out not to be a distinct implementation.
+
+A stale `LLM_PROVIDER=langchain` in an environment file **degrades to rule-based with a
+warning** rather than failing to start, via the unknown-name path this ADR already required.

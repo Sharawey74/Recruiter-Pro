@@ -52,17 +52,11 @@ scikit-learn>=1.3,<2.0
 joblib>=1.3,<2.0
 
 # --- LLM explanations (Agent 4, optional at runtime) ---
-# Pinned to the versions actually installed and tested, not a set that was
-# never resolvable. The previous pins asked for langchain==0.3.13 together with
-# langchain-core==0.3.13, and langchain 0.3.13 requires langchain-core>=0.3.26 --
-# an impossible combination that pip refuses outright. It went unnoticed because
-# nobody had ever installed from this file: the working environment held
-# 0.3.27 / 0.3.86 / 0.3.30 / 0.3.10, which is to say the file described no
-# machine at all. CI, being a clean clone, was the first thing to try.
-langchain==0.3.27
-langchain-core==0.3.86
-langchain-community==0.3.30
-langchain-ollama==0.3.10
+# Four langchain* pins used to sit here for a provider that wrapped ChatOllama
+# to reach the same Ollama server the `ollama` provider reaches directly. It
+# was never selected, it was the heaviest import in the tree at 22.7 s, and
+# ADR-2 admitted it on the condition that it be deleted if it stayed unused.
+# Both remaining providers are plain HTTP.
 requests==2.32.5             # the Ollama provider calls the HTTP API directly
 
 # Used by src/agents/explaining/openrouter.py against OpenRouter's

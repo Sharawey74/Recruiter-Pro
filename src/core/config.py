@@ -143,10 +143,10 @@ class LLMConfig:
     # the failure mode of exceeding one is a 429 storm rather than a queue.
     max_concurrent_calls: int = 2
 
-    # LangChain mode selection
-    use_langchain: bool = False  # False = Direct HTTP (fast), True = LangChain (advanced)
-    streaming: bool = False  # Enable streaming responses
-    enable_tracing: bool = False  # Enable LangSmith tracing
+    # `use_langchain`, `streaming` and `enable_tracing` were declared here and
+    # read by nothing -- the same dead-config shape as the two keys deleted
+    # with cache.py in 5.8. A config key that switches nothing reads as a
+    # feature. They went with the LangChain provider itself.
 
 
 @dataclass

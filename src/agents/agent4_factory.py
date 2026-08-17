@@ -1,11 +1,12 @@
 """
 Agent 4 factory.
 
-Selection is now `config.llm.provider`, not a `use_langchain` boolean. The
-boolean chose between two spellings of the same destination -- both branches
-ended at Ollama -- and it does not extend to four options without becoming
+Selection is `config.llm.provider`, not a `use_langchain` boolean. The boolean
+chose between two spellings of the same destination -- both branches ended at
+Ollama -- and it did not extend to more options without becoming
 `use_langchain`, `use_openrouter`, `use_rules` and an ambiguous set of
-combinations. See ADR-2.
+combinations. See ADR-2. The LangChain provider itself is gone; the boolean
+went with it.
 """
 
 from typing import Optional
@@ -45,7 +46,6 @@ def _build_budget(config) -> CallBudget:
 
 
 def get_explainer_agent(
-    use_langchain: Optional[bool] = None,
     config=None,
     provider: Optional[str] = None,
 ) -> ExplainerAgent:
@@ -53,20 +53,14 @@ def get_explainer_agent(
     Build Agent 4 with the configured provider.
 
     Args:
-        use_langchain: deprecated. True still selects the LangChain provider so
-            existing callers keep working; prefer `provider="langchain"`.
         config: application config.
         provider: explicit provider name, overriding config.llm.provider.
 
     Returns:
         ExplainerAgent, with the provider fixed at construction.
     """
-    name = provider
-    if name is None and use_langchain:
-        name = "langchain"
-
     config = config or get_config()
-    chosen = build_provider(config, name)
+    chosen = build_provider(config, provider)
     budget = _build_budget(config)
 
     logger.info(
