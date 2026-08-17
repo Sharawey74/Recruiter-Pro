@@ -606,6 +606,42 @@ class Database:
             )
             return cursor.rowcount > 0
 
+    def get_candidates_for_job(self, job_id: str, limit: int = 50) -> List[MatchHistory]:
+        """
+        Candidates already scored against this role, best first, one row each.
+
+        This deliberately reads scores rather than recomputing them. The
+        pipeline produced these numbers from a full profile -- skills,
+        experience, education, keywords -- and `match_history` does not store
+        enough of the candidate to reconstruct that. Re-scoring from the stored
+        skill list would produce a different, quieter number wearing the same
+        name, which is the failure this project keeps removing.
+
+        Deduplicated by cv_id keeping the best score, because the same CV
+        uploaded twice is one candidate.
+        """
+        if not self._initialized:
+            self.initialize_schema()
+
+        with self.get_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT * FROM match_history
+                WHERE job_id = ?
+                  AND id IN (
+                      SELECT id FROM match_history m2
+                      WHERE m2.job_id = match_history.job_id
+                        AND m2.cv_id = match_history.cv_id
+                      ORDER BY m2.final_score DESC, m2.created_at DESC
+                      LIMIT 1
+                  )
+                ORDER BY final_score DESC, created_at DESC
+                LIMIT ?
+                """,
+                (job_id, limit),
+            ).fetchall()
+        return [MatchHistory(**dict(row)) for row in rows]
+
     def delete_job(self, job_id: str) -> bool:
         if not self._initialized:
             self.initialize_schema()

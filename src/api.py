@@ -717,6 +717,53 @@ async def get_job(job_id: str):
     return payload
 
 
+@app.get("/jobs/{job_id}/candidates")
+async def candidates_for_job(job_id: str, limit: int = Query(20, ge=1, le=100)):
+    """
+    The matcher run backwards: for this role, who has scored well.
+
+    Every other view starts from a CV and ranks roles. A recruiter works the
+    other way round, and the data for it was already there -- `/match` writes a
+    row per returned match, so a job accumulates the candidates it ranked highly
+    for.
+
+    Two things this is not, stated because the difference matters:
+
+    - It is not a fresh scoring pass. These are the numbers the pipeline
+      produced from complete profiles. `match_history` does not store enough of
+      a candidate to recompute them, and a recomputed number wearing the same
+      name would be worse than no number.
+    - It is not every candidate. `/match` persists the top matches per upload,
+      so a candidate appears here when this role was among their best -- which
+      is the useful set anyway, and `scored_against` says how many that is.
+    """
+    if not any(j.job_id == job_id for j in jobs_cache):
+        raise HTTPException(404, f"Job {job_id} not found")
+
+    rows = get_database().get_candidates_for_job(job_id, limit=limit)
+
+    return {
+        "job_id": job_id,
+        "scored_against": len(rows),
+        "candidates": [
+            {
+                "cv_id": row.cv_id,
+                "match_id": row.match_id,
+                "candidate_name": row.candidate_name,
+                "candidate_email": row.candidate_email,
+                "final_score": round(row.final_score * 100, 1),
+                "skill_score": round(row.skill_score * 100, 1),
+                "experience_score": round(row.experience_score * 100, 1),
+                "status": row.decision,
+                "matched_skills": _decode_skill_list(row.matched_skills),
+                "missing_skills": _decode_skill_list(row.missing_skills),
+                "analysed_at": row.created_at,
+            }
+            for row in rows
+        ],
+    }
+
+
 # ------------------------------------------------------------- job writes --
 #
 # Until now every write endpoint concerned a CV. The corpus was a JSON file read

@@ -116,6 +116,52 @@ def temporary_job(client):
 
 
 @pytest.mark.integration
+class TestCandidatesForJob:
+    """
+    The matcher run backwards. Every other view starts from a CV and ranks
+    roles; this starts from a role.
+    """
+
+    def test_a_scored_candidate_appears_under_the_job(self, client):
+        matched = client.post(
+            "/match?top_k=3&explain=false",
+            files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
+        ).json()["matches"][0]
+
+        body = client.get(f"/jobs/{matched['job_id']}/candidates").json()
+
+        assert body["scored_against"] >= 1
+        assert matched["candidate_name"] in [c["candidate_name"] for c in body["candidates"]]
+
+    def test_it_reports_the_score_the_pipeline_produced(self, client):
+        """
+        Not a fresh scoring pass. match_history does not store enough of a
+        candidate to recompute a score, so a recomputed number would be a
+        different, quieter figure wearing the same name.
+        """
+        matched = client.post(
+            "/match?top_k=3&explain=false",
+            files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
+        ).json()["matches"][0]
+
+        listed = client.get(f"/jobs/{matched['job_id']}/candidates").json()["candidates"]
+        # match_id is the identifier both payloads carry; /match does not
+        # expose cv_id.
+        mine = next(c for c in listed if c["match_id"] == matched["match_id"])
+        assert mine["final_score"] == matched["final_score"]
+
+    def test_candidates_come_back_best_first(self, client):
+        job_id = client.get("/jobs?limit=1").json()["jobs"][0]["job_id"]
+        scores = [
+            c["final_score"] for c in client.get(f"/jobs/{job_id}/candidates").json()["candidates"]
+        ]
+        assert scores == sorted(scores, reverse=True)
+
+    def test_an_unknown_job_is_404(self, client):
+        assert client.get("/jobs/NOPE-9999/candidates").status_code == 404
+
+
+@pytest.mark.integration
 class TestJobWrites:
     """
     Creating a job. Until this existed every write endpoint concerned a CV, and
