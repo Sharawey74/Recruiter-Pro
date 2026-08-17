@@ -14,7 +14,7 @@ whatever that model grows next.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Protocol, runtime_checkable
+from typing import List, Optional, Protocol, Sequence, runtime_checkable
 
 # Where an explanation came from. Surfaced to the caller as
 # `explanation_source` so a rule-based fallback is visible rather than silently
@@ -96,6 +96,26 @@ class LLMProvider(Protocol):
         """Whether this provider can serve a request right now."""
         ...
 
-    def explain(self, batch: List[ExplanationContext]) -> List[Explanation]:
-        """Explain each context. Must return one Explanation per input."""
+    def explain(self, batch: List[ExplanationContext]) -> Sequence[Optional[Explanation]]:
+        """
+        Explain each context. Must return one slot per input, in order.
+
+        `None` in a slot means *this provider could not explain this item* --
+        a timeout, a refusal, an empty completion. It is not an error, and it
+        is not the same as an empty string: ExplainerAgent substitutes the
+        rule-based explanation per slot, so one bad response does not discard
+        the good ones beside it, and only the non-None ones are charged to the
+        daily budget.
+
+        This said `List[Explanation]` until the type checker was first run
+        against it. Every implementation already returned None on failure and
+        the caller already handled it -- the annotation was the only thing
+        claiming otherwise, which is the failure mode of a type that nothing
+        verifies.
+
+        `Sequence`, not `List`, because `List` is invariant: RuleBasedProvider
+        never returns None and says so with `List[Explanation]`, and that is a
+        stronger promise worth keeping rather than widening to match the
+        others.
+        """
         ...

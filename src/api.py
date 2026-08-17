@@ -174,7 +174,11 @@ try:
         enabled=_api_config.rate_limit_enabled,
     )
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    # Starlette types handlers as taking the base Exception; slowapi's takes the
+    # narrow RateLimitExceeded. Correct at runtime -- Starlette only ever calls
+    # it for the class it was registered against -- and not expressible in the
+    # signature, because a handler parameter is contravariant.
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
     RATE_LIMITING = True
     if _api_config.rate_limit_enabled:
         logger.info(
@@ -200,7 +204,12 @@ except ImportError:
 
             return decorator
 
-    limiter = _NoLimiter()
+    # Deliberately the same name in both branches: every endpoint below is
+    # decorated with @limiter.limit(...), and the point of the stand-in is that
+    # those decorators stay valid when slowapi is absent. The two branches bind
+    # different types to one name, which is what mypy is objecting to and what
+    # the design requires.
+    limiter = _NoLimiter()  # type: ignore[assignment]
 
 # ============================================
 # GLOBAL COMPONENTS

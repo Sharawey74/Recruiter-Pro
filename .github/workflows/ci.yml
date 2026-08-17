@@ -51,6 +51,21 @@ jobs:
         # line in a log nobody reads.
         run: black --check src/ scripts/ tests/
 
+      - name: Type check (mypy)
+        # Blocking from the first run, which is only possible because the
+        # baseline in pyproject.toml is explicit. mypy was installed in Phase 1
+        # and never run once; the first run found 78 errors in 17 files, and a
+        # checker that cannot go green is a checker everyone learns to skip.
+        #
+        # Configuration and real fixes took it to zero. What remains is five
+        # named ml_engine modules under `ignore_errors`, listed individually so
+        # the list reads as a to-do list. Everything on the serving path is
+        # checked for real.
+        #
+        # Config, not flags: `files` and every override live in pyproject.toml,
+        # so this command and a local `mypy` are the same command.
+        run: mypy
+
       - name: Test
         # No ML model or Ollama on the runner. The rule-based provider is a
         # first-class provider precisely so this works with no network, no

@@ -423,7 +423,9 @@ class Database:
             cursor = conn.cursor()
 
             query = "SELECT * FROM match_history WHERE 1=1"
-            params = []
+            # Heterogeneous on purpose: a decision is text, a score is a float,
+            # a limit is an int, and sqlite3 binds each by position.
+            params: List[Any] = []
 
             if decision:
                 query += " AND decision = ?"

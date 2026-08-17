@@ -117,7 +117,7 @@ class OpenRouterProvider:
             return None
         return self._client
 
-    def explain(self, batch: List[ExplanationContext]) -> List[Explanation]:
+    def explain(self, batch: List[ExplanationContext]) -> List[Optional[Explanation]]:
         client = self._get_client()
         if client is None:
             return [None] * len(batch)

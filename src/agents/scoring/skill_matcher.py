@@ -158,28 +158,31 @@ class SkillMatcher:
 
         Uses fuzzy matching, synonym detection, and weighted scoring
         """
-        cv_skills = set(self.normalize(cv_skills))
-        required_skills = set(self.normalize(required_skills))
-        preferred_skills = set(self.normalize(preferred_skills))
+        # Bound to new names rather than rebinding the parameters, which were
+        # declared List[str] and then held sets from here down. Everything
+        # below is set logic, so the sets are what the names should say.
+        cv: Set[str] = set(self.normalize(cv_skills))
+        required: Set[str] = set(self.normalize(required_skills))
+        preferred: Set[str] = set(self.normalize(preferred_skills))
 
         # Sorted throughout: these lists were built with list(set(...)), so they
         # reordered between process restarts and extra_skills[:10] returned a
         # different ten skills each time. Same defect as the one already fixed
         # in extract_keywords.
-        matched_required = self.find_matches(cv_skills, required_skills)
-        matched_preferred = self.find_matches(cv_skills, preferred_skills)
+        matched_required = self.find_matches(cv, required)
+        matched_preferred = self.find_matches(cv, preferred)
         matched_skills = sorted(set(matched_required + matched_preferred))
 
         # Find gaps
-        missing_required = sorted(s for s in required_skills if not self.has_match(s, cv_skills))
-        missing_preferred = sorted(s for s in preferred_skills if not self.has_match(s, cv_skills))
+        missing_required = sorted(s for s in required if not self.has_match(s, cv))
+        missing_preferred = sorted(s for s in preferred if not self.has_match(s, cv))
 
         # Extra skills candidate has
-        extra_skills = sorted(cv_skills - required_skills - preferred_skills)
+        extra_skills = sorted(cv - required - preferred)
 
         # Calculate match ratio with enhanced precision
-        total_required = len(required_skills) or 1
-        total_preferred = len(preferred_skills) or 0
+        total_required = len(required) or 1
+        total_preferred = len(preferred) or 0
 
         # Weighted ratio: required skills are critical (85%), preferred are bonus (15%)
         required_match_ratio = len(matched_required) / total_required
@@ -189,8 +192,20 @@ class SkillMatcher:
 
         match_ratio = (required_match_ratio * 0.85) + (preferred_match_ratio * 0.15)
 
-        # Penalty for missing critical required skills
-        if len(missing_required) > len(required_skills) * 0.5:  # Missing more than 50%
+        # Penalty for missing critical required skills.
+        #
+        # Against `required`, the normalized set -- not `required_skills`, the
+        # raw list, which is what this compared until the sets were given their
+        # own names. `missing_required` is derived from the set, so measuring it
+        # against the list compared two different denominators: a job listing
+        # "React" and "ReactJS" counted two requirements and could only ever
+        # miss one, putting the 50% penalty out of reach.
+        #
+        # No score moves on the shipped corpus -- 0 of 800 jobs have a
+        # required_skills list that normalization shortens, measured. It
+        # matters for jobs created through POST /jobs, where the skill list is
+        # whatever the caller typed.
+        if len(missing_required) > len(required) * 0.5:  # Missing more than 50%
             match_ratio *= 0.7  # 30% penalty
 
         return SkillMatch(

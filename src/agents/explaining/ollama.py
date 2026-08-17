@@ -60,9 +60,9 @@ class OllamaProvider:
             logger.warning(f"Ollama unavailable: {e}")
             return False
 
-    def explain(self, batch: List[ExplanationContext]) -> List[Explanation]:
+    def explain(self, batch: List[ExplanationContext]) -> List[Optional[Explanation]]:
         """Explain each context; drop the ones that fail so the caller can fall back."""
-        out = []
+        out: List[Optional[Explanation]] = []
         for context in batch:
             text = self._generate(context)
             if text:

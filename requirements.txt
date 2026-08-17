@@ -107,6 +107,7 @@ httpx>=0.25,<1.0             # required by fastapi.testclient
 black>=24.0.0
 ruff>=0.4,<1.0               # replaces flake8 + isort; one config, much faster
 mypy>=1.8.0
+types-requests>=2.31          # requests ships no stubs; the Ollama provider uses it
 
 
 # Removed - pinned but never imported anywhere in src/ or scripts/:

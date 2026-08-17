@@ -167,16 +167,16 @@ class RawParser:
         Returns:
             Dictionary with raw text blocks
         """
-        file_path = Path(file_path)
-        suffix = file_path.suffix.lower()
+        path = Path(file_path)
+        suffix = path.suffix.lower()
 
         # Extract text based on file type
         if suffix == ".pdf":
-            text = self.extract_text_from_pdf(str(file_path))
+            text = self.extract_text_from_pdf(str(path))
         elif suffix in [".docx", ".doc"]:
-            text = self.extract_text_from_docx(str(file_path))
+            text = self.extract_text_from_docx(str(path))
         elif suffix == ".txt":
-            text = self.extract_text_from_txt(str(file_path))
+            text = self.extract_text_from_txt(str(path))
         else:
             raise ValueError(f"Unsupported file format: {suffix}. Supported: .pdf, .docx, .txt")
 
@@ -186,14 +186,14 @@ class RawParser:
         # instead of as a parse failure the user could act on.
         if len(text.strip()) < self.MIN_EXTRACTED_CHARS:
             raise ValueError(
-                f"Extracted only {len(text.strip())} characters from {file_path.name}. "
+                f"Extracted only {len(text.strip())} characters from {path.name}. "
                 f"The file is probably a scanned image with no text layer, or empty. "
                 f"Minimum is {self.MIN_EXTRACTED_CHARS}."
             )
 
         # Use filename as profile_id if not provided
         if not profile_id:
-            profile_id = f"profile_{file_path.stem}"
+            profile_id = f"profile_{path.stem}"
 
         return self.parse_profile(text, profile_id)
 

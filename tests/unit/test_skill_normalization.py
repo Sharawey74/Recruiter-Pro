@@ -231,3 +231,53 @@ class TestPunctuatedSkillsResolve:
     def test_stripped_fallback_still_resolves(self, matcher, given, expected):
         """Forms the index does not carry verbatim must still resolve."""
         assert matcher.normalize([given])[0] == expected
+
+
+class TestMissingSkillPenaltyDenominator:
+    """
+    The 50% penalty counts against normalized requirements, not the raw list.
+
+    `missing_required` is derived from the normalized set, so comparing it
+    against the length of the caller's list compares two different
+    denominators. Duplicates and aliases inflate the list, which makes the
+    threshold harder to reach and quietly softens the penalty on exactly the
+    jobs whose requirements were written sloppily.
+
+    Zero of the 800 shipped jobs are affected -- measured -- but POST /jobs
+    accepts whatever skill list a caller sends, and that is where duplicates
+    come from.
+    """
+
+    @pytest.mark.unit
+    def test_duplicate_requirements_do_not_soften_the_penalty(self, matcher):
+        """
+        The candidate must score the same whether or not the job repeated
+        itself.
+
+        The values are chosen so the penalty is actually reachable. An earlier
+        version of this test used a CV matching nothing, which scores 0.0 --
+        and 0.0 * 0.7 is still 0.0, so it passed against the defect it was
+        written to catch.
+
+        Here the CV holds 1 of 3 real requirements, so 2 are missing: over the
+        threshold against the normalized set of 3, under it against a padded
+        list of 4.
+        """
+        cv = ["Python"]
+        padded = matcher.match(cv, ["Python", "Java", "Ruby", "ruby"], [])
+        single = matcher.match(cv, ["Python", "Java", "Ruby"], [])
+
+        assert padded.match_ratio > 0, "Pick values where the penalty can bite."
+        assert padded.match_ratio == pytest.approx(single.match_ratio), (
+            "Repeating a requirement changed the score. The penalty threshold "
+            "is being measured against the raw list rather than the "
+            "normalized set."
+        )
+
+    @pytest.mark.unit
+    def test_the_penalty_still_applies_when_most_requirements_are_missing(self, matcher):
+        """The other direction: the penalty must not become unreachable."""
+        missing_two_of_three = matcher.match(["Python"], ["Python", "Java", "Ruby"], [])
+
+        # 1 of 3 matched = 0.85/3, then 30% off for missing more than half.
+        assert missing_two_of_three.match_ratio == pytest.approx((0.85 / 3) * 0.7)

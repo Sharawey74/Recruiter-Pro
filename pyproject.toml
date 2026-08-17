@@ -45,3 +45,96 @@ ignore = [
 # One-off data-preparation script kept for provenance, not maintained to the
 # same bar as src/.
 "scripts/data_prep/clean_jobs_dataset.py" = ["E402", "E701", "F841"]
+
+# ============================================================================
+# mypy
+# ============================================================================
+# mypy was in requirements-dev.txt from Phase 1 and had never been run. The
+# first run reported 78 errors in 17 files, which is the number that keeps a
+# type checker permanently un-adopted: too many to fix in one sitting, so it
+# stays advisory, so it never goes green, so nobody reads it.
+#
+# The way out is a baseline that can only shrink. Everything below is checked
+# and blocking in CI. Modules listed under `ignore_errors` at the bottom are
+# the debt, named individually rather than hidden behind a lowered global
+# setting -- so the list is a to-do list, and deleting a line from it is a
+# visible, reviewable act.
+[tool.mypy]
+python_version = "3.10"
+files = ["src"]
+show_error_codes = true
+
+# Off deliberately, for now. Turning these on is the second half of the job and
+# belongs in its own change, once the baseline below is empty.
+disallow_untyped_defs = false
+check_untyped_defs = false
+
+# An ignore that has stopped being necessary is itself a defect -- it hides the
+# next real error on that line.
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+
+# --- Third-party packages that ship no type information -------------------
+# Not debt: these are libraries that publish no stubs, so there is nothing to
+# fix on our side. 23 of the original 78 errors were this and nothing else.
+[[tool.mypy.overrides]]
+module = [
+    "sklearn.*",
+    "pandas.*",
+    "joblib.*",
+    "imblearn.*",
+    "xgboost.*",
+    "matplotlib.*",
+    "seaborn.*",
+    "nltk.*",
+    "yaml",
+    "fitz",
+    "docx.*",
+    "pdfminer.*",
+    "slowapi.*",
+]
+ignore_missing_imports = true
+
+# --- Pydantic construction sites ------------------------------------------
+# Also not debt. Pydantic ships a mypy plugin that teaches it `Field(None, ...)`
+# is a default; without it every optional field reads as required and any
+# construction omitting one is a false "Missing named argument".
+#
+# The plugin is NOT enabled, and cannot be here: `import pydantic.mypy` raises
+# ImportError against mypy 1.19 (it wants `ExpandTypeVisitor`, which moved).
+# Enabling it would break the build for everyone rather than only for the
+# person who tried it.
+#
+# So `call-arg` is disabled for the two modules that construct these models --
+# named individually, so a third module trips the check and someone has to
+# decide about it deliberately. Verified as false positives: every field
+# reported missing is declared `Field(None, ...)` in src/storage/models.py.
+# Re-enable and delete this block once the plugin imports again.
+[[tool.mypy.overrides]]
+module = ["src.agents.pipeline", "src.storage.models"]
+disable_error_code = ["call-arg"]
+
+# --- The baseline ---------------------------------------------------------
+# Real debt, and the only entries here. Every one is in `ml_engine` -- the
+# offline training and evaluation pipeline, which runs from the command line
+# and never serves a request. The whole serving path type-checks clean.
+#
+# The common defect is the same in all of them: an attribute is initialised to
+# None in __init__ and then used as a DataFrame with no guard, so mypy is
+# right that it can be None and the code is right that in practice it is not
+# by then. Fixing it properly means making the load-then-use order explicit
+# rather than sprinkling asserts, which is a change to the training pipeline
+# and belongs in its own commit.
+#
+# 78 errors when first run. 32 after configuration and the real fixes, all
+# below. This list only shrinks; adding to it needs a reason in the commit.
+[[tool.mypy.overrides]]
+module = [
+    "src.ml_engine.data_loader",        # 14 - self.df: Optional[DataFrame], used unguarded
+    "src.ml_engine.model_trainer",      #  7 - untyped dicts, Optional defaults
+    "src.ml_engine.evaluation_criteria",#  3 - None defaults on ndarray parameters
+    "src.ml_engine.cross_validation",   #  1 - None default on an ndarray parameter
+    "src.ml_engine.ats_predictor",      #  1 - Optional metadata used unguarded
+]
+ignore_errors = true
