@@ -1,0 +1,49 @@
+name: Pages
+
+# The showcase site only. It is static HTML with no build step, so this
+# publishes site/ as-is rather than running a generator over it.
+#
+# Path-filtered on purpose: the application CI in ci.yml runs on every push,
+# and a change to src/ has no effect on these three documents. Deploying the
+# same bytes again on every backend commit would make a green Pages badge mean
+# nothing.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  # So a deploy can be re-run by hand -- after enabling Pages for the first
+  # time, or to republish without an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time. `cancel-in-progress: false` because a half-finished
+# publish is worse than a queued one: unlike CI, the thing being interrupted
+# is the live site.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
