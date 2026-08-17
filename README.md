@@ -22,8 +22,8 @@
 
 Upload a résumé. Four agents parse it, resolve its skills against a controlled
 vocabulary, score it against all 800 roles in the corpus, and write an
-explanation for each match — in **0.74 seconds**, with every component of every
-score shown rather than asserted.
+explanation for each match — in about **4.5 seconds** end to end, with every
+component of every score shown rather than asserted.
 
 The interesting part of this project is not the pipeline. It is that the
 pipeline is measured — every figure below is a reading taken from the running
@@ -46,7 +46,7 @@ checked rather than taken on trust. Nothing here is a projection or a target.
 
 | Metric | Before | After | Change |
 |---|--:|--:|--:|
-| One CV against all 800 roles | 16.64 s | **0.74 s** | **22× faster** |
+| One CV against all 800 roles, in-process | 16.64 s | **~1.7 s** | **~10× faster** |
 | Database writes per upload | 800 rows | 1 transaction | **114× cheaper per row** |
 | Model calls per upload | 800 | 1 vectorised | **245× faster** |
 
@@ -352,7 +352,7 @@ file: <resume.pdf>
     }
   ],
   "jobs_evaluated": 800,
-  "processing_time": 0.74,
+  "processing_time": 4.459,
   "scoring_mode": "hybrid"
 }
 ```
@@ -365,14 +365,43 @@ which described none of them correctly.
 
 ## Performance
 
-One CV against all 800 roles went from **16.64 s to 0.74 s**. Three changes did
-it, each removing work repeated per job that only needed doing once per upload:
+Three changes removed work that was being repeated per job when it only needed
+doing once per upload:
 
 | Change | Before | After |
 |---|--:|--:|
 | **Persist once, not per job** — one transaction, and only for the matches returned | 800 connections | 1 |
 | **One `predict_proba`** — one frame, one transform, the whole corpus | 800 calls | 1 |
 | **Normalise the CV once** — its skills do not change between comparisons | per job | per upload |
+
+**What it costs now, with the conditions each figure was taken under.** Timing
+depends on how dense the résumé is — cost is roughly linear in the number of
+skills extracted — so one number without its input is not a measurement:
+
+| Measured | Figure |
+|---|--:|
+| Rule scoring, 800 roles, 10-skill CV, model off | **~0.7 s** |
+| Scoring 800 roles, 57-skill CV, model on | **~1.8 s** |
+| Full pipeline in-process — parse, extract, score, persist | **~1.7 s** |
+| **`POST /match` end to end, real 161 KB PDF** | **~4.5 s** |
+
+The last row is the one a user experiences, and it is what the interface
+reports back to them. A real résumé put through Agent 2 extracts **57 skills**;
+the perf fixture carries 10, which is why a figure taken from it flatters the
+product by roughly 2.5×.
+
+> An earlier version of this file opened with "in 0.74 seconds" and attached it
+> to the whole operation. That number came from the 10-skill fixture, with the
+> model disabled, excluding parsing, extraction, persistence and serialisation.
+> It was true of the call it measured and false of the sentence it appeared in.
+> `TestRealisticCorpusScoring` now measures a dense CV so the honest figure
+> lives in the suite rather than only in prose.
+
+**The remaining gap is not yet explained, and is recorded rather than smoothed
+over.** The same `process_cv_batch` call takes ~1.7 s in a fresh process and
+~4.5 s inside the running uvicorn server, reproducibly, back to back on one
+machine with the model loaded in both. It is not degradation with uptime —
+ten sequential runs stay flat. Under investigation.
 
 None of this rests on a stopwatch reading from one machine.
 `tests/system/test_performance.py` re-measures the batch path against the
@@ -452,7 +481,7 @@ history, the daily LLM quota and the job corpus all live there.
 ## Star this repo
 
 If the honest-metrics approach was useful to you — the leakage analysis, the
-provider protocol, or the measured 22× — a star helps other people find it.
+provider protocol, or the measured numbers — a star helps other people find it.
 
 <div align="center">
 

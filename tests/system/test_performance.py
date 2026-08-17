@@ -236,3 +236,158 @@ class TestPersistencePerformance:
             f"{per_row_individual * 1000:.3f} ms) -- the batch path may have "
             f"regressed to one connection per row"
         )
+
+
+# A CV the size of a real one.
+#
+# The fixture above carries 10 skills. A genuine résumé put through Agent 2
+# extracts far more -- the owner's own PDF yields 57 -- and scoring cost is
+# roughly linear in that count. So every figure produced from `CV` describes a
+# résumé about a fifth the density of the ones this product is for, and a guard
+# calibrated on it cannot see a regression that only appears on real input.
+DENSE_SKILLS = [
+    "Python",
+    "JavaScript",
+    "Docker",
+    "SQL",
+    "React",
+    "AWS",
+    "PostgreSQL",
+    "Kubernetes",
+    "Git",
+    "Linux",
+    "FastAPI",
+    "Django",
+    "Redis",
+    "Terraform",
+    "Kafka",
+    "Celery",
+    "pytest",
+    "Bash",
+    "TypeScript",
+    "Node.js",
+    "GraphQL",
+    "REST APIs",
+    "Microservices",
+    "System Design",
+    "CI/CD",
+    "Spring Boot",
+    "Java",
+    "Go",
+    "C#",
+    "Angular",
+    "Vue.js",
+    "MongoDB",
+    "MySQL",
+    "Elasticsearch",
+    "RabbitMQ",
+    "Jenkins",
+    "Ansible",
+    "Prometheus",
+    "Grafana",
+    "Nginx",
+    "Machine Learning",
+    "TensorFlow",
+    "PyTorch",
+    "Pandas",
+    "NumPy",
+    "scikit-learn",
+    "Spark",
+    "Hadoop",
+    "Airflow",
+    "dbt",
+    "Snowflake",
+    "Tableau",
+    "Power BI",
+    "Excel",
+    "Figma",
+    "Jira",
+    "Confluence",
+]
+
+DENSE_CV = CVProfile(
+    cv_id="perf-dense",
+    file_name="dense.txt",
+    name="Dense Candidate",
+    skills=DENSE_SKILLS,
+    experience_years=7,
+    education="Bachelor's",
+    raw_text="Senior Software Engineer with 7 years of experience. " * 60,
+    extracted_data={"current_title": "Senior Software Engineer"},
+)
+
+
+@pytest.mark.system
+@pytest.mark.performance
+class TestRealisticCorpusScoring:
+    """
+    What a real résumé costs, measured rather than quoted.
+
+    The README stated 0.74 s for scoring one CV against all 800 roles, and
+    presented it as the whole user-visible operation. Three things were wrong
+    with that. It came from the 10-skill fixture; it ran with `include_ml=False`
+    while the deployed app runs with the model loaded; and it excluded parsing,
+    extraction, persistence and serialisation. A dense CV measures around 3.5 s
+    for the same call, and a real upload through `POST /match` around 4.7 s.
+
+    These tests exist so the honest figure lives in the suite. A number in a
+    README that nothing measures drifts from the code that produces it, which
+    is the same failure this project removed from its ML metrics and from its
+    provider annotations.
+    """
+
+    def test_the_dense_fixture_is_actually_dense(self):
+        """
+        Guards the guard.
+
+        The defect was a threshold calibrated on an unrepresentative fixture,
+        so the fixture's own realism has to be asserted -- otherwise a future
+        edit can trim it back and every budget below silently becomes generous
+        again.
+        """
+        assert len(DENSE_SKILLS) >= 50, (
+            f"the dense fixture has shrunk to {len(DENSE_SKILLS)} skills; "
+            "it exists to be the size of a real résumé"
+        )
+
+    def test_scoring_cost_grows_with_cv_density(self, agent, jobs):
+        """
+        The relationship the single headline number hid.
+
+        Not a threshold -- a direction. If a dense CV ever stops costing more
+        than a sparse one, either the skill matcher stopped reading skills or
+        something is being cached that should not be.
+        """
+        sample = jobs[:400]
+
+        start = time.perf_counter()
+        agent.score_matches(CV, sample, include_ml=False)
+        sparse = time.perf_counter() - start
+
+        start = time.perf_counter()
+        agent.score_matches(DENSE_CV, sample, include_ml=False)
+        dense = time.perf_counter() - start
+
+        assert dense > sparse, (
+            f"a {len(DENSE_SKILLS)}-skill CV ({dense:.2f}s) did not cost more "
+            f"than a {len(CV.skills)}-skill one ({sparse:.2f}s) -- scoring may "
+            "no longer be reading the full skill set"
+        )
+
+    def test_a_realistic_cv_scores_the_corpus_within_budget(self, agent, jobs):
+        """
+        Measured at ~3.5 s for 800 roles with the model off, ~4.3 s with it on.
+
+        The budget is 12 s: generous against a loaded CI runner, and still far
+        below what a per-job model call or a per-job file read would produce.
+        The point is that the number is now taken against a realistic input, so
+        it can be quoted without a footnote.
+        """
+        start = time.perf_counter()
+        breakdowns = agent.score_matches(DENSE_CV, jobs, include_ml=True)
+        elapsed = time.perf_counter() - start
+
+        assert len(breakdowns) == len(jobs)
+        assert elapsed < 12.0, (
+            f"scoring {len(jobs)} roles for a {len(DENSE_SKILLS)}-skill CV took " f"{elapsed:.2f}s"
+        )
