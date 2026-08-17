@@ -18,9 +18,11 @@ CONTRIBUTING.md
 # same day, by decision: it is the working record behind the backlog, and it
 # belongs with Plans/ below rather than in the published tree. Nothing depends
 # on it — `scripts/check_control_chars.py` names it but skips a missing path,
-# which is the behaviour it was written for. Around twenty code comments cite
-# "TASKS.md 5.9" and the like; those are now pointers to a local file, which is
-# a cosmetic cost accepted knowingly.
+# which is the behaviour it was written for. The code comments that used to cite
+# "TASKS.md 5.9" now cite "backlog 5.9": the IDs are stable and worth keeping as
+# provenance, but a filename promises a file. CONTRIBUTING.md says once what the
+# namespace is. The ADRs keep their prose references — they are dated records of
+# what was believed at the time, and rewriting them would defeat the point.
 TASKS.md
 
 # ====================

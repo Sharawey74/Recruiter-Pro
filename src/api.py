@@ -465,7 +465,7 @@ def job_payload(job: JobPosting) -> dict:
     location_city+location_country/location, employment_type/job_type -- which
     is not free: every consumer had to write `a || b` and guess which one was
     authoritative, and a component that read only the alias silently displayed
-    nothing once the alias stopped being populated. See TASKS.md 5.6.
+    nothing once the alias stopped being populated. See backlog 5.6.
     """
     return {
         "job_id": job.job_id,
@@ -621,7 +621,7 @@ async def get_stats():
     never, and neither could be checked by looking at them.
 
     Deliberately absent: a model accuracy figure. The classifier reports 99.3%
-    accuracy and a 1.000 ROC-AUC on its test split, and TASKS.md 1.4 records
+    accuracy and a 1.000 ROC-AUC on its test split, and backlog 1.4 records
     why quoting that would be dishonest -- the label is a threshold on a column
     the model does not even train on, so two ordinary features reproduce it. A
     headline "99% accurate" would contradict the most careful piece of analysis
@@ -993,7 +993,7 @@ async def match_cv(
                 # matcher_score and scorer_score -- named after the agent the
                 # caller assumed produced them, which is wrong for all three.
                 # The UI accordingly labelled the skill score "ATS" and the
-                # experience score "Matching". See TASKS.md 5.9.
+                # experience score "Matching". See backlog 5.9.
                 "rule_based_score": round(match.score_breakdown.rule_based_score * 100, 1),
                 "skill_score": round(match.score_breakdown.skill_score * 100, 1),
                 "experience_score": round(match.score_breakdown.experience_score * 100, 1),
@@ -1013,7 +1013,7 @@ async def match_cv(
                 # /match/single sent them (nested as skills.matched/.missing),
                 # so on this endpoint - the one the UI actually calls - the
                 # badges were always empty. Flat names to match what the
-                # component and the Match type expect. See TASKS.md 1.5.
+                # component and the Match type expect. See backlog 1.5.
                 "matched_skills": match.score_breakdown.matched_skills,
                 "missing_skills": match.score_breakdown.missing_skills,
                 "status": status,
@@ -1048,7 +1048,7 @@ async def match_cv(
             # scores came from the advertised hybrid ML+rules path or from the
             # rule-based fallback that runs when the model fails to load. Both
             # produce plausible numbers, so the difference is invisible unless
-            # it is stated. See TASKS.md 1.1.
+            # it is stated. See backlog 1.1.
             "ml_scoring_enabled": pipeline.agent3.ml_scorer.enabled,
             "scoring_mode": ("hybrid" if pipeline.agent3.ml_scorer.enabled else "rule_based_only"),
         }
@@ -1174,7 +1174,7 @@ async def match_to_single_job(
 # No client called it: the frontend has only ever used /match/history. Two
 # encodings of one resource is how the two drifted far enough apart that one
 # of them could return 500 on every call for months without anyone noticing.
-# See TASKS.md 5.8.
+# See backlog 5.8.
 
 
 def _decode_skill_list(raw) -> List[str]:

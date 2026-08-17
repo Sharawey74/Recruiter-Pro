@@ -4,7 +4,7 @@
 **Date:** 2026-08-09
 **Deciders:** Repository owner (solo project)
 **Related:** [ADR-2](002-llm-provider-abstraction.md) · [ADR-3](003-unified-skill-vocabulary.md)
-**Backlog:** [`TASKS.md`](../../TASKS.md) — 2.5, 2.7, 4.4
+**Backlog:** items 2.5, 2.7, 4.4 ([what these are](README.md#backlog-ids))
 
 ---
 

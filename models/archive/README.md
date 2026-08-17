@@ -18,7 +18,7 @@ current.
 
 The production lineage is the one kept. Worth recording, though, that **the archived 0.608
 ensemble is the more believable result.** The production model reports ROC-AUC 1.000, and
-that is not a sign it is better — it is a sign the task is trivial. See `TASKS.md` N18:
+that is not a sign it is better — it is a sign the task is trivial. See backlog N18:
 `Recruiter Decision` is a threshold on `AI Score`, and `Experience` + `Projects Count` alone
 reach ROC-AUC 0.9933. No model trained on this dataset can produce an honest number.
 

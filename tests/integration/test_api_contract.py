@@ -374,7 +374,7 @@ class TestMatchEndpoint:
         These went out as parser_score, matcher_score and scorer_score --
         named after the agent a reader would assume produced them, which was
         wrong for all three. The UI labelled the skill score "ATS" as a
-        result. The old names must not come back. See TASKS.md 5.9.
+        result. The old names must not come back. See backlog 5.9.
         """
         r = client.post(
             "/match?top_k=1&explain=false",
@@ -389,7 +389,7 @@ class TestMatchEndpoint:
         Four fields went out twice under two names -- title/job_title,
         company_name/company, location_city+country/location,
         employment_type/job_type -- so every consumer wrote `a || b` and
-        guessed which was authoritative. See TASKS.md 5.6.
+        guessed which was authoritative. See backlog 5.6.
         """
         match = client.post(
             "/match?top_k=1&explain=false",
@@ -412,7 +412,7 @@ class TestMatchEndpoint:
         paragraphs. Without provenance a dead key, an exhausted quota or an
         unreachable provider is indistinguishable from a working demo -- the
         same argument as scoring_mode, applied to the prose. The pipeline
-        already recorded this; nothing served it. See TASKS.md 6.9.
+        already recorded this; nothing served it. See backlog 6.9.
         """
         matches = client.post(
             "/match?top_k=3&explain=true",
@@ -512,7 +512,7 @@ class TestHistoryEndpoints:
         """
         One resource, one encoding. The removed /history served these same
         rows as `score`/`cv_name`/`decision`, and the two shapes drifted until
-        one of them returned 500 on every call. See TASKS.md 5.8.
+        one of them returned 500 on every call. See backlog 5.8.
         """
         live = client.post(
             "/match?top_k=1&explain=false",
@@ -548,7 +548,7 @@ class TestJobFiltering:
     """
     The Jobs search box sent `search` for months and the API silently dropped
     it -- FastAPI ignores unknown query parameters, so the request succeeded
-    and returned the unfiltered page. See TASKS.md 5.3.
+    and returned the unfiltered page. See backlog 5.3.
     """
 
     def test_search_narrows_the_result_set(self, client):
@@ -629,7 +629,7 @@ class TestStatsEndpoint:
     """
     The landing page quotes these. The endpoint exists so that page cannot
     drift from the system, which is the same defect as the "3,000+ jobs" copy
-    that sat above a truncated load. See TASKS.md 5.15.
+    that sat above a truncated load. See backlog 5.15.
     """
 
     def test_reports_the_corpus_it_actually_loaded(self, client):
@@ -668,7 +668,7 @@ class TestStatsEndpoint:
     def test_no_accuracy_figure_is_published(self, client):
         """
         Deliberate. The classifier reports 99.3% accuracy and a 1.000 ROC-AUC
-        on its test split, and TASKS.md 1.4 records why quoting that would be
+        on its test split, and backlog 1.4 records why quoting that would be
         dishonest: the label is a threshold on a column the model does not
         train on, so two ordinary features reproduce it. A landing page
         advertising "99% accurate" would contradict the most careful analysis

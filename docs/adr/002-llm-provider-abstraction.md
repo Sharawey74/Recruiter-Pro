@@ -4,7 +4,7 @@
 **Date:** 2026-08-09
 **Deciders:** Repository owner (solo project)
 **Related:** [ADR-1](001-llm-allocation.md) · [ADR-3](003-unified-skill-vocabulary.md)
-**Backlog:** [`TASKS.md`](../../TASKS.md) — 4.6, 4.7, 4.9
+**Backlog:** items 4.6, 4.7, 4.9 ([what these are](README.md#backlog-ids))
 
 ---
 

@@ -27,7 +27,7 @@ export type MatchStatus = "accepted" | "review" | "rejected";
  * One name per concept. Four of these used to arrive twice under two names
  * (company/company_name, location/location_city, job_type/employment_type,
  * title/job_title), so every consumer wrote `a || b` and guessed which was
- * authoritative. See TASKS.md 5.6.
+ * authoritative. See backlog 5.6.
  */
 export interface JobFields {
   company_name: string;

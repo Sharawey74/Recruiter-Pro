@@ -1,6 +1,6 @@
 <!--
 Branch and commit conventions: CONTRIBUTING.md
-Backlog item IDs: TASKS.md
+Backlog item IDs: docs/adr/README.md#backlog-ids
 Keep this filled in — a squash-merged PR body is the permanent record of the change.
 -->
 
@@ -66,12 +66,12 @@ this project already had once (A0) — say what moved and whether that was inten
 - [ ] No secrets, keys, or `.env` contents in the diff or in logs
 - [ ] No new abstraction without ≥2 real implementations today
 - [ ] Dead code removed rather than commented out
-- [ ] `TASKS.md` item ticked, or a follow-up item added for what was deliberately left out
+- [ ] Backlog item ticked, or a follow-up item added for what was deliberately left out
 - [ ] ADR added or updated if this changes a decision recorded in `docs/adr/`
 
 ## Deliberately not in this PR
 
 <!--
 Anything you noticed and chose not to fix here. Keeps scope honest and stops the
-reviewer from re-reporting it. Add it to TASKS.md and reference the ID.
+reviewer from re-reporting it. Add it to the backlog and reference the ID.
 -->

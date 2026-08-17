@@ -29,7 +29,7 @@ import { WorldMap } from "./world-map";
  * running corpus. The reference design specified 99% Accuracy, 10x Faster,
  * 50M+ Profiles, 1,204 Job Boards, 5.4M+ Candidate Profiles, 500+ recruiting
  * teams and a logo wall of four companies. None of those are true of this
- * system, and one is worse than untrue: TASKS.md 1.4 records that the
+ * system, and one is worse than untrue: backlog 1.4 records that the
  * classifier's 99% is an artifact of a synthetic label that two ordinary
  * columns reproduce, and that the finding is the most valuable thing in the
  * repository. Advertising the number would contradict the analysis.

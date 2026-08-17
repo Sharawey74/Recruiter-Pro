@@ -4,7 +4,7 @@
 **Date:** 2026-08-09
 **Deciders:** Repository owner (solo project)
 **Related:** [ADR-1](001-llm-allocation.md) · [ADR-2](002-llm-provider-abstraction.md)
-**Backlog:** [`TASKS.md`](../../TASKS.md) — 2.1, 2.2, 2.4, 2.6, 3.2, 3.4
+**Backlog:** items 2.1, 2.2, 2.4, 2.6, 3.2, 3.4 ([what these are](README.md#backlog-ids))
 
 ---
 

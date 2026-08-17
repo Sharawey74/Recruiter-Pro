@@ -1,5 +1,5 @@
 """
-Unit tests for the two LLM limits and the endpoint rate limiter (TASKS.md 4.4).
+Unit tests for the two LLM limits and the endpoint rate limiter (backlog 4.4).
 
 Three layers solve three different problems and none substitutes for another:
 

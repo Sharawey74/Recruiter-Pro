@@ -19,13 +19,26 @@ one means writing a new ADR that supersedes it, not editing it in place.
 - Status: `Proposed` → `Accepted` → `Deprecated` | `Superseded by ADR-NNN`.
 - An accepted ADR is not edited to change its decision. Write the next one and mark this one
   superseded; the record of what was believed at the time is the point.
-- Link the backlog items in [`TASKS.md`](../../TASKS.md) that implement it.
+- Name the backlog items that implement it in the header. Cite the IDs; never link to the
+  file. See [Backlog IDs](#backlog-ids) below.
+
+## Backlog IDs
+
+Comments, commit footers and ADR headers in this repository cite short IDs — `A0`, `N18`,
+`5.9`, `7.2.3`. **They refer to a local engineering log that is deliberately not published**;
+it holds raw findings and superseded conclusions rather than documentation.
+
+Read them as issue numbers. They exist so a change can be traced back to the finding that
+caused it, and they are stable, which is why they are worth keeping even though the file
+is not here. **You never need the log to understand the code**: anything from it that
+matters to a reader was written into the README, into these ADRs, or into a comment at the
+site it concerns. A comment reading `See backlog 5.9` is naming a finding whose substance
+the sentences above it already state.
 
 ## Open
 
 **ADR-4 — hosted demo default explanation mode**, blocked until Phase 4. Rule-based by
-default with an OpenRouter opt-in, or OpenRouter by default behind the quota guards. See the
-open question at the end of `TASKS.md`.
+default with an OpenRouter opt-in, or OpenRouter by default behind the quota guards.
 
 > Note: `.gitignore` ignores `docs/` as a whole and re-includes only `docs/adr/`. Documentation
 > added elsewhere under `docs/` will not be tracked.
