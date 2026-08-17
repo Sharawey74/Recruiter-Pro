@@ -20,6 +20,7 @@ import { bandStyles } from "@/lib/scores";
 import { ScoreRing } from "@/components/ui/score-ring";
 import { ScoreBar } from "@/components/ui/score-bar";
 import { SkillBadge, SkillBadgeList } from "@/components/ui/skill-badge";
+import { ScoreComposition } from "@/components/ui/score-composition";
 import { CategoryIcon } from "@/components/jobs/job-card";
 import { formatDate, cn } from "@/lib/utils";
 
@@ -154,6 +155,11 @@ export function MatchCard({
             <ScoreBar component="rules" value={match.rule_based_score} />
             <ScoreBar component="ml" value={match.ml_score} />
           </div>
+
+          {/* The four meters above say how the candidate did on each part.
+              This says which parts produced the number — a different and
+              more useful question once you are comparing candidates. */}
+          <ScoreComposition match={match} />
 
           {match.explanation && (
             <section>

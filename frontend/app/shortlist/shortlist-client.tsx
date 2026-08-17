@@ -12,9 +12,11 @@ import {
   Building2,
   MapPin,
   RotateCcw,
+  Download,
 } from "lucide-react";
 import { getMatchHistory, apiErrorMessage } from "@/lib/api";
 import { useSession } from "@/lib/store";
+import { matchesToCsv, csvFilename, downloadCsv } from "@/lib/csv";
 import type { Match, MatchStatus } from "@/lib/types";
 import { bandStyles } from "@/lib/scores";
 import { formatDateTime, initials, cn } from "@/lib/utils";
@@ -118,25 +120,55 @@ export function ShortlistClient() {
 
   const overrideCount = Object.keys(session.statusOverrides).length;
 
+  const exportCsv = () => {
+    if (visible.length === 0) {
+      toast.error("Nothing to export.");
+      return;
+    }
+    downloadCsv(
+      csvFilename(filter === "all" ? "shortlist" : `shortlist-${filter}`),
+      matchesToCsv(visible, session.effectiveStatus)
+    );
+    toast.success(`Exported ${visible.length} row${visible.length === 1 ? "" : "s"}.`);
+  };
+
   return (
     <>
       <PageHeader
         title="Shortlist"
         subtitle={`Each candidate's top ${TOP_PER_CANDIDATE} roles, banded by score. Change a verdict and it sticks to this browser.`}
         actions={
-          overrideCount > 0 ? (
+          <div className="flex flex-wrap items-center gap-3">
+            {/*
+              A shortlist is the thing a recruiter hands to somebody else, so
+              this is the export that matters most — more than the full ranking,
+              which is working material. It exports the filtered view, because
+              the filter is the shortlisting.
+            */}
             <button
               type="button"
-              onClick={() => {
-                session.update({ statusOverrides: {} });
-                toast.success(`Reset ${overrideCount} manual decisions.`);
-              }}
-              className="btn-ghost"
+              onClick={exportCsv}
+              disabled={visible.length === 0}
+              className="btn-secondary disabled:cursor-not-allowed disabled:opacity-40"
             >
-              <RotateCcw className="h-4 w-4" aria-hidden />
-              Reset {overrideCount} override{overrideCount === 1 ? "" : "s"}
+              <Download className="h-4 w-4" aria-hidden />
+              Export {filter === "all" ? "shortlist" : filter}
             </button>
-          ) : undefined
+
+            {overrideCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  session.update({ statusOverrides: {} });
+                  toast.success(`Reset ${overrideCount} manual decisions.`);
+                }}
+                className="btn-ghost"
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden />
+                Reset {overrideCount} override{overrideCount === 1 ? "" : "s"}
+              </button>
+            )}
+          </div>
         }
       />
 

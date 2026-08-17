@@ -116,6 +116,55 @@ def temporary_job(client):
 
 
 @pytest.mark.integration
+class TestScoreComposition:
+    """
+    The five weighted components, and the promise that they add up.
+
+    /match returned two of the five, so a client could render a rule-based
+    total it had no way to decompose -- which is the one thing this payload
+    exists to make possible. /match/single had returned all five all along.
+    """
+
+    WEIGHTS = {
+        "skill_score": 0.50,
+        "experience_score": 0.20,
+        "title_score": 0.17,
+        "education_score": 0.08,
+        "keyword_score": 0.05,
+    }
+
+    def test_every_weighted_component_is_returned(self, client):
+        match = client.post(
+            "/match?top_k=1&explain=false",
+            files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
+        ).json()["matches"][0]
+
+        for field in self.WEIGHTS:
+            assert field in match, f"{field} missing; the total cannot be decomposed"
+
+    def test_the_components_sum_to_the_rule_based_total(self, client):
+        """
+        The invariant a stacked bar depends on. If these drift apart, the chart
+        is not merely wrong -- it is a chart that looks right and is not, which
+        is the failure this project keeps removing.
+
+        Half a point of tolerance: each field is rounded to one decimal before
+        it is serialised.
+        """
+        match = client.post(
+            "/match?top_k=1&explain=false",
+            files={"file": ("cv.txt", SAMPLE_CV, "text/plain")},
+        ).json()["matches"][0]
+
+        contributions = sum(match[field] * weight for field, weight in self.WEIGHTS.items())
+        assert abs(contributions - match["rule_based_score"]) < 0.5, (
+            f"components contribute {contributions:.2f} but rule_based_score is "
+            f"{match['rule_based_score']} -- the weights here and in "
+            f"config/agents.yaml have diverged"
+        )
+
+
+@pytest.mark.integration
 class TestCandidatesForJob:
     """
     The matcher run backwards. Every other view starts from a CV and ranks

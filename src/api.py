@@ -999,6 +999,13 @@ async def match_cv(
                 "rule_based_score": round(match.score_breakdown.rule_based_score * 100, 1),
                 "skill_score": round(match.score_breakdown.skill_score * 100, 1),
                 "experience_score": round(match.score_breakdown.experience_score * 100, 1),
+                # The remaining three weighted components. /match/single already
+                # returned all five; /match returned two of them, so a client
+                # could show a rule-based total it had no way to decompose --
+                # which is the one thing this payload exists to make possible.
+                "title_score": round(match.score_breakdown.title_score * 100, 1),
+                "education_score": round(match.score_breakdown.education_score * 100, 1),
+                "keyword_score": round(match.score_breakdown.keyword_score * 100, 1),
                 "ml_score": (
                     round(match.score_breakdown.ml_score * 100, 1)
                     if match.score_breakdown.ml_score is not None

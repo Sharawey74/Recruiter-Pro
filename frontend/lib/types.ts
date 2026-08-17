@@ -75,6 +75,14 @@ export interface Match extends JobFields {
   skill_score: number;
   /** Years-of-experience fit alone. */
   experience_score: number;
+  /**
+   * The remaining three weighted components. Optional because stored history
+   * rows predate them — a match that cannot be decomposed must be detectable,
+   * not silently rendered as zeroes.
+   */
+  title_score?: number;
+  education_score?: number;
+  keyword_score?: number;
   /** The model's prediction, or null when it did not run. */
   ml_score?: number | null;
 

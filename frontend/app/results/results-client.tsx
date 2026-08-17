@@ -4,13 +4,14 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Download, CheckCircle2, FileSearch, Cpu, Clock } from "lucide-react";
 import { useSession } from "@/lib/store";
+import { matchesToCsv, csvFilename, downloadCsv } from "@/lib/csv";
 import { formatDuration, SCORE_THRESHOLDS } from "@/lib/scores";
 import { formatDateTime } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { MatchCard } from "@/components/match/match-card";
 import { MatchSummary } from "@/components/match/match-summary";
 import { CardSkeletonGrid, EmptyState } from "@/components/ui/feedback";
-import type { Match } from "@/lib/types";
+
 
 type SortKey = "score" | "company" | "title";
 
@@ -46,7 +47,10 @@ export function ResultsClient() {
       toast.error("Nothing to export.");
       return;
     }
-    downloadCsv(visible, session.cvFilename ?? "results");
+    downloadCsv(
+      csvFilename(session.cvFilename ?? "results"),
+      matchesToCsv(visible, session.effectiveStatus)
+    );
     toast.success(`Exported ${visible.length} rows.`);
   };
 
@@ -182,40 +186,3 @@ export function ResultsClient() {
  * three. Quoting is not optional here — job titles and companies contain
  * commas, and an unquoted title shifts every later column in the row.
  */
-function downloadCsv(matches: Match[], source: string) {
-  const columns: [string, (match: Match) => string | number][] = [
-    ["job_id", (m) => m.job_id],
-    ["job_title", (m) => m.job_title],
-    ["company", (m) => m.company_name ?? ""],
-    ["location", (m) => [m.location_city, m.location_country].filter(Boolean).join(", ")],
-    ["remote_type", (m) => m.remote_type],
-    ["seniority", (m) => m.seniority_level],
-    ["salary_range", (m) => m.salary_range ?? ""],
-    ["final_score", (m) => m.final_score],
-    ["rule_based_score", (m) => m.rule_based_score],
-    ["skill_score", (m) => m.skill_score],
-    ["experience_score", (m) => m.experience_score],
-    ["ml_score", (m) => m.ml_score ?? ""],
-    ["status", (m) => m.status],
-    ["matched_skills", (m) => (m.matched_skills ?? []).join("; ")],
-    ["missing_skills", (m) => (m.missing_skills ?? []).join("; ")],
-  ];
-
-  const escape = (value: string | number) =>
-    `"${String(value).replace(/"/g, '""')}"`;
-
-  const csv = [
-    columns.map(([header]) => header).join(","),
-    ...matches.map((match) =>
-      columns.map(([, read]) => escape(read(match))).join(",")
-    ),
-  ].join("\r\n");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `recruiter-pro-${source.replace(/\.[^.]+$/, "")}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-}
