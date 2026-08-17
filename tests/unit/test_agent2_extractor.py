@@ -190,15 +190,13 @@ class TestNameExtraction:
     @pytest.mark.parametrize(
         "first_line",
         [
-            "Alex Rivera",       # 'alex' is in ADDRESS_TOKENS, for Alexandria
+            "Alex Rivera",  # 'alex' is in ADDRESS_TOKENS, for Alexandria
             "Alexandra Chen",
-            "Cairo Mensah",      # 'cairo' likewise
-            "Victoria Park",     # 'park' is street furniture and a surname
+            "Cairo Mensah",  # 'cairo' likewise
+            "Victoria Park",  # 'park' is street furniture and a surname
         ],
     )
-    def test_a_name_colliding_with_a_place_token_is_still_a_name(
-        self, extractor, first_line
-    ):
+    def test_a_name_colliding_with_a_place_token_is_still_a_name(self, extractor, first_line):
         """
         A single word shared with the address blocklist must not veto a line.
 
