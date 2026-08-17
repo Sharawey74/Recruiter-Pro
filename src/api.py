@@ -456,7 +456,17 @@ async def health_check():
             "jobs_loaded": len(jobs_cache),
             "ml_model_loaded": pipeline.agent3.ml_scorer.enabled,
             "database_ready": db is not None,
-            "ollama_enabled": pipeline.config.llm.enabled if hasattr(pipeline, "config") else False,
+            # Which provider will actually answer -- not whether a config flag
+            # is on.
+            #
+            # This was `ollama_enabled`, reading config.llm.enabled. So a
+            # hosted instance running LLM_PROVIDER=rule_based reported Ollama
+            # as enabled, and Ollama cannot run on the deployment host at all.
+            # 6.9 found the same lie in the match response and fixed it there
+            # with explanation_source, but left it standing here -- on the
+            # endpoint you read first when a deployment looks wrong.
+            "explanation_provider": pipeline.agent4.provider.name,
+            "llm_enabled": pipeline.config.llm.enabled if hasattr(pipeline, "config") else False,
         },
     }
 

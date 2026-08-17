@@ -63,6 +63,37 @@ class TestTheApplicationStarts:
         assert "ml_model_loaded" in components
         assert "database_ready" in components
 
+    def test_health_names_the_provider_that_will_answer(self, client):
+        """
+        Not whether a config flag is on.
+
+        The field was `ollama_enabled`, reading `config.llm.enabled`. A hosted
+        instance runs `LLM_PROVIDER=rule_based` -- Ollama needs several GB of
+        RAM on the same host and is not deployable -- and still reported
+        Ollama as enabled. Backlog 6.9 caught the identical lie in the match
+        response and fixed it there with `explanation_source`, leaving this
+        one standing on the endpoint you read first when a deployment looks
+        wrong.
+
+        Asserted against the live pipeline rather than a fixed string: CI runs
+        `rule_based` and a developer may be on `openrouter`, and the contract
+        is that the endpoint agrees with whichever one is loaded. Pinning a
+        value here would test the environment instead.
+        """
+        from src.api import pipeline
+
+        components = client.get("/health").json()["components"]
+
+        assert components["explanation_provider"] == pipeline.agent4.provider.name
+        assert components["explanation_provider"] in {
+            "ollama",
+            "openrouter",
+            "rule_based",
+        }
+        assert (
+            "ollama_enabled" not in components
+        ), "ollama_enabled named a provider rather than reporting one; it must not come back."
+
     def test_the_corpus_is_loaded(self, client):
         """A 503 from /match traces back to here."""
         assert client.get("/health").json()["components"]["jobs_loaded"] == 800

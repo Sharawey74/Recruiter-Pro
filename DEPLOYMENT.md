@@ -125,9 +125,33 @@ Vercel's origin for CORS — so:
 curl https://<api>.up.railway.app/health
 ```
 
-Expect `"jobs_loaded": 800` and `"database_ready": true`. A response with a
-smaller corpus means the volume is mounted but `DATABASE_PATH` points outside
-it, or the seed failed.
+```json
+{
+  "status": "healthy",
+  "components": {
+    "agents_loaded": true,
+    "jobs_loaded": 800,
+    "ml_model_loaded": true,
+    "database_ready": true,
+    "explanation_provider": "rule_based",
+    "llm_enabled": true
+  }
+}
+```
+
+Read it field by field — each one fails differently:
+
+| Field | If it is wrong |
+|---|---|
+| `jobs_loaded` | Not 800: the volume is mounted but `DATABASE_PATH` points outside it, or the seed failed |
+| `ml_model_loaded` | `false`: the joblib artifacts did not ship. Scoring still works, rule-based only, and the sidebar says so |
+| `database_ready` | `false`: no volume, or `DATABASE_PATH` points somewhere unwritable |
+| `explanation_provider` | **The provider that will actually answer.** Must match your `LLM_PROVIDER`. If you set `openrouter` and this says `rule_based`, the key is missing or the provider failed to construct — the app is working and quietly not using your key |
+
+That last row is the whole reason the field exists. It read `ollama_enabled`
+until this deployment was prepared, reporting a config flag rather than a
+provider, so an instance running `rule_based` announced Ollama — a provider
+that cannot run on this host at all.
 
 Then, in the browser, confirm the frontend loads figures on the landing page —
 those come from `GET /stats`, so they are an end-to-end proof that CORS, the

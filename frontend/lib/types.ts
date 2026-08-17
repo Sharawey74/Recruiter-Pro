@@ -154,7 +154,9 @@ export interface HealthResponse {
     jobs_loaded?: number;
     ml_model_loaded?: boolean;
     database_ready?: boolean;
-    ollama_enabled?: boolean;
+    /** Which provider will answer: "ollama" | "openrouter" | "rule_based". */
+    explanation_provider?: string;
+    llm_enabled?: boolean;
   };
 }
 
