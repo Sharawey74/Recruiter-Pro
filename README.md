@@ -48,8 +48,8 @@ product cannot disagree.
 | Canonical skills | **679** | The controlled vocabulary skills resolve to |
 | Skill aliases | **1,554** | Surface forms mapping onto those 679 |
 | Scoring components | **5** | Weighted, and each returned separately |
-| Explanation providers | **4** | One protocol; three remote, one local |
-| API routes | **11** | Across ten paths |
+| Explanation providers | **3** | One protocol; one local, one hosted, one offline fallback |
+| API routes | **15** | Operations across eleven paths |
 
 **Measured performance** — `pytest tests/system/`, same corpus before and after.
 
@@ -63,9 +63,9 @@ product cannot disagree.
 
 | Metric | Value | Meaning |
 |---|--:|---|
-| Tests passing | **514** | 1 skipped, and the skip is explained below |
-| Branch coverage | **83%** | Branch, not statement — the stricter measure |
-| CI checks | **9** | All blocking except the formatter |
+| Tests passing | **529** | 1 skipped, and the skip is explained below |
+| Branch coverage | **83.7%** | Branch, not statement — the stricter measure |
+| CI checks | **10** | Every one blocking |
 | Decision records | **3** | The design choices that needed an argument |
 
 <details>
@@ -73,14 +73,14 @@ product cannot disagree.
 
 | Area | Files | Lines |
 |---|--:|--:|
-| `src/` — application and ML engine | 35 | 7,424 |
-| `tests/` — unit, integration, system | 36 | 6,432 |
-| `frontend/` — TypeScript and TSX | 41 | 6,308 |
-| `scripts/` — tooling, validators, scanners | 20 | 3,403 |
-| **Total tracked** | **188** | **23,567** |
+| `src/` — application and ML engine | 34 | 8,004 |
+| `tests/` — unit, integration, system | 36 | 7,021 |
+| `frontend/` — TypeScript and TSX | 43 | 6,533 |
+| `scripts/` — tooling, validators, scanners | 20 | 4,115 |
+| **Total tracked** | **188** | **25,673** |
 
-The frontend is 8 routes built from 17 components; the backend serves 11 routes
-across 10 paths.
+The frontend is 8 routes built from 18 components; the backend serves 15
+operations across 11 paths.
 
 </details>
 
@@ -218,7 +218,7 @@ process — the arrows between agents are function calls, not requests.
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ CLIENT                                                  Next.js 16  ·  :3000 │
 │                                                                              │
-│ 8 routes  ·  17 components                                                   │
+│ 8 routes  ·  18 components                                                   │
 │ session state in localStorage, read via useSyncExternalStore                 │
 └───────────────────────────────────────┬──────────────────────────────────────┘
                                         │  REST / JSON
@@ -226,7 +226,7 @@ process — the arrows between agents are function calls, not requests.
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ API                                              FastAPI · uvicorn  ·  :8000 │
 │                                                                              │
-│ 11 routes  ─▶  magic bytes  ─▶  10 MB cap  ─▶  5/min per IP                  │
+│ 15 operations  ─▶  magic bytes  ─▶  10 MB cap  ─▶  5/min per IP              │
 └───────────────────────────────────────┬──────────────────────────────────────┘
                                         │  dispatch
                                         ▼
@@ -311,7 +311,7 @@ to rule-based prose is visible rather than merely plausible.
 
 ```
 src/
-├── api.py                    FastAPI application, 11 routes
+├── api.py                    FastAPI application, 15 operations
 ├── agents/
 │   ├── agent1_parser.py      document → text
 │   ├── agent2_extractor.py   text → structured profile
@@ -334,7 +334,7 @@ tests/                        unit (25) · integration (4) · system (1)
 
 ## API
 
-Eleven routes across ten paths. Interactive documentation at `/docs`.
+Fifteen operations across eleven paths. Interactive documentation at `/docs`.
 
 | Method | Path | Purpose | Parameters |
 |---|---|---|---|
@@ -344,8 +344,12 @@ Eleven routes across ten paths. Interactive documentation at `/docs`.
 | `GET` | `/jobs` | Browse the corpus | `search`, `category`, `remote_type`, `seniority`, `limit`, `skip` |
 | `GET` | `/jobs/facets` | Filter values that actually occur in the corpus | — |
 | `GET` | `/jobs/{job_id}` | One role, untruncated | — |
+| `GET` | `/jobs/{job_id}/candidates` | **Reverse match** — rank stored candidates against one role | `limit` |
+| `POST` | `/jobs` | Create a role | `201`, or `409` on a duplicate `job_id` · rate limited |
+| `PUT` | `/jobs/{job_id}` | Replace a role | The path id wins over the body · rate limited |
+| `DELETE` | `/jobs/{job_id}` | Remove a role | Leaves match history intact · rate limited |
 | `GET` | `/stats` | Live corpus and engine figures | — |
-| `GET` | `/health` | Corpus size, ML state, database readiness | — |
+| `GET` | `/health` | Corpus size, ML state, database readiness, active provider | — |
 | `GET` | `/match/history` | Stored matches, newest first | `limit` |
 | `DELETE` | `/match/history` | Clear stored matches | — |
 | `GET` | `/` | Service banner | — |
@@ -418,23 +422,30 @@ pytest                                              # the whole suite
 pytest --cov=src --cov-report=term --cov-branch     # with coverage
 ```
 
-**515 tests collected — 514 passing, 1 skipped, 83% branch coverage of `src/`,
-2 warnings**, both from a dependency. The suite runs with no network, no API key
+**530 tests collected — 529 passing, 1 skipped, 83.7% branch coverage of
+`src/`, 2 warnings**, both from a dependency. The suite runs with no network, no API key
 and no model.
 
-Nine checks run in CI on every push and pull request:
+Ten checks run in CI on every push and pull request, and every one of them
+blocks the merge:
 
 | | Check | Scope |
 |:--:|---|---|
 | 1 | `ruff` | `src/ scripts/ tests/`, blocking |
-| 2 | `black --check` | non-blocking until a format commit lands |
-| 3 | `pytest` with branch coverage | the whole suite |
-| 4 | Corpus validator | structural integrity of all 800 roles |
-| 5 | Control-character scan | 138 files, byte level |
-| 6 | Credential scan | 181 tracked files, prefix-anchored |
-| 7 | `tsc --noEmit` | frontend types |
-| 8 | `eslint` | frontend lint |
-| 9 | `next build` | production build, 9 routes |
+| 2 | `black --check` | `src/ scripts/ tests/`, blocking |
+| 3 | `mypy` | behind an explicit five-module baseline |
+| 4 | `pytest` with branch coverage | the whole suite, floor at 81% |
+| 5 | Corpus validator | structural integrity of all 800 roles |
+| 6 | Control-character scan | 139 files, byte level |
+| 7 | Credential scan | 181 tracked files, prefix-anchored |
+| 8 | `tsc --noEmit` | frontend types |
+| 9 | `eslint` | frontend lint |
+| 10 | `next build` | production build, 9 routes |
+
+The lint toolchain is pinned to exact versions. A range makes "correctly
+formatted" a function of the install date rather than of the code: an open
+`black>=24.0.0` had CI resolve one major version ahead of a developer's
+machine, and the two disagreed about seven files nobody had touched.
 
 The one skip is honest: it guards against the detail view truncating a
 requirement list the grid caps at ten, and no role in the corpus has ten — the
