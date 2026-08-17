@@ -106,6 +106,72 @@ outright and every call fails.
 
 ---
 
+## 2b · Alternative — the API on your own machine, through a tunnel
+
+Vercel for the frontend, your laptop for the backend, no Railway. This works,
+and it is genuinely live for anyone with the link — but read the two costs
+first, because one of them is annoying rather than obvious.
+
+**Pointing `NEXT_PUBLIC_API_URL` at `http://localhost:8000` does not work.**
+The frontend runs in the *visitor's* browser, so `localhost` means *their*
+machine, not yours. It appears to work when you test it, because for you those
+are the same computer. For everyone else it fails. Browsers also block plain
+HTTP calls from an HTTPS page, inconsistently across vendors, so even your own
+test is unreliable.
+
+What works is a tunnel: an outbound connection from your machine to a public
+HTTPS endpoint. No port forwarding, no firewall rule, and your home IP is not
+exposed.
+
+```bash
+winget install --id Cloudflare.cloudflared        # once
+```
+
+```bash
+python -m uvicorn src.api:app --host 127.0.0.1 --port 8000
+```
+
+```bash
+cloudflared tunnel --url http://localhost:8000
+```
+
+The second command prints a URL like `https://random-words.trycloudflare.com`.
+That is your API. Set it as `NEXT_PUBLIC_API_URL` in Vercel, set
+`CORS_ORIGINS` to your Vercel origin in the API's `.env`, and set
+`TRUST_PROXY_HEADERS=true` — the tunnel is a proxy, so without it every visitor
+shares one rate-limit bucket.
+
+### The annoying cost
+
+**A quick tunnel gets a new random URL every time you restart it**, and
+`NEXT_PUBLIC_API_URL` is compiled into the frontend at build time, not read at
+runtime. So every tunnel restart requires a **Vercel rebuild**, not a restart.
+Close your laptop lid, and fixing the site is a redeploy.
+
+The fix is a *named* tunnel, which keeps one stable hostname. It is free, but
+it needs a Cloudflare account and a domain you control. If you have one, use
+it; if not, expect the rebuild cycle.
+
+### The other costs, stated plainly
+
+| | |
+|---|---|
+| Uptime | Exactly as available as your laptop. Sleep, reboot and Wi-Fi drops are outages |
+| Latency | Served over your home uplink, not a datacentre |
+| Load | Every visitor's request runs on your CPU |
+| Exposure | `POST`, `PUT` and `DELETE /jobs` are unauthenticated. On Railway that risks a hosted demo corpus; here it is a process on your personal machine. Rate limits bound it, auth does not exist |
+
+**Good for:** showing someone the working app during an interview or a demo,
+where you are at the keyboard anyway.
+
+**Not good for:** a link in a CV or a portfolio, where the reader will open it
+at a time you cannot predict and conclude the project is broken if your laptop
+is closed. That case is what Railway is for, and it is the reason Render's
+sleeping free tier was rejected earlier in this document — a link that is
+sometimes dead is worse than no link.
+
+---
+
 ## 3 · Order
 
 Railway first. Vercel needs the API's URL at build time, and Railway needs
