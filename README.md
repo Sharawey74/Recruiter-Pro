@@ -14,7 +14,7 @@
 [![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=chainlink&logoColor=white)](https://langchain.com)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3+-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
 
-[Metrics](#by-the-numbers) · [Features](#features) · [Scoring](#scoring) · [Quick start](#quick-start) · [Architecture](#architecture) · [API](#api) · [Testing](#testing-and-quality-gates)
+[Metrics](#by-the-numbers) · [Quick start](#quick-start) · [Features](#features) · [Scoring](#scoring) · [Architecture](#architecture) · [API](#api) · [Performance](#performance) · [Testing](#testing-and-quality-gates)
 
 </div>
 
@@ -34,21 +34,11 @@ system, not a target it was designed to hit.
 Every figure carries the command that produces it, so any of them can be
 checked rather than taken on trust. Nothing here is a projection or a target.
 
-**What it scores against** — served live by `GET /stats`, so this table and the
-product cannot disagree.
-
-| Roles | Countries | Cities | Companies | Distinct skills | Categories | Seniority levels | Work models |
-|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-| **800** | **27** | **46** | **60** | **654** | **8** | **6** | **3** |
-
 **How it scores** — `GET /stats`, and `config/agents.yaml` for the weights.
 
 | Metric | Value | Meaning |
 |---|--:|---|
 | Pipeline agents | **4** | Parse, extract, score, explain |
-| Canonical skills | **679** | The controlled vocabulary skills resolve to |
-| Skill aliases | **1,554** | Surface forms mapping onto those 679 |
-| Scoring components | **5** | Weighted, and each returned separately |
 | Explanation providers | **3** | One protocol; one local, one hosted, one offline fallback |
 | API routes | **15** | Operations across eleven paths |
 
@@ -64,26 +54,51 @@ product cannot disagree.
 
 | Metric | Value | Meaning |
 |---|--:|---|
-| Tests passing | **529** | 1 skipped, and the skip is explained below |
+| Tests passing | **529** | Plus one skipped; no network, key or model required |
 | Branch coverage | **83.7%** | Branch, not statement — the stricter measure |
 | CI checks | **10** | Every one blocking |
 | Decision records | **3** | The design choices that needed an argument |
 
+## Quick start
+
+**Prerequisites:** Python 3.10+, Node.js 18+. No LLM required — the rule-based
+explanation provider is first-class, so the app runs with no Ollama, no API key
+and no quota.
+
+```bash
+git clone https://github.com/Sharawey74/Recruiter-Pro.git
+cd Recruiter-Pro
+pip install -r requirements.txt
+cd frontend && npm install && cd ..
+```
+
+```powershell
+.\run.ps1
+```
+
+One window. It starts both services, waits until each is genuinely answering,
+streams both logs with an `[api]` / `[web]` prefix, and stops both on Ctrl-C. It
+reports what the backend actually loaded — the corpus size, and whether hybrid
+scoring is running or it fell back to rules — because both degrade silently.
+
+| Flag | Effect |
+|---|---|
+| `-Prod` | Build and serve the production bundle instead of the dev server |
+| `-ApiPort` / `-WebPort` | Use different ports. CORS and `NEXT_PUBLIC_API_URL` follow automatically |
+| `-Force` | Stop whatever holds a port first — only that process, never by name |
+| `-NoBrowser` | Do not open a browser |
+
 <details>
-<summary><b>Codebase size</b> — <code>git ls-files</code></summary>
+<summary>Starting the two services by hand</summary>
 
-| Area | Files | Lines |
-|---|--:|--:|
-| `src/` — application and ML engine | 34 | 8,004 |
-| `tests/` — unit, integration, system | 36 | 7,021 |
-| `frontend/` — TypeScript and TSX | 43 | 6,533 |
-| `scripts/` — tooling, validators, scanners | 20 | 4,115 |
-| **Total tracked** | **188** | **25,673** |
-
-The frontend is 8 routes built from 18 components; the backend serves 15
-operations across 11 paths.
+```bash
+python -m uvicorn src.api:app --reload --port 8000   # terminal 1
+cd frontend && npm run dev                            # terminal 2
+```
 
 </details>
+
+Frontend on `:3000`, API on `:8000`, interactive API docs at `/docs`.
 
 ## Features
 
@@ -154,53 +169,6 @@ rather than by omission: it degrades instead of erroring. It is also the reason
 every match carries an `explanation_source` and the UI prints it. A rule-based
 explanation and a model-written one are both fluent paragraphs, so without that
 field a silently degraded instance is indistinguishable from a working one.
-
-A fourth provider wrapped LangChain's `ChatOllama` to reach the same Ollama
-server the `ollama` provider already reached directly. It was never selected and
-cost 22.7 s to import, so it was deleted along with its four pins —
-[ADR-2](docs/adr/002-llm-provider-abstraction.md#outcome--2026-08-17) recorded
-the condition in advance and the outcome afterwards.
-
-## Quick start
-
-**Prerequisites:** Python 3.10+, Node.js 18+. No LLM required — the rule-based
-explanation provider is first-class, so the app runs with no Ollama, no API key
-and no quota.
-
-```bash
-git clone https://github.com/Sharawey74/Recruiter-Pro.git
-cd Recruiter-Pro
-pip install -r requirements.txt
-cd frontend && npm install && cd ..
-```
-
-```powershell
-.\run.ps1
-```
-
-One window. It starts both services, waits until each is genuinely answering,
-streams both logs with an `[api]` / `[web]` prefix, and stops both on Ctrl-C. It
-reports what the backend actually loaded — the corpus size, and whether hybrid
-scoring is running or it fell back to rules — because both degrade silently.
-
-| Flag | Effect |
-|---|---|
-| `-Prod` | Build and serve the production bundle instead of the dev server |
-| `-ApiPort` / `-WebPort` | Use different ports. CORS and `NEXT_PUBLIC_API_URL` follow automatically |
-| `-Force` | Stop whatever holds a port first — only that process, never by name |
-| `-NoBrowser` | Do not open a browser |
-
-<details>
-<summary>Starting the two services by hand</summary>
-
-```bash
-python -m uvicorn src.api:app --reload --port 8000   # terminal 1
-cd frontend && npm run dev                            # terminal 2
-```
-
-</details>
-
-Frontend on `:3000`, API on `:8000`, interactive API docs at `/docs`.
 
 ## Architecture
 
@@ -397,24 +365,19 @@ which described none of them correctly.
 
 ## Performance
 
-The headline is 16.64 s to **0.74 s** for one CV against all 800 roles — the
-figures are in [By the numbers](#by-the-numbers). Three changes got it there:
+One CV against all 800 roles went from **16.64 s to 0.74 s**. Three changes did
+it, each removing work repeated per job that only needed doing once per upload:
 
-**Persist once, not per job.** `save_match` opened a connection, committed and
-closed for every row: 800 connections per upload. `save_matches_batch` does the
-same work in one transaction, and only for the matches actually returned.
+| Change | Before | After |
+|---|--:|--:|
+| **Persist once, not per job** — one transaction, and only for the matches returned | 800 connections | 1 |
+| **One `predict_proba`** — one frame, one transform, the whole corpus | 800 calls | 1 |
+| **Normalise the CV once** — its skills do not change between comparisons | per job | per upload |
 
-**One `predict_proba`, not 800.** The ML scorer built a one-row DataFrame and
-ran the fitted transform per job. One frame, one transform, one call now covers
-the whole corpus.
-
-**Normalise the CV once.** Its skill set was being resolved to the vocabulary
-again for every comparison, when it does not change between them.
-
-None of these are estimates, and none of them rest on a stopwatch reading from a
-particular machine. `tests/system/test_performance.py` re-measures the batch path
-against the per-row path in the same process on every CI run and fails if the
-gap closes — the ratio is currently **114×**, and the test's floor is 5×.
+None of this rests on a stopwatch reading from one machine.
+`tests/system/test_performance.py` re-measures the batch path against the
+per-row path in the same process on every CI run and fails if the gap closes —
+currently **114×**, against a floor of 5×.
 
 ## Testing and quality gates
 
@@ -424,16 +387,16 @@ pytest --cov=src --cov-report=term --cov-branch     # with coverage
 ```
 
 **530 tests collected — 529 passing, 1 skipped, 83.7% branch coverage of
-`src/`, 2 warnings**, both from a dependency. The suite runs with no network, no API key
-and no model.
+`src/`, 2 warnings**, both from a dependency. The suite runs with no network, no
+API key and no model.
 
 Ten checks run in CI on every push and pull request, and every one of them
 blocks the merge:
 
 | | Check | Scope |
 |:--:|---|---|
-| 1 | `ruff` | `src/ scripts/ tests/`, blocking |
-| 2 | `black --check` | `src/ scripts/ tests/`, blocking |
+| 1 | `ruff` | `src/ scripts/ tests/` |
+| 2 | `black --check` | `src/ scripts/ tests/` |
 | 3 | `mypy` | behind an explicit five-module baseline |
 | 4 | `pytest` with branch coverage | the whole suite, floor at 81% |
 | 5 | Corpus validator | structural integrity of all 800 roles |
@@ -447,16 +410,6 @@ The lint toolchain is pinned to exact versions. A range makes "correctly
 formatted" a function of the install date rather than of the code: an open
 `black>=24.0.0` had CI resolve one major version ahead of a developer's
 machine, and the two disagreed about seven files nobody had touched.
-
-The one skip is honest: it guards against the detail view truncating a
-requirement list the grid caps at ten, and no role in the corpus has ten — the
-maximum is nine. It skips rather than passing vacuously.
-
-> A quarter of this suite once failed on every run, and 33 tests could never have
-> passed: 23 targeted an API surface this repository has never served, and 10
-> collected their measurements inside a condition that was never true, so they
-> reported green while asserting nothing. Writing the replacements found two
-> endpoints that had returned 500 on every call ever made to them.
 
 ## Security
 
@@ -486,6 +439,8 @@ Copy `.env.example` to `.env`. Every variable is optional and falls back to
 | `LLM_MAX_CONCURRENT_CALLS` | `2` | Free tiers answer excess concurrency with 429s |
 | `DATABASE_PATH` | `data/database/match_history.db` | |
 
+Deployment to Vercel and Railway — including the environment variables each
+side needs — is in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ## Star this repo
 
@@ -502,7 +457,6 @@ provider protocol, or the measured 22× — a star helps other people find it.
 **[Star this repository](https://github.com/Sharawey74/Recruiter-Pro/stargazers)**
 
 </div>
-
 
 ## License
 
