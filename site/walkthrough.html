@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Walkthrough — Recruiter Pro</title>
+<meta name="description" content="A real CV driven through the running application: browse the corpus, score against all 800 roles, triage the shortlist. Captured with Playwright against a production build, nothing mocked.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <img src="favicon.svg" alt="">
+      <span>Recruiter Pro</span>
+    </a>
+    <nav class="nav">
+      <a href="index.html">Overview</a>
+      <a href="architecture.html">Architecture</a>
+      <a href="walkthrough.html">Walkthrough</a>
+    </nav>
+    <div class="header-actions">
+      <a class="btn btn-sm" href="https://github.com/Sharawey74/Recruiter-Pro">Source</a>
+      <a class="btn btn-sm btn-primary" href="https://recruiter-pro-nine.vercel.app">Live app</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">Walkthrough</p>
+      <h1>A real CV, through the real thing.</h1>
+      <p class="lede">
+        Every image below is a capture of the running application — the
+        production Next.js build talking to the live FastAPI process, holding
+        the real 800-role corpus and the trained model. Playwright drove the
+        journey; nothing is mocked, stubbed or drawn.
+      </p>
+    </div>
+  </section>
+
+  <section class="reveal">
+    <div class="wrap">
+      <div class="note is-violet">
+        <p><strong>How these were made, so you can discount them properly.</strong></p>
+        <p>
+          A script drove a headless browser through the application end to end
+          and screenshotted each step. The API was the real one: 800 roles
+          loaded, the joblib model loaded, SQLite behind it.
+        </p>
+        <p>
+          <strong>Two résumés were used.</strong> One is the author's own PDF,
+          parsed by the same code path as any upload. The other belongs to
+          "Alex Rivera", who does not exist — a file written for this capture
+          so the shortlist has more than one candidate on it. The corpus itself
+          is a purpose-built 800-record dataset, not scraped listings.
+        </p>
+        <p>
+          <strong>Explanations are switched off in these runs.</strong> The
+          "Write explanations" toggle is unchecked, so what you see is scoring
+          only. That path calls a language model and adds roughly 30–60 seconds
+          per résumé, which is a poor fit for a capture script and would not
+          have shown you anything the score breakdown does not.
+        </p>
+        <p>
+          The address bar in each frame shows the deployed URL. The captures
+          were taken against a local production build of the same commit.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ STAGE 1 -->
+  <section class="reveal">
+    <div class="wrap">
+      <div class="stage">
+        <span class="badge badge-violet">Stage 1 — Discover</span>
+      </div>
+      <h2>Find out what you are matching against</h2>
+      <p class="lede">
+        Before a single CV is uploaded, the corpus has to be inspectable.
+        Every figure on these pages is served by <code>GET /stats</code> and
+        <code>GET /jobs</code>, so the interface and the data cannot disagree.
+      </p>
+
+      <div class="step" style="margin-top:44px">
+        <div class="step-head">
+          <span class="step-num">01</span>
+          <h3>Landing</h3>
+        </div>
+        <p>
+          The counts here are not written into the page. They come from
+          <code>/stats</code> on load — 800 roles across 27 countries, 60
+          companies, 654 distinct skills. An earlier version of this page
+          claimed "3,000+ jobs" against a corpus that had never held that many.
+        </p>
+        <figure class="shot">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">https://recruiter-pro-nine.vercel.app/</span>
+          </div>
+          <img src="assets/img/screenshots/01-landing.webp" alt="Recruiter Pro landing page" loading="lazy" width="1440" height="900">
+        </figure>
+      </div>
+
+      <div class="step">
+        <div class="step-head">
+          <span class="step-num">02</span>
+          <h3>Browse the corpus</h3>
+        </div>
+        <p>
+          Eight categories, three work models, six seniority levels — and the
+          filter values are read from the corpus itself via
+          <code>/jobs/facets</code> rather than hardcoded, so a filter can
+          never offer an option that returns nothing.
+        </p>
+        <figure class="shot">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">https://recruiter-pro-nine.vercel.app/jobs</span>
+          </div>
+          <img src="assets/img/screenshots/02-jobs.webp" alt="The jobs page listing roles from the corpus" loading="lazy" width="1440" height="900">
+        </figure>
+      </div>
+
+      <div class="step">
+        <div class="step-head">
+          <span class="step-num">03</span>
+          <h3>Search, done server-side</h3>
+        </div>
+        <p>
+          Typing <code>kubernetes</code> filters across title, company, city
+          and skill on the server. This search box previously existed and did
+          nothing: <code>/jobs</code> accepted only <code>skip</code> and
+          <code>limit</code>, so <code>search=nurse</code> returned a
+          byte-identical page to no search at all.
+        </p>
+        <figure class="shot">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">https://recruiter-pro-nine.vercel.app/jobs?search=kubernetes</span>
+          </div>
+          <img src="assets/img/screenshots/03-jobs-search.webp" alt="Server-side search filtering the corpus for kubernetes" loading="lazy" width="1440" height="900">
+        </figure>
+      </div>
+
+      <div class="step">
+        <div class="step-head">
+          <span class="step-num">04</span>
+          <h3>One role, in full</h3>
+        </div>
+        <p>
+          The description keeps its four-section structure because the element
+          preserves newlines rather than collapsing them. Required and
+          preferred skills are separated, and a CV can be scored against this
+          one role alone — the same components, without the ranking.
+        </p>
+        <figure class="shot is-full">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">https://recruiter-pro-nine.vercel.app/jobs/ENG-0001</span>
+          </div>
+          <img src="assets/img/screenshots/12-job-detail.webp" alt="Job detail page for a Machine Learning Engineer role" loading="lazy" width="1440" height="1378">
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ STAGE 2 -->
+  <section class="reveal">
+    <div class="wrap">
+      <div class="stage">
+        <span class="badge badge-green">Stage 2 — Analyse</span>
+      </div>
+      <h2>Score one résumé against all 800 roles</h2>
+      <p class="lede">
+        One pass over the whole corpus, not a job at a time. Parsing,
+        extraction, five weighted components per role and one vectorised model
+        call for the lot.
+      </p>
+
+      <div class="step" style="margin-top:44px">
+        <div class="step-head">
+          <span class="step-num">05</span>
+          <h3>Upload</h3>
+        </div>
+        <p>
+          PDF, DOCX and TXT, capped at 10 MB — and the cap stated here is the
+          one the API enforces. The file's real leading bytes are checked
+          against its extension before any parser touches it, so a
+          <code>.exe</code> renamed <code>.pdf</code> is refused rather than
+          parsed.
+        </p>
+        <figure class="shot">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">https://recruiter-pro-nine.vercel.app/upload</span>
+          </div>
+          <img src="assets/img/screenshots/04-upload-empty.webp" alt="The upload page with its drag and drop area" loading="lazy" width="1440" height="900">
+        </figure>
+      </div>
+
+      <div class="step">
+        <div class="step-head">
+          <span class="step-num">06</span>
+          <h3>Ranked, with the arithmetic shown</h3>
+        </div>
+        <p>
+          A real 161 KB PDF, scored against all 800 roles. The header reports
+          what actually happened — the corpus size and the elapsed time,
+          measured rather than estimated. Top match 75, one strong, nine worth
+          a look, average 71.5%.
+        </p>
+        <p>
+          Each card carries the matched skills <em>and</em> the missing ones,
+          resolved through the vocabulary rather than by string equality, so
+          "React" and "ReactJS" are the same skill and "Java" and "JavaScript"
+          are not.
+        </p>
+        <figure class="shot is-full">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">https://recruiter-pro-nine.vercel.app/upload</span>
+          </div>
+          <img src="assets/img/screenshots/07-results-full.webp" alt="Ranked match results for a real CV against the whole corpus" loading="lazy" width="1440" height="3994">
+        </figure>
+      </div>
+
+      <div class="step">
+        <div class="step-head">
+          <span class="step-num">07</span>
+          <h3>Where the number came from</h3>
+        </div>
+        <p>
+          Expanding a match shows each component separately and then the part
+          that matters most: a stacked bar of <em>contributions</em>, each
+          segment the component's score multiplied by its weight. A candidate
+          at 74 because their skills are excellent is a different candidate
+          from one at 74 because everything is mediocre, and four independent
+          meters make you do that arithmetic yourself.
+        </p>
+        <div class="proof">
+          <b>The segments sum to the total, and a test says so.</b> A stacked
+          bar built on weights that have drifted does not look wrong — it looks
+          right, which is why the invariant is asserted rather than assumed.
+        </div>
+        <figure class="shot is-full" style="margin-top:20px">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">https://recruiter-pro-nine.vercel.app/upload</span>
+          </div>
+          <img src="assets/img/screenshots/08-score-breakdown.webp" alt="An expanded match showing the score breakdown and composition bar" loading="lazy" width="1440" height="4379">
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ STAGE 3 -->
+  <section class="reveal">
+    <div class="wrap">
+      <div class="stage">
+        <span class="badge badge-amber">Stage 3 — Triage</span>
+      </div>
+      <h2>Decide, and keep the decision</h2>
+
+      <div class="step" style="margin-top:44px">
+        <div class="step-head">
+          <span class="step-num">08</span>
+          <h3>Shortlist</h3>
+        </div>
+        <p>
+          Each candidate's strongest five roles, banded by score, with accept
+          and reject decisions that persist. A shortlist is the artefact a
+          recruiter hands to someone else, so this is the view that exports to
+          CSV — the filtered view, because the filter <em>is</em> the
+          shortlisting.
+        </p>
+        <div class="note">
+          <p>
+            <strong>This page had a bug, found while capturing these
+            screenshots.</strong> It promised "each candidate's top 5 roles"
+            and delivered top 5 <em>rows</em>. Match history keeps every run,
+            so uploading the same CV twice wrote a second row for the same
+            candidate-and-role pairing, and the board filled with duplicate
+            cards identical except for their timestamps — 278 stored rows
+            collapsed to just 31 distinct pairings.
+          </p>
+          <p>
+            It now collapses on candidate and job id, keeping the
+            highest-scoring row. Deliberately job id and not job title: two
+            companies both advertising "Systems Engineer" are two roles a
+            recruiter must see separately, and this corpus contains exactly
+            that. The screenshot below is the fixed build.
+          </p>
+        </div>
+        <figure class="shot">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">https://recruiter-pro-nine.vercel.app/shortlist</span>
+          </div>
+          <img src="assets/img/screenshots/09-shortlist.webp" alt="The shortlist page with candidates banded by score" loading="lazy" width="1440" height="900">
+        </figure>
+      </div>
+
+      <div class="step">
+        <div class="step-head">
+          <span class="step-num">09</span>
+          <h3>History</h3>
+        </div>
+        <p>
+          Every match ever run, newest first, written to SQLite in a single
+          transaction per upload rather than a connection per row. Unlike the
+          shortlist this view does <em>not</em> collapse repeats — a second run
+          of the same CV is a real event and belongs in the record.
+        </p>
+        <figure class="shot">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">https://recruiter-pro-nine.vercel.app/history</span>
+          </div>
+          <img src="assets/img/screenshots/10-history.webp" alt="Match history listing stored matches" loading="lazy" width="1440" height="900">
+        </figure>
+      </div>
+
+      <div class="step">
+        <div class="step-head">
+          <span class="step-num">10</span>
+          <h3>Dashboard</h3>
+        </div>
+        <p>
+          The aggregate view over what has been scored so far. The sidebar
+          carries a scoring indicator reading hybrid or rules-only, because the
+          model failing to load is otherwise invisible — rule-based scores are
+          just as plausible-looking as hybrid ones.
+        </p>
+        <figure class="shot">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">https://recruiter-pro-nine.vercel.app/dashboard</span>
+          </div>
+          <img src="assets/img/screenshots/11-dashboard.webp" alt="The dashboard summarising scored matches" loading="lazy" width="1440" height="900">
+        </figure>
+      </div>
+
+      <div class="step">
+        <div class="step-head">
+          <span class="step-num">11</span>
+          <h3>At 390 pixels</h3>
+        </div>
+        <p>
+          The same results on a phone: navigation becomes a drawer below
+          <code>lg</code>, and no page scrolls horizontally at 375px. Captured
+          at a real mobile viewport, not a narrowed desktop one.
+        </p>
+        <figure class="shot is-mobile is-full">
+          <div class="shot-bar">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="shot-url">recruiter-pro-nine.vercel.app</span>
+          </div>
+          <img src="assets/img/screenshots/13-mobile-results.webp" alt="Match results rendered on a mobile viewport" loading="lazy" width="780" height="1688">
+        </figure>
+      </div>
+
+      <div class="note is-green">
+        <p>
+          <strong>Three bugs were found by doing this.</strong> Walking the
+          real application for screenshots surfaced the shortlist duplication
+          above; a name-extraction fault that stored a candidate called
+          "Berlin, Germany", because a city in the address blocklist vetoed the
+          line "Alex Rivera"; and a README performance figure measured on a
+          fixture a fifth the density of a real résumé.
+        </p>
+        <p>
+          Each was reproduced, given a test that failed first, then fixed —
+          and these screenshots were re-captured against the corrected build.
+          The test suite went from 529 to 544 passing.
+        </p>
+      </div>
+
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="https://recruiter-pro-nine.vercel.app">Try it yourself</a>
+        <a class="btn" href="architecture.html">How it is built</a>
+        <a class="btn" href="https://github.com/Sharawey74/Recruiter-Pro">Read the source</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-about">
+        <a class="brand" href="index.html">
+          <img src="favicon.svg" alt="">
+          <span>Recruiter Pro</span>
+        </a>
+        <p>
+          A four-agent pipeline that parses a CV, resolves its skills against a
+          controlled vocabulary, scores it against 800 roles and explains every
+          match — with every figure measured rather than asserted.
+        </p>
+      </div>
+
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="index.html">Overview</a></li>
+          <li><a href="architecture.html">Architecture</a></li>
+          <li><a href="walkthrough.html">Walkthrough</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Elsewhere</h4>
+        <ul>
+          <li><a href="https://recruiter-pro-nine.vercel.app">Live app</a></li>
+          <li><a href="https://github.com/Sharawey74/Recruiter-Pro#api">API reference</a></li>
+          <li><a href="https://github.com/Sharawey74/Recruiter-Pro">GitHub source</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>MIT Licensed</span>
+      <span>Built by Abdelrhman Mohamed</span>
+    </div>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>
