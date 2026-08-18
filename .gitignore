@@ -9,6 +9,14 @@ DEVELOPER_GUIDE.md
 JOBS_DATASET_SPEC.md
 PASS3_PROMPT.md
 CONTRIBUTING.md
+frontend/AGENTS.md
+frontend/CLAUDE.md
+
+# Local tooling, not part of the published project. `showcase-site` packages
+# the design of the GitHub Pages site so it can be rebuilt elsewhere -- useful
+# to the author, noise to a reader of this repository, and it says nothing
+# about how the application works.
+.claude/
 
 # Untracked 17 Aug 2026, after the deployment ran. It carries the host
 # comparison, the variable tables and the tunnel walkthrough -- operational
