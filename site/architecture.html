@@ -204,9 +204,8 @@
         <p class="eyebrow">Design decisions</p>
         <h2>Six that needed an argument</h2>
         <p class="lede">
-          Each of these replaced something that worked. They are here because
-          the reasoning is the interesting part, and because each one is
-          checkable against a named file.
+          Each replaced something that worked. The reasoning is the interesting
+          part, and each one is checkable against a named file.
         </p>
       </div>
 
@@ -216,17 +215,12 @@
           <h3>The alias index is built once, at load</h3>
           <p>
             <code>_get_canonical_skill</code> read a category-nested dictionary
-            as if it were flat, so the alias comparison ran against the inner
-            dictionary's <em>keys</em> and returned the category name. Every
-            programming language normalised to
-            <code>"programming_languages"</code>, which made unrelated skills
-            match at 100%.
-          </p>
-          <p>
-            Skills are 50% of the rule-based score, which is 60% of the hybrid
-            score — so roughly a third of every reported match was noise. The
-            fix builds one alias→canonical map at load and makes lookup O(1),
-            which also removed the per-job normalisation cost.
+            as if it were flat, so every programming language normalised to
+            <code>"programming_languages"</code> and unrelated skills matched at
+            100%. Skills are 50% of the rule-based score, which is 60% of the
+            hybrid score — so roughly a third of every reported match was noise.
+            One alias→canonical map at load makes lookup O(1) and removes the
+            per-job normalisation cost.
           </p>
           <div class="proof">
             <b>Before</b> a Python/FastAPI CV returned
@@ -240,17 +234,12 @@
         <article class="card">
           <h3>The provider is fixed at construction</h3>
           <p>
-            Per-request provider choice was implemented by assigning onto a
-            module-level singleton and restoring it afterwards. Under more than
-            one worker two requests raced, and because the restore was not in a
-            <code>finally</code>, a request that raised left the singleton
-            altered for every request after it.
-          </p>
-          <p>
-            A lock would have made the symptom rarer. Instead the provider is
-            injected once and never reassigned, so there is no mutable state to
-            contend for. A <code>typing.Protocol</code> with two methods —
-            implementations related by shape, not inheritance, and a fake is
+            Per-request provider choice assigned onto a module-level singleton
+            and restored it afterwards — outside a <code>finally</code>, so a
+            request that raised left the singleton altered for every request
+            after it. A lock would have made the symptom rarer; injecting once
+            removes the mutable state entirely. A <code>typing.Protocol</code>
+            with two methods, so implementations relate by shape and a fake is
             about five lines.
           </p>
           <div class="proof">
@@ -264,16 +253,13 @@
         <article class="card">
           <h3>One model call for the corpus, not one per job</h3>
           <p>
-            The classifier was invoked once per job, each time rebuilding a
-            one-row DataFrame and re-running the fitted transform. That was
-            8.13 s of an 8.0 s upload against 800 roles — most of the request
-            spent on framework overhead rather than on prediction.
-          </p>
-          <p>
-            One frame, one transform, one <code>predict_proba</code> for the
-            whole corpus. A guard test asserts the batched path returns
-            byte-identical scores to the per-job path, because a faster path
-            that scores differently is not an optimisation.
+            The classifier ran once per job, each time rebuilding a one-row
+            DataFrame and re-running the fitted transform — most of the request
+            spent on framework overhead rather than prediction. One frame, one
+            transform, one <code>predict_proba</code> for the whole corpus. A
+            guard test asserts the batched path returns byte-identical scores,
+            because a faster path that scores differently is not an
+            optimisation.
           </p>
           <div class="proof"><b>8.13 s → 0.033 s</b> for the model call, with identical output.</div>
           <span class="file">src/agents/scoring/ml_scorer.py · tests/system/test_performance.py</span>
@@ -283,16 +269,11 @@
           <h3>Persist the answer, not the working</h3>
           <p>
             Every upload wrote roughly 4,000 rows — one connection each — and
-            then returned ten. The database was recording the entire search
-            space rather than the result.
-          </p>
-          <p>
-            Now: sort, slice to top-K, and write those in a single
-            <code>executemany</code> transaction with WAL enabled. The
-            regression test does not assert a millisecond figure, because a
-            fixed budget measures the machine rather than the code; it counts
-            connections opened and compares cost per row against the per-row
-            path.
+            then returned ten. The database was recording the search space
+            rather than the result. Now: sort, slice to top-K, one
+            <code>executemany</code> transaction with WAL. The regression test
+            asserts no millisecond figure, because a fixed budget measures the
+            machine; it counts connections and compares cost per row.
           </p>
           <div class="proof"><b>114× cheaper per row</b>, against a floor of 5× that a genuine regression cannot pass.</div>
           <span class="file">src/storage/database.py · save_matches_batch()</span>
@@ -302,16 +283,11 @@
           <h3>Explanations are bounded three ways</h3>
           <p>
             Explanations were generated inside the scoring loop for every role
-            scoring ≥ 0.6, with nothing bounding the count but the size of the
-            corpus. On a public URL that is an unmetered outbound bill
-            triggered by one upload — and most of those calls were for roles
-            that never made the returned top ten anyway.
-          </p>
-          <p>
-            Rank first, then explain at most <code>MAX_EXPLANATIONS = 3</code>;
-            a daily quota counted in SQLite so it survives a restart; and a
-            concurrency semaphore, because free tiers answer excess parallelism
-            with 429s rather than a queue.
+            scoring ≥ 0.6, bounded only by corpus size — an unmetered outbound
+            bill triggered by one upload, mostly for roles that never made the
+            top ten. Now: rank first, explain at most
+            <code>MAX_EXPLANATIONS = 3</code>, a daily quota counted in SQLite
+            so it survives a restart, and a concurrency semaphore.
           </p>
           <div class="proof">
             <b>Degrades rather than breaks.</b> At 90% of quota, explanations
@@ -324,16 +300,13 @@
         <article class="card">
           <h3>A file's bytes, not its extension</h3>
           <p>
-            Upload validation checked the filename. A <code>.exe</code> renamed
-            <code>.pdf</code> reached the parser, and the drag-and-drop path
-            silently discarded DOCX and TXT files while the interface
-            advertised a 200 MB limit the API never honoured.
-          </p>
-          <p>
-            The real leading bytes are now checked against the claimed type
-            before any parser touches the file, the cap is checked before the
-            body is read rather than after, and the interface states the limit
-            the API actually enforces.
+            Upload validation checked the filename, so a <code>.exe</code>
+            renamed <code>.pdf</code> reached the parser — while drag-and-drop
+            silently discarded DOCX and TXT and the interface advertised a
+            200 MB limit the API never honoured. The real leading bytes are now
+            checked before any parser touches the file, the cap is checked
+            before the body is read, and the interface states the limit actually
+            enforced.
           </p>
           <div class="proof"><b>10 MB, checked before read.</b> Reading first and rejecting after is a memory limit you do not have.</div>
           <span class="file">src/api.py · read_upload()</span>
