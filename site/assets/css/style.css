@@ -803,3 +803,44 @@ th code {
     transform: none;
   }
 }
+
+/* An accent rail keyed to the card's badge, so the three severities read at a
+   glance instead of only from the badge text. Set on the article, not the
+   badge, because the rail has to run the full card height. */
+.card {
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.16s, transform 0.16s;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--line-strong);
+}
+
+.card.is-violet::before { background: var(--violet); }
+.card.is-green::before { background: var(--green); }
+.card.is-amber::before { background: var(--amber); }
+
+.card:hover {
+  border-color: var(--line-strong);
+  transform: translateY(-2px);
+}
+
+/* The claim, lifted out of the paragraph. A card is scanned before it is
+   read, so the sentence that carries the finding gets its own line. */
+.card .claim {
+  display: block;
+  color: var(--text);
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 9px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card:hover { transform: none; }
+}

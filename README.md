@@ -170,8 +170,7 @@ final      = rule_based×0.60 + ml×0.40        (rule_based alone when no model 
 
 These weights live in `config/agents.yaml` and nowhere else. They are validated
 on load — a set that does not sum to 1.0 fails at import with the offending
-values named. There is no semantic-similarity component; earlier versions of
-this file described one.
+values named. There is no semantic-similarity component.
 
 ### Explanation providers
 
@@ -381,9 +380,8 @@ file: <resume.pdf>
 }
 ```
 
-Score fields are named for what they measure. They were once `parser_score`,
-`matcher_score` and `scorer_score` — named after the agent they passed through,
-which described none of them correctly.
+Every score field is named for what it measures, not for the agent it passed
+through.
 
 </details>
 
@@ -398,9 +396,9 @@ doing once per upload:
 | **One `predict_proba`** — one frame, one transform, the whole corpus | 800 calls | 1 |
 | **Normalise the CV once** — its skills do not change between comparisons | per job | per upload |
 
-**What it costs now, with the conditions each figure was taken under.** Timing
-depends on how dense the résumé is — cost is roughly linear in the number of
-skills extracted — so one number without its input is not a measurement:
+**Every figure carries its input.** Cost is roughly linear in the number of
+skills extracted, so a time without the CV that produced it is not a
+measurement:
 
 | Measured | Figure |
 |---|--:|
@@ -409,28 +407,21 @@ skills extracted — so one number without its input is not a measurement:
 | Full pipeline in-process — parse, extract, score, persist | **~1.7 s** |
 | **`POST /match` end to end, real 161 KB PDF** | **~4.5 s** |
 
-The last row is the one a user experiences, and it is what the interface
-reports back to them. A real résumé put through Agent 2 extracts **57 skills**;
-the perf fixture carries 10, which is why a figure taken from it flatters the
-product by roughly 2.5×.
+The last row is what a user experiences and what the interface reports back to
+them. A real résumé extracts **57 skills** against the fixture's 10, so a
+figure taken from the fixture flatters the product by roughly 2.5×.
+`TestRealisticCorpusScoring` measures a dense CV, which keeps the honest number
+in the suite rather than only in prose.
 
-> An earlier version of this file opened with "in 0.74 seconds" and attached it
-> to the whole operation. That number came from the 10-skill fixture, with the
-> model disabled, excluding parsing, extraction, persistence and serialisation.
-> It was true of the call it measured and false of the sentence it appeared in.
-> `TestRealisticCorpusScoring` now measures a dense CV so the honest figure
-> lives in the suite rather than only in prose.
-
-**The remaining gap is not yet explained, and is recorded rather than smoothed
-over.** The same `process_cv_batch` call takes ~1.7 s in a fresh process and
-~4.5 s inside the running uvicorn server, reproducibly, back to back on one
-machine with the model loaded in both. It is not degradation with uptime —
-ten sequential runs stay flat. Under investigation.
+**One gap is open, and recorded rather than smoothed over.** The same
+`process_cv_batch` call takes ~1.7 s in a fresh process and ~4.5 s inside the
+running uvicorn server — same machine, model loaded in both, and flat across
+ten sequential runs, so it is not degradation with uptime. Under investigation.
 
 None of this rests on a stopwatch reading from one machine.
 `tests/system/test_performance.py` re-measures the batch path against the
-per-row path in the same process on every CI run and fails if the gap closes —
-currently **114×**, against a floor of 5×.
+per-row path on every CI run and fails if the gap closes — currently **114×**,
+against a floor of 5×.
 
 ## Testing and quality gates
 

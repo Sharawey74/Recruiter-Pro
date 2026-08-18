@@ -70,93 +70,84 @@
         <p class="eyebrow">What this proves</p>
         <h2>Six problems that only show up when you build the whole thing</h2>
         <p class="lede">
-          Each was found in this codebase, reproduced, and fixed with a test
-          that failed first. The file is named so the claim can be checked
-          rather than believed.
+          Each was found here, reproduced, and fixed with a test that failed
+          first. Every card names the file, so the claim can be checked.
         </p>
       </div>
 
       <div class="grid grid-2">
 
-        <article class="card">
+        <article class="card is-violet">
           <h3><span class="badge badge-violet">Concurrency</span></h3>
           <p>
-            <strong>A race that only exists above one worker.</strong> Choosing
-            a provider per request meant writing to a module-level singleton and
-            restoring it afterwards — with the restore outside a
-            <code>finally</code>. Concurrent requests saw each other's settings.
-            The fix was not a lock: the provider is injected once at
-            construction, so the race is structurally impossible rather than
-            defended against.
+            <span class="claim">A race that only exists above one worker.</span>
+            Choosing a provider per request meant writing to a module-level
+            singleton and restoring it outside a <code>finally</code>. The fix
+            was not a lock — the provider is injected once at construction, so
+            there is no mutable state to contend for.
           </p>
-          <span class="file">src/agents/explaining/__init__.py · docs/adr/002-llm-provider-abstraction.md</span>
+          <div class="proof"><b>Structurally impossible</b>, rather than defended against.</div>
+          <span class="file">src/agents/explaining/__init__.py</span>
         </article>
 
-        <article class="card">
+        <article class="card is-violet">
           <h3><span class="badge badge-violet">Determinism</span></h3>
           <p>
-            <strong>The same input scored two different numbers.</strong>
-            Keyword extraction sliced <code>[:20]</code> from a
-            <code>set</code>, and Python randomises string hashing per process —
-            so the same CV against the same job scored 0.40 or 0.45 depending on
-            which process answered. Measured across five. Terms now rank by
-            frequency, tied alphabetically: deterministic, and more useful.
+            <span class="claim">The same input scored two different numbers.</span>
+            Keyword extraction sliced <code>[:20]</code> from a <code>set</code>,
+            and Python randomises string hashing per process. Terms now rank by
+            frequency, tied alphabetically.
           </p>
-          <span class="file">src/agents/agent3_scorer.py · tests/unit/test_skill_normalization.py</span>
+          <div class="proof"><b>0.40 or 0.45</b> for one CV and job, across five processes.</div>
+          <span class="file">src/agents/agent3_scorer.py</span>
         </article>
 
-        <article class="card">
+        <article class="card is-green">
           <h3><span class="badge badge-green">Idempotency</span></h3>
           <p>
-            <strong>Seeding that cannot overwrite your data.</strong> The corpus
-            began as a read-only JSON file and became writable through
-            <code>POST /jobs</code>. On an ephemeral filesystem the obvious
-            implementation reseeds every deploy and silently discards every
-            edit. <code>seed_jobs</code> writes nothing if the table is
-            populated, so the JSON file is a seed rather than a source of truth.
+            <span class="claim">Seeding that cannot overwrite your data.</span>
+            The corpus became writable through <code>POST /jobs</code>, and on an
+            ephemeral filesystem the obvious implementation reseeds every deploy.
+            <code>seed_jobs</code> writes nothing into a populated table.
           </p>
+          <div class="proof"><b>A seed, not a source of truth.</b> Redeploy is a no-op.</div>
           <span class="file">src/storage/database.py</span>
         </article>
 
-        <article class="card">
+        <article class="card is-amber">
           <h3><span class="badge badge-amber">Trust boundary</span></h3>
           <p>
-            <strong>Rate limits charged to the right client.</strong> Per-IP
-            limits read the socket address, which behind a proxy is the
-            <em>proxy's</em> — so every visitor shares one bucket and ordinary
-            traffic collects 429s. <code>X-Forwarded-For</code> fixes it and is
-            client-supplied, so it is believed only when
-            <code>TRUST_PROXY_HEADERS</code> says something is in front. Off by
-            default: trusting it with nothing in front is the worse mistake.
+            <span class="claim">Rate limits charged to the right client.</span>
+            Per-IP limits read the socket address, which behind a proxy is the
+            <em>proxy's</em> — so every visitor shares one bucket.
+            <code>X-Forwarded-For</code> is client-supplied, so it is believed
+            only when <code>TRUST_PROXY_HEADERS</code> says something is in front.
           </p>
+          <div class="proof"><b>Off by default.</b> Trusting it with nothing in front is the worse mistake.</div>
           <span class="file">src/api.py · client_address()</span>
         </article>
 
-        <article class="card">
+        <article class="card is-green">
           <h3><span class="badge badge-green">Honest metrics</span></h3>
           <p>
-            <strong>Target leakage found in my own model.</strong> A perfect
-            1.000 ROC-AUC. Removing the feature I suspected changed nothing —
-            identical to the digit. The label turned out to be a threshold on a
-            column already excluded from training, and two ordinary columns
-            rebuild it anyway (<em>Experience</em> alone reaches 0.9244). No
-            feature engineering fixes that, so <code>GET /stats</code> publishes
-            no accuracy figure and a contract test asserts none ever appears.
+            <span class="claim">Target leakage found in my own model.</span>
+            A perfect ROC-AUC. Removing the feature I suspected changed nothing.
+            The label turned out to be a threshold on a column already excluded
+            from training, and two ordinary columns rebuild it anyway.
           </p>
-          <span class="file">models/production/model_metadata.json · tests/integration/test_api_contract.py</span>
+          <div class="proof"><b>No accuracy figure is published</b>, and a contract test asserts none appears.</div>
+          <span class="file">models/production/model_metadata.json</span>
         </article>
 
-        <article class="card">
+        <article class="card is-amber">
           <h3><span class="badge badge-amber">Silent failure</span></h3>
           <p>
-            <strong>A degraded run must not look like a healthy one.</strong> A
-            rule-based explanation and a model-written one are both fluent
-            paragraphs, so a dead key or a spent quota produces a broken demo
-            indistinguishable from a working one. Every match now carries
-            <code>explanation_source</code>, <code>scoring_mode</code> says
-            whether the model ran, and <code>/health</code> names the provider
-            that will actually answer rather than reporting a config flag.
+            <span class="claim">A degraded run must not look like a healthy one.</span>
+            A rule-based explanation and a model-written one are both fluent
+            paragraphs, so a dead key produces a broken demo that reads as a
+            working one.
           </p>
+          <div class="proof"><b>Three signals:</b> <code>explanation_source</code>, <code>scoring_mode</code>, and the provider named at <code>/health</code>.</div>
           <span class="file">src/agents/explaining/protocol.py · src/api.py</span>
         </article>
 
