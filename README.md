@@ -14,7 +14,7 @@
 [![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=for-the-badge&logo=chainlink&logoColor=white)](https://langchain.com)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3+-F7931E?style=for-the-badge&logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
 
-[Metrics](#by-the-numbers) · [Quick start](#quick-start) · [Features](#features) · [Scoring](#scoring) · [Architecture](#architecture) · [API](#api) · [Performance](#performance) · [Testing](#testing-and-quality-gates)
+**[Live walkthrough](https://sharawey74.github.io/Recruiter-Pro/)** · [Quick start](#quick-start) · [Features](#features) · [Scoring](#scoring) · [Architecture](#architecture) · [API](#api) · [Testing](#testing-and-quality-gates)
 
 </div>
 
@@ -22,42 +22,66 @@
 
 Upload a résumé. Four agents parse it, resolve its skills against a controlled
 vocabulary, score it against all 800 roles in the corpus, and write an
-explanation for each match — in about **4.5 seconds** end to end, with every
-component of every score shown rather than asserted.
+explanation for each match — **about 4.5 s end to end** on a real PDF, with
+every component of every score returned rather than asserted.
 
-The interesting part of this project is not the pipeline. It is that the
-pipeline is measured — every figure below is a reading taken from the running
-system, not a target it was designed to hit.
+The pipeline is not the interesting part. What is: every figure below is a
+reading taken from the running system under stated conditions, and each one
+names the command that reproduces it.
 
-## By the numbers
+## At a glance
 
-Every figure carries the command that produces it, so any of them can be
-checked rather than taken on trust. Nothing here is a projection or a target.
+| | | | |
+|---|--:|---|--:|
+| Roles scored per upload | **800** | Tests passing | **544** |
+| End to end, real PDF | **~4.5 s** | Branch coverage | **84.07%** |
+| Pipeline agents | **4** | CI checks, all blocking | **10** |
+| API operations | **15** | Decision records | **3** |
 
-**How it scores** — `GET /stats`, and `config/agents.yaml` for the weights.
+<details>
+<summary><b>Where each number comes from</b></summary>
+
+**Engine** — `GET /stats`, served live, so this cannot drift from the product.
 
 | Metric | Value | Meaning |
 |---|--:|---|
 | Pipeline agents | **4** | Parse, extract, score, explain |
+| Canonical skills | **679** | The controlled vocabulary skills resolve to |
+| Skill aliases | **1,554** | Surface forms mapping onto those 679 |
 | Explanation providers | **3** | One protocol; one local, one hosted, one offline fallback |
-| API routes | **15** | Operations across eleven paths |
+| API operations | **15** | Across eleven paths |
 
-**Measured performance** — `pytest tests/system/`, same corpus before and after.
+**Performance** — every row carries its input, because cost is roughly linear
+in the number of skills extracted and a time without its CV is not a
+measurement. Full conditions in [Performance](#performance).
 
-| Metric | Before | After | Change |
-|---|--:|--:|--:|
-| One CV against all 800 roles, in-process | 16.64 s | **~1.7 s** | **~10× faster** |
-| Database writes per upload | 800 rows | 1 transaction | **114× cheaper per row** |
-| Model calls per upload | 800 | 1 vectorised | **245× faster** |
+| Measured | Figure |
+|---|--:|
+| Rule scoring, 800 roles, 10-skill CV, model off | **~0.7 s** |
+| Scoring 800 roles, 57-skill CV, model on | **~1.8 s** |
+| **`POST /match` end to end, real 161 KB PDF** | **~4.5 s** |
 
-**Verification** — `pytest --cov=src --cov-branch`, and `.github/workflows/ci.yml`.
+Model-written explanations add the provider's own round trip on top of these.
+That latency belongs to OpenRouter rather than to this codebase, so it is
+reported separately instead of folded in.
+
+**What the optimisation work moved** — `pytest tests/system/`, same corpus
+before and after.
+
+| Metric | Before | After |
+|---|--:|--:|
+| Database writes per upload | 800 rows | 1 transaction · **114× cheaper per row** |
+| Model calls per upload | 800 | 1 vectorised · **245× faster** |
+
+**Verification** — `pytest --cov=src --cov-branch`, `.github/workflows/ci.yml`.
 
 | Metric | Value | Meaning |
 |---|--:|---|
-| Tests passing | **529** | Plus one skipped; no network, key or model required |
-| Branch coverage | **83.7%** | Branch, not statement — the stricter measure |
+| Tests passing | **544** | Plus one skipped; no network, key or model required |
+| Branch coverage | **84.07%** | Branch, not statement — the stricter measure |
 | CI checks | **10** | Every one blocking |
-| Decision records | **3** | The design choices that needed an argument |
+
+</details>
 
 ## Quick start
 
@@ -117,17 +141,17 @@ Four agents, each with one job and a defined contract between them.
 
 | Feature | Detail |
 |---|---|
-| **Full-corpus scoring** | One upload is ranked against all 800 roles in a single pass, not a job at a time |
-| **Explainable by construction** | Skill, experience, title, education, keyword and ML sub-scores are all in the payload — nothing is a black box |
+| **Full-corpus scoring** | One upload ranked against all 800 roles in a single pass, not a role at a time |
+| **Explainable by construction** | All five weighted components and the ML sub-score are in the payload, so any total can be rebuilt from its parts |
 | **Skill gap analysis** | Matched and missing skills per role, resolved through the vocabulary rather than by string equality |
-| **Searchable corpus** | Server-side search across title, company, city and skill, with category, work-model and seniority filters drawn from the corpus itself |
-| **Provider independence** | Ollama, OpenRouter or rule-based — selected by config, behind one protocol |
-| **Honest degradation** | If the ML model or the LLM is unavailable the app keeps working and says so; it never presents a rule-based result as a model-backed one |
-| **Persistent history** | Every match written to SQLite, browsable and clearable from the UI |
-| **Shortlisting** | Accept and reject decisions per match, persisted across sessions |
-| **Budget guards** | A daily LLM quota counted in SQLite, a concurrency cap, and a per-request explanation limit |
-| **Responsive interface** | Eight pages on a Material 3 token set, with a drawer navigation below `lg` and no horizontal scroll at 375px |
-| **Accessible motion** | Every animation is disabled under `prefers-reduced-motion`, and no content depends on an animation running to become visible |
+| **Searchable corpus** | Server-side search and filters, with the filter values drawn from the corpus itself |
+| **Honest degradation** | If the model or the provider is unavailable the app keeps working and says so — a rule-based result is never presented as a model-backed one |
+| **Budget guards** | A daily LLM quota in SQLite, a concurrency cap, and a per-request explanation limit |
+
+Plus the working surfaces a recruiter needs: persistent match history, accept
+and reject decisions that survive a reload, CSV export, and an interface that
+holds up at 375px with every animation disabled under
+`prefers-reduced-motion`.
 
 ## Scoring
 
